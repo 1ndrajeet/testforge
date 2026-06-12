@@ -1,0 +1,67 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs
+.next
+build
+dist
+.vercel
+out
+
+# Database
+drizzle
+drizzle.config.ts
+drizzle/meta/*.json
+
+# Coverage
+coverage
+.nyc_output
+
+# Lock files
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# Environment files
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+
+# Misc
+AGENTS.md
+CLAUDE.md
+*.log
+.DS_Store
+Thumbs.db
+defaultdb.sql
+
+# Images and assets
+public/**/*.svg
+public/**/*.png
+public/**/*.jpg
+public/**/*.webp
+public/**/*.ico
+
+# Generated files
+**/*.d.ts
+**/*.snap
+**/*.min.js
+**/*.map
+*.tsbuildinfo
+
+# Config files
+*.config.js
+*.config.ts
+drizzle.config.ts
+next.config.ts
+postcss.config.mjs
+eslint.config.mjs
+
+# Keep JSON config files as is
+src/config/*.json
+package.json
+components.json
+tsconfig.json

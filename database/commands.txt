@@ -1,0 +1,44 @@
+# TestForge PostgreSQL
+
+cd /home/bruce/Projects/testforge-v1.2/database
+
+# Start Database
+docker-compose up -d
+
+# Check Status
+docker ps
+
+# View Logs
+docker logs -f testforge-postgres
+
+# Connect to Database
+docker exec -it testforge-postgres psql -U testforge -d testforge -c '\dt'
+
+# Stop Database
+docker-compose down
+
+# Reset Database (Deletes All Data)
+docker exec -it testforge-postgres psql -U testforge -d testforge -c "
+TRUNCATE TABLE
+account,
+audit_logs,
+block_allocations,
+blocks,
+connected_institutes,
+e_marksheets,
+exam_centers,
+orders,
+org_members,
+organizations,
+payments,
+promo_codes,
+qp_inventory,
+session,
+staff,
+students,
+subjects,
+timetable,
+\"user\",
+verification
+RESTART IDENTITY CASCADE;
+"

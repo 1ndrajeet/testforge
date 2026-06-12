@@ -1,0 +1,81 @@
+[
+  {
+    "id": "semester_online",
+    "title": "Semester (Online)",
+    "price": "₹2,899",
+    "period": "per semester",
+    "description": "Flexible short-term online access with no long-term commitment",
+    "features": [
+      "Core exam management features",
+      "Full MSBTE compliance",
+      "Basic automation",
+      "Standard support",
+      "Updates during active term"
+    ],
+    "popular": true,
+    "cta": "Subscribe Now",
+    "amount": 289900
+  },
+  {
+    "id": "1year_online",
+    "title": "1 Year (Online)",
+    "price": "₹5,500",
+    "period": "per year",
+    "description": "Affordable yearly access with all premium features",
+    "features": [
+      "All premium features",
+      "Full MSBTE compliance",
+      "Automation & AI support",
+      "Cloud storage",
+      "Regular updates",
+      "Standard support"
+    ],
+    "cta": "Subscribe Now",
+    "amount": 550000
+  },
+  {
+    "id": "5year_online",
+    "title": "5 Years (Online)",
+    "price": "₹26,000",
+    "originalPrice": "₹35,000",
+    "savings": "Save ₹9,000",
+    "period": "for 5 years",
+    "description": "Most economical long-term online plan",
+    "features": [
+      "All premium features",
+      "Full MSBTE compliance",
+      "Automation & AI support",
+      "Cloud storage",
+      "Regular updates",
+      "Priority technical support"
+    ],
+    "highlight": "₹5,200/year only!",
+    "highlightDetail": "Best value for institutions",
+    "cta": "Subscribe Now",
+    "amount": 2600000
+  },
+  {
+    "id": "lifetime_access",
+    "title": "Lifetime Access",
+    "price": "₹30,000",
+    "originalPrice": "₹40,000",
+    "savings": "Save ₹10,000",
+    "period": "one-time payment",
+    "description": "Full offline access forever with advanced features",
+    "features": [
+      "Lifetime software updates",
+      "Full MSBTE compliance",
+      "Advanced automation features",
+      "Enhanced AI support",
+      "Unlimited exam sessions",
+      "VIP priority support"
+    ],
+    "highlight": "Limited-time offer – Expires soon!",
+    "highlightDetail": "Never pay again – 2+ institutions already secured this deal",
+    "targetDate": "2025-09-21T00:00:00+05:30",
+    "popular": true,
+    "offer": true,
+    "cta": "Secure Lifetime Access",
+    "amount": 3000000
+  }
+]

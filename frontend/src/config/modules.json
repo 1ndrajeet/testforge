@@ -1,0 +1,512 @@
+{
+    "version": "1.2.0",
+    "modules": [
+        {
+            "id": "dashboard",
+            "name": "Dashboard",
+            "icon": "LayoutDashboard",
+            "description": "Overview & key metrics",
+            "route": "/dashboard",
+            "order": 1
+        },
+        {
+            "id": "exam-setup",
+            "name": "Exam Setup",
+            "icon": "Settings2",
+            "description": "Configure everything before exams begin",
+            "route": "/exam-setup",
+            "order": 2,
+            "children": [
+                {
+                    "id": "center-profile",
+                    "name": "Exam Center",
+                    "description": "Set up center details, address, and key personnel",
+                    "route": "/exam-setup/center-profile",
+                    "icon": "Building2"
+                },
+                {
+                    "id": "timetable",
+                    "name": "Timetable",
+                    "description": "Upload examination schedule",
+                    "route": "/exam-setup/timetable",
+                    "icon": "CalendarDays"
+                },
+                {
+                    "id": "supervisors",
+                    "name": "Supervisors",
+                    "description": "Manage supervisor profiles",
+                    "route": "/exam-setup/supervisors",
+                    "icon": "UserCog"
+                },
+                {
+                    "id": "relievers",
+                    "name": "Relievers",
+                    "description": "Manage reliever staff",
+                    "route": "/exam-setup/relievers",
+                    "icon": "Users2"
+                },
+                {
+                    "id": "control-room",
+                    "name": "Control Room",
+                    "description": "Configure control room personnel",
+                    "route": "/exam-setup/control-room",
+                    "icon": "Radio"
+                },
+                {
+                    "id": "seating-chart",
+                    "name": "Seating Chart",
+                    "description": "Upload institute-wise seating charts",
+                    "route": "/exam-setup/seating-chart",
+                    "icon": "Grid2x2"
+                },
+                {
+                    "id": "seating-arrangement",
+                    "name": "Seating Arrangement",
+                    "description": "Final seating arrangement with block mapping",
+                    "route": "/exam-setup/seating-arrangement",
+                    "icon": "LayoutGrid"
+                },
+                {
+                    "id": "emarksheet",
+                    "name": "E-Marksheet",
+                    "description": "Upload e-marksheet data",
+                    "route": "/exam-setup/emarksheet",
+                    "icon": "FileSpreadsheet"
+                },
+                {
+                    "id": "qp-inventory",
+                    "name": "Inventory",
+                    "description": "Upload question paper inventory",
+                    "route": "/exam-setup/qp-inventory",
+                    "icon": "Package"
+                }
+            ]
+        },
+        {
+            "id": "block-allocation",
+            "name": "Block Allocation",
+            "icon": "Grid3x3",
+            "description": "Assign duties to examination staff",
+            "route": "/block-allocation",
+            "order": 3,
+            "children": [
+                {
+                    "id": "allocate",
+                    "name": "Block Allocation",
+                    "description": "Allocate students to examination blocks",
+                    "route": "/block-allocation/allocate",
+                    "icon": "Map"
+                },
+                {
+                    "id": "supervisor-assignment",
+                    "name": "Supervisor Assignment",
+                    "description": "Assign supervisors to blocks",
+                    "route": "/block-allocation/supervisor-assignment",
+                    "icon": "UserCheck"
+                },
+                {
+                    "id": "reliever-assignment",
+                    "name": "Reliever Assignment",
+                    "description": "Assign relievers to support supervisors",
+                    "route": "/block-allocation/reliever-assignment",
+                    "icon": "UserPlus"
+                },
+                {
+                    "id": "change-supervisor",
+                    "name": "Change Supervisor",
+                    "description": "Quick supervisor replacement",
+                    "route": "/block-allocation/change-supervisor",
+                    "icon": "RefreshCw"
+                },
+                {
+                    "id": "clear-allocation",
+                    "name": "Clear Allocation",
+                    "description": "Reset block allocations",
+                    "route": "/block-allocation/clear-allocation",
+                    "icon": "Trash2"
+                }
+            ]
+        },
+        {
+            "id": "exam-day",
+            "name": "Exam Day Edits",
+            "icon": "ClipboardList",
+            "description": "Real-time exam day activities",
+            "route": "/exam-day",
+            "order": 4,
+            "children": [
+                {
+                    "id": "qp-accounting",
+                    "name": "QP Accounting Entry",
+                    "description": "Record received question paper packets",
+                    "route": "/exam-day/qp-accounting",
+                    "icon": "Calculator"
+                },
+                {
+                    "id": "absent",
+                    "name": "Absent Students",
+                    "description": "Record student absenteeism",
+                    "route": "/exam-day/absent",
+                    "icon": "UserX"
+                },
+                {
+                    "id": "copy-case",
+                    "name": "Copy Case Students",
+                    "description": "Record malpractice cases",
+                    "route": "/exam-day/copy-case",
+                    "icon": "AlertTriangle"
+                }
+            ]
+        },
+        {
+            "id": "msbte-reports",
+            "name": "MSBTE Reports",
+            "icon": "FileText",
+            "description": "Official MSBTE formats 1-22",
+            "route": "/msbte-reports",
+            "order": 5,
+            "children": [
+                {
+                    "id": "f1",
+                    "name": "Format 1",
+                    "description": "Instructions to Examinees",
+                    "route": "/msbte-reports/f1",
+                    "icon": "ScrollText",
+                    "tooltip": "Format 1 - Instructions"
+                },
+                {
+                    "id": "f2",
+                    "name": "Format 2",
+                    "description": "QP Receipt (Controller→DC)",
+                    "route": "/msbte-reports/f2",
+                    "icon": "FileDown",
+                    "tooltip": "Format 2 - QP Receipt"
+                },
+                {
+                    "id": "f3",
+                    "name": "Format 3",
+                    "description": "QP Receipt (EC→Controller)",
+                    "route": "/msbte-reports/f3",
+                    "icon": "FileUp",
+                    "tooltip": "Format 3 - QP Handover"
+                },
+                {
+                    "id": "f3a",
+                    "name": "Format 3A",
+                    "description": "QP Packet Verification",
+                    "route": "/msbte-reports/f3a",
+                    "icon": "FileCheck",
+                    "tooltip": "Format 3A - QP Verification"
+                },
+                {
+                    "id": "f5",
+                    "name": "Format 5",
+                    "description": "Attendance Register",
+                    "route": "/msbte-reports/f5",
+                    "icon": "ClipboardList",
+                    "tooltip": "Format 5 - Attendance Register"
+                },
+                {
+                    "id": "f6",
+                    "name": "Format 6",
+                    "description": "Attendance Summary",
+                    "route": "/msbte-reports/f6",
+                    "icon": "FileCheck",
+                    "tooltip": "Format 6 - Attendance Summary"
+                },
+                {
+                    "id": "f7",
+                    "name": "Format 7",
+                    "description": "Packing Slip",
+                    "route": "/msbte-reports/f7",
+                    "icon": "PackageCheck",
+                    "tooltip": "Format 7 - Packing Slip"
+                },
+                {
+                    "id": "f8",
+                    "name": "Format 8",
+                    "description": "AS Receipt (EC)",
+                    "route": "/msbte-reports/f8",
+                    "icon": "FileOutput",
+                    "tooltip": "Format 8 - Answer Sheet Receipt EC"
+                },
+                {
+                    "id": "f9",
+                    "name": "Format 9",
+                    "description": "AS Receipt (DC)",
+                    "route": "/msbte-reports/f9",
+                    "icon": "FileInput",
+                    "tooltip": "Format 9 - Answer Sheet Receipt DC"
+                },
+                {
+                    "id": "f10",
+                    "name": "Format 10",
+                    "description": "Inventory Receipt",
+                    "route": "/msbte-reports/f10",
+                    "icon": "ClipboardList",
+                    "tooltip": "Format 10 - Inventory Receipt RAC"
+                },
+                {
+                    "id": "f11",
+                    "name": "Format 11",
+                    "description": "Bundle Register",
+                    "route": "/msbte-reports/f11",
+                    "icon": "BookOpen",
+                    "tooltip": "Format 11 - Bundle Issue Register"
+                },
+                {
+                    "id": "f12",
+                    "name": "Format 12",
+                    "description": "Examiner Certificate",
+                    "route": "/msbte-reports/f12",
+                    "icon": "FileSignature",
+                    "tooltip": "Format 12 - External Examiner Certificate"
+                },
+                {
+                    "id": "f13",
+                    "name": "Format 13",
+                    "description": "Malpractice Report",
+                    "route": "/msbte-reports/f13",
+                    "icon": "AlertOctagon",
+                    "tooltip": "Format 13 - Malpractice Report"
+                },
+                {
+                    "id": "f14",
+                    "name": "Format 14",
+                    "description": "Police Complaint",
+                    "route": "/msbte-reports/f14",
+                    "icon": "ShieldAlert",
+                    "tooltip": "Format 14 - Police Complaint"
+                },
+                {
+                    "id": "f15",
+                    "name": "Format 15",
+                    "description": "Absent Candidates",
+                    "route": "/msbte-reports/f15",
+                    "icon": "UserMinus",
+                    "tooltip": "Format 15 - Absent Candidates List"
+                },
+                {
+                    "id": "f16",
+                    "name": "Format 16",
+                    "description": "Vigilance Register",
+                    "route": "/msbte-reports/f16",
+                    "icon": "Eye",
+                    "tooltip": "Format 16 - Vigilance Register"
+                },
+                {
+                    "id": "f17",
+                    "name": "Format 17",
+                    "description": "UFM Report",
+                    "route": "/msbte-reports/f17",
+                    "icon": "Gavel",
+                    "tooltip": "Format 17 - Unfair Means Report"
+                },
+                {
+                    "id": "f18",
+                    "name": "Format 18",
+                    "description": "Inventory Demand",
+                    "route": "/msbte-reports/f18",
+                    "icon": "PackagePlus",
+                    "tooltip": "Format 18 - QP Inventory Demand"
+                },
+                {
+                    "id": "f19",
+                    "name": "Format 19",
+                    "description": "Spot Demand",
+                    "route": "/msbte-reports/f19",
+                    "icon": "PackageOpen",
+                    "tooltip": "Format 19 - On-Spot Inventory Demand"
+                },
+                {
+                    "id": "f20",
+                    "name": "Format 20",
+                    "description": "Inventory Receipt DC",
+                    "route": "/msbte-reports/f20",
+                    "icon": "ClipboardCheck",
+                    "tooltip": "Format 20 - Inventory Receipt DC"
+                },
+                {
+                    "id": "f21",
+                    "name": "Format 21",
+                    "description": "Discrepancy Report",
+                    "route": "/msbte-reports/f21",
+                    "icon": "AlertCircle",
+                    "tooltip": "Format 21 - Inventory Discrepancy"
+                },
+                {
+                    "id": "f22",
+                    "name": "Format 22",
+                    "description": "Panchnama",
+                    "route": "/msbte-reports/f22",
+                    "icon": "Scroll",
+                    "tooltip": "Format 22 - Panchnama Report"
+                }
+            ]
+        },
+        {
+            "id": "testforge-reports",
+            "name": "TestForge Reports",
+            "icon": "Star",
+            "description": "Custom reports generated by TestForge",
+            "route": "/testforge-reports",
+            "order": 6,
+            "children": [
+                {
+                    "id": "subject-allocation",
+                    "name": "Subject Allocation Details",
+                    "description": "Paper code to block mapping",
+                    "route": "/testforge-reports/subject-allocation",
+                    "icon": "FileCode"
+                },
+                {
+                    "id": "allotment-details",
+                    "name": "Allotment Details",
+                    "description": "Complete block allotment",
+                    "route": "/testforge-reports/allotment-details",
+                    "icon": "LayoutGrid"
+                },
+                {
+                    "id": "block-allocation",
+                    "name": "Block Allocation Report",
+                    "description": "View block allocations by date",
+                    "route": "/testforge-reports/block-allocation",
+                    "icon": "FileSpreadsheet"
+                },
+                {
+                    "id": "supervision",
+                    "name": "Supervision Report",
+                    "description": "Supervisor-wise duty schedule",
+                    "route": "/testforge-reports/supervision",
+                    "icon": "CalendarCheck"
+                },
+                {
+                    "id": "blank-absent",
+                    "name": "Blank Absent Register",
+                    "description": "Pre-printed absentee sheets",
+                    "route": "/testforge-reports/blank-absent",
+                    "icon": "FileMinus"
+                },
+                {
+                    "id": "blank-reliever",
+                    "name": "Blank Reliever Register",
+                    "description": "Pre-printed reliever duty sheets",
+                    "route": "/testforge-reports/blank-reliever",
+                    "icon": "FilePlus"
+                },
+                {
+                    "id": "qp-summary",
+                    "name": "QP Accounting Summary",
+                    "description": "Question paper accounting",
+                    "route": "/testforge-reports/qp-summary",
+                    "icon": "Calculator"
+                },
+                {
+                    "id": "oic-supervision",
+                    "name": "OIC Supervision Summary",
+                    "description": "Officer-in-charge report",
+                    "route": "/testforge-reports/oic-supervision",
+                    "icon": "FileBadge"
+                },
+                {
+                    "id": "daily-summary",
+                    "name": "Daily Exam Summary",
+                    "description": "Day-wise exam statistics",
+                    "route": "/testforge-reports/daily-summary",
+                    "icon": "Calendar"
+                },
+                {
+                    "id": "session-summary",
+                    "name": "Session Summary",
+                    "description": "Session-wise student distribution",
+                    "route": "/testforge-reports/session-summary",
+                    "icon": "BarChart"
+                },
+                {
+                    "id": "staff-duty",
+                    "name": "Staff Duty Summary",
+                    "description": "All staff duty allocation",
+                    "route": "/testforge-reports/staff-duty",
+                    "icon": "Users"
+                }
+            ]
+        },
+        {
+            "id": "automation",
+            "name": "Automation",
+            "icon": "Zap",
+            "description": "Premium bulk operations",
+            "route": "/automation",
+            "premium": true,
+            "order": 7,
+            "children": [
+                {
+                    "id": "supervision-bulk",
+                    "name": "Supervision Orders",
+                    "description": "Generate and email supervision orders in bulk",
+                    "route": "/automation/supervision",
+                    "icon": "MailCheck"
+                },
+                {
+                    "id": "reliever-bulk",
+                    "name": "Reliever Orders",
+                    "description": "Generate and email reliever orders",
+                    "route": "/automation/reliever",
+                    "icon": "MailPlus"
+                },
+                {
+                    "id": "control-room-orders",
+                    "name": "Control Room Orders",
+                    "description": "Generate control room team orders",
+                    "route": "/automation/control-room",
+                    "icon": "Mail"
+                },
+                {
+                    "id": "oic-orders",
+                    "name": "OIC Orders",
+                    "description": "Generate officer-in-charge orders",
+                    "route": "/automation/oic",
+                    "icon": "MailOpen"
+                }
+            ]
+        },
+        {
+            "id": "settings",
+            "name": "Settings",
+            "icon": "Settings",
+            "description": "Preferences & account",
+            "route": "/settings",
+            "order": 99,
+            "children": [
+                {
+                    "id": "profile",
+                    "name": "Profile",
+                    "description": "Account information",
+                    "route": "/settings/profile",
+                    "icon": "UserCircle"
+                },
+                {
+                    "id": "organization",
+                    "name": "Organization",
+                    "description": "Manage organization",
+                    "route": "/settings/organization",
+                    "icon": "Building"
+                },
+                {
+                    "id": "preferences",
+                    "name": "Preferences",
+                    "description": "Theme, font size, layout",
+                    "route": "/settings/preferences",
+                    "icon": "Palette"
+                },
+                {
+                    "id": "audit-logs",
+                    "name": "Audit Logs",
+                    "description": "System activity history",
+                    "route": "/settings/audit-logs",
+                    "icon": "History"
+                }
+            ]
+        }
+    ]
+}
