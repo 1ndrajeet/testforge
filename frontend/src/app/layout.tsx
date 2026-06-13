@@ -1,44 +1,44 @@
 import type { Metadata } from 'next';
-import { Inter, Montserrat } from 'next/font/google';
+import { Geist, Geist_Mono, Montserrat } from 'next/font/google';
+
+import { Toaster } from 'sonner';
 
 import { AuthProvider } from '@/components/auth/AuthProvider';
 import { ThemeProvider } from '@/components/layout/theme-provider';
 import { TooltipProvider } from '@/components/ui/tooltip';
-
 import { cn } from '@/lib/utils';
 
 import './globals.css';
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
-
-const font = Montserrat({
+const geist = Geist({
   subsets: ['latin'],
-  variable: '--font-montserrat',
+  variable: '--font-sans',
+});
+
+const geistMono = Geist_Mono({
+  subsets: ['latin'],
+  variable: '--font-mono',
+});
+const montserrat = Montserrat({
+  subsets: ['latin'],
+  variable: '--font-heading',
 });
 
 export const metadata: Metadata = {
   title: 'TestForge',
-  description: 'A platform for MSBTE institions for managing end semester exams with ease',
+  description: 'A platform for MSBTE institutions for managing end semester exams with ease',
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="en"
-      className={cn('h-full', 'antialiased', font.variable, 'font-sans', inter.variable)}
+      className={cn('h-full antialiased', geist.variable, geistMono.variable, montserrat.variable, 'font-sans')}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="flex min-h-full flex-col">
         <AuthProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="light"
-            enableSystem
-            disableTransitionOnChange
-          >
+          <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+            <Toaster closeButton />
             <TooltipProvider>{children}</TooltipProvider>
           </ThemeProvider>
         </AuthProvider>

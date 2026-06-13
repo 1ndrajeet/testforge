@@ -1,0 +1,1 @@
+ALTER TABLE "timetable" ALTER COLUMN "exam_day" DROP NOT NULL;

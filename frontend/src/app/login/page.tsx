@@ -1,14 +1,13 @@
-// app/login/page.tsx - Update the redirect logic
+// app/login/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useRouter } from 'next/navigation';
 
-import { getOnboardingStatus } from '@/app/actions/onboarding';
-
 import { useAuth } from '@/components/auth/AuthProvider';
-
+import { getOnboardingStatus } from '@/lib/actions/onboarding';
+import { authClient } from '@/lib/auth-client';
 import { useAppStore } from '@/stores/appStore';
 
 export default function LoginPage() {
@@ -18,62 +17,86 @@ export default function LoginPage() {
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
-  const { signIn, signUp, session } = useAuth();
+  const { signIn, signUp, session, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const { setOrganizationFromDB, setExamCenterFromDB, reset } = useAppStore();
+
 
   // Clear stale state on mount
   useEffect(() => {
     reset();
   }, [reset]);
 
-  // Handle redirect after successful auth
-  useEffect(() => {
-    const checkAndRedirect = async () => {
-      if (session) {
-        try {
-          const status = await getOnboardingStatus();
+  // Check session validity and redirect
+  const checkAndRedirect = useCallback(async () => {
+    if (!session || isRedirecting) return;
 
-          if (status.data?.organization) {
-            const org = status.data.organization;
-            setOrganizationFromDB(org);
+    setIsRedirecting(true);
 
-            if (status.data.existingCenter) {
-              setExamCenterFromDB(status.data.existingCenter);
-            }
-          }
+    try {
+      // Verify session is still valid by making a quick API call
+      const { data: currentSession } = await authClient.getSession();
 
-          // Redirect based on status from database (not cookies)
-          if (status.status === 'complete') {
-            router.push('/exam-center/dashboard');
-          } else if (
-            status.status === 'needs_subscription' ||
-            status.status === 'subscription_expired'
-          ) {
-            router.push('/billing');
-          } else if (
-            status.status === 'needs_organization' ||
-            status.status === 'needs_exam_setup'
-          ) {
-            router.push('/onboarding');
-          } else {
-            router.push('/onboarding');
-          }
-        } catch (error) {
-          console.error('Failed to check onboarding status:', error);
-          router.push('/onboarding');
+      if (!currentSession) {
+        // Session is invalid, force logout
+        await authClient.signOut();
+        reset();
+        setIsRedirecting(false);
+        return;
+      }
+
+      const status = await getOnboardingStatus();
+
+      if (status.data?.organization) {
+        const org = status.data.organization;
+        setOrganizationFromDB(org);
+
+        if (status.data.existingCenter) {
+          setExamCenterFromDB(status.data.existingCenter);
         }
       }
-    };
 
-    checkAndRedirect();
-  }, [session, router, setOrganizationFromDB, setExamCenterFromDB, reset]);
+      // Redirect based on status from database
+      if (status.status === 'complete') {
+        router.replace('/exam-center/dashboard');
+      } else if (status.status === 'needs_subscription' || status.status === 'subscription_expired') {
+        router.replace('/billing');
+      } else if (status.status === 'needs_organization' || status.status === 'needs_exam_setup') {
+        router.replace('/onboarding');
+      } else {
+        router.replace('/onboarding');
+      }
+    } catch (error) {
+      console.error('Failed to check onboarding status:', error);
+      // On error, try to redirect to onboarding
+      router.replace('/onboarding');
+    } finally {
+      setIsRedirecting(false);
+    }
+  }, [session, router, setOrganizationFromDB, setExamCenterFromDB, reset, isRedirecting]);
 
+  useEffect(() => {
+    if (!authLoading && session) {
+      checkAndRedirect();
+    }
+  }, [session, authLoading, checkAndRedirect]);
+
+  // Show loading while checking session
+  if (authLoading || (session && isRedirecting)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="border-primary h-8 w-8 animate-spin rounded-full border-b-2" />
+      </div>
+    );
+  }
+
+  // If session exists but we're not redirecting yet (shouldn't happen), show loading
   if (session) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500" />
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="border-primary h-8 w-8 animate-spin rounded-full border-b-2" />
       </div>
     );
   }
@@ -89,6 +112,7 @@ export default function LoginPage() {
         if (result.error) {
           setError(result.error.message || 'Login failed');
         }
+        // No manual redirect - the useEffect will handle it
       } else {
         const result = await signUp(email, password, name);
         if (result.error) {
@@ -103,66 +127,64 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-neutral-50 via-white to-emerald-50/30">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-neutral-100">
+    <div className="to-primary 50/30 flex min-h-screen items-center justify-center bg-gradient-to-br from-neutral-50 via-white">
+      <div className="w-full max-w-md space-y-6 rounded-2xl border border-neutral-100 bg-white/80 p-8 shadow-xl backdrop-blur-sm">
         <div className="text-center">
-          <div className="flex justify-center mb-4">
-            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/25">
-              <span className="text-white font-bold text-xl">TF</span>
+          <div className="mb-4 flex justify-center">
+            <div className="from-primary to-primary shadow-primary/25 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br shadow-lg">
+              <span className="text-xl font-bold text-white">TF</span>
             </div>
           </div>
           <h1 className="text-3xl font-bold text-neutral-900">TestForge</h1>
-          <p className="text-neutral-500 mt-2">{isLogin ? 'Welcome back' : 'Start your journey'}</p>
+          <p className="mt-2 text-neutral-500">{isLogin ? 'Welcome back' : 'Start your journey'}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isLogin && (
             <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">Full Name</label>
+              <label className="mb-1 block text-sm font-medium text-neutral-700">Full Name</label>
               <input
                 type="text"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full px-4 py-2.5 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all bg-white"
+                onChange={e => setName(e.target.value)}
+                className="focus:ring-primary w-full rounded-xl border border-neutral-200 bg-white px-4 py-2.5 transition-all focus:border-transparent focus:ring-2"
                 required
               />
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">Email</label>
+            <label className="mb-1 block text-sm font-medium text-neutral-700">Email</label>
             <input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2.5 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all bg-white"
+              onChange={e => setEmail(e.target.value)}
+              className="focus:ring-primary w-full rounded-xl border border-neutral-200 bg-white px-4 py-2.5 transition-all focus:border-transparent focus:ring-2"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">Password</label>
+            <label className="mb-1 block text-sm font-medium text-neutral-700">Password</label>
             <input
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2.5 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all bg-white"
+              onChange={e => setPassword(e.target.value)}
+              className="focus:ring-primary w-full rounded-xl border border-neutral-200 bg-white px-4 py-2.5 transition-all focus:border-transparent focus:ring-2"
               required
             />
           </div>
 
-          {error && (
-            <div className="text-red-600 text-sm text-center p-3 bg-red-50 rounded-xl">{error}</div>
-          )}
+          {error && <div className="rounded-xl bg-red-50 p-3 text-center text-sm text-red-600">{error}</div>}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 px-4 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-semibold rounded-xl hover:from-emerald-600 hover:to-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/25"
+            className="from-primary to-primary shadow-primary/25 hover:from-primary hover:to-primary w-full rounded-xl bg-gradient-to-r px-4 py-2.5 font-semibold text-white shadow-lg transition-all disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? (
               <div className="flex items-center justify-center gap-2">
-                <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                 <span>{isLogin ? 'Signing in...' : 'Creating account...'}</span>
               </div>
             ) : (
@@ -174,7 +196,7 @@ export default function LoginPage() {
         <div className="text-center">
           <button
             onClick={() => setIsLogin(!isLogin)}
-            className="text-sm text-emerald-600 hover:text-emerald-700 transition-colors font-medium"
+            className="text-primary hover:text-primary text-sm font-medium transition-colors"
           >
             {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
           </button>
@@ -185,7 +207,7 @@ export default function LoginPage() {
             <div className="w-full border-t border-neutral-100"></div>
           </div>
           <div className="relative flex justify-center text-xs">
-            <span className="px-2 bg-white text-neutral-400">MSBTE Exam Management</span>
+            <span className="bg-white px-2 text-neutral-400">MSBTE Exam Management</span>
           </div>
         </div>
       </div>

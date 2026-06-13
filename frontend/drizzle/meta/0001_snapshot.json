@@ -1,6 +1,6 @@
 {
-  "id": "b57d046d-c261-4a7f-9ff4-4643ab9ad9fc",
-  "prevId": "f5b380e8-1014-486b-9b4f-2eb38e656581",
+  "id": "94549717-6c19-4452-a51b-32d7d3480eb8",
+  "prevId": "9c0172a6-1ee5-44f7-b42b-fe22d82eeb23",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -271,12 +271,6 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "org_id": {
-          "name": "org_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
         "exam_center_id": {
           "name": "exam_center_id",
           "type": "uuid",
@@ -301,15 +295,15 @@
           "primaryKey": false,
           "notNull": false
         },
-        "block_no": {
-          "name": "block_no",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "block_id": {
           "name": "block_id",
           "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "block_no": {
+          "name": "block_no",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -469,43 +463,9 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "alloc_org_date_idx": {
-          "name": "alloc_org_date_idx",
-          "columns": [
-            {
-              "expression": "org_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "date",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
-        "block_allocations_org_id_organizations_id_fk": {
-          "name": "block_allocations_org_id_organizations_id_fk",
-          "tableFrom": "block_allocations",
-          "tableTo": "organizations",
-          "columnsFrom": [
-            "org_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "block_allocations_exam_center_id_exam_centers_id_fk": {
           "name": "block_allocations_exam_center_id_exam_centers_id_fk",
           "tableFrom": "block_allocations",
@@ -550,15 +510,15 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "org_id": {
-          "name": "org_id",
+        "exam_center_id": {
+          "name": "exam_center_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
-        "exam_center_id": {
-          "name": "exam_center_id",
-          "type": "uuid",
+        "block_no": {
+          "name": "block_no",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -630,37 +590,9 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "blocks_org_idx": {
-          "name": "blocks_org_idx",
-          "columns": [
-            {
-              "expression": "org_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
-        "blocks_org_id_organizations_id_fk": {
-          "name": "blocks_org_id_organizations_id_fk",
-          "tableFrom": "blocks",
-          "tableTo": "organizations",
-          "columnsFrom": [
-            "org_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "blocks_exam_center_id_exam_centers_id_fk": {
           "name": "blocks_exam_center_id_exam_centers_id_fk",
           "tableFrom": "blocks",
@@ -692,12 +624,6 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "org_id": {
-          "name": "org_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
         "exam_center_id": {
           "name": "exam_center_id",
           "type": "uuid",
@@ -715,6 +641,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": true
         },
         "created_at": {
           "name": "created_at",
@@ -755,19 +688,6 @@
         }
       },
       "foreignKeys": {
-        "connected_institutes_org_id_organizations_id_fk": {
-          "name": "connected_institutes_org_id_organizations_id_fk",
-          "tableFrom": "connected_institutes",
-          "tableTo": "organizations",
-          "columnsFrom": [
-            "org_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "connected_institutes_exam_center_id_exam_centers_id_fk": {
           "name": "connected_institutes_exam_center_id_exam_centers_id_fk",
           "tableFrom": "connected_institutes",
@@ -798,12 +718,6 @@
           "primaryKey": true,
           "notNull": true,
           "default": "gen_random_uuid()"
-        },
-        "org_id": {
-          "name": "org_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
         },
         "exam_center_id": {
           "name": "exam_center_id",
@@ -862,21 +776,6 @@
         }
       },
       "indexes": {
-        "emarksheets_org_idx": {
-          "name": "emarksheets_org_idx",
-          "columns": [
-            {
-              "expression": "org_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "emarksheets_paper_code_idx": {
           "name": "emarksheets_paper_code_idx",
           "columns": [
@@ -894,19 +793,6 @@
         }
       },
       "foreignKeys": {
-        "e_marksheets_org_id_organizations_id_fk": {
-          "name": "e_marksheets_org_id_organizations_id_fk",
-          "tableFrom": "e_marksheets",
-          "tableTo": "organizations",
-          "columnsFrom": [
-            "org_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "e_marksheets_exam_center_id_exam_centers_id_fk": {
           "name": "e_marksheets_exam_center_id_exam_centers_id_fk",
           "tableFrom": "e_marksheets",
@@ -1047,17 +933,11 @@
         }
       },
       "indexes": {
-        "exam_centers_org_code_idx": {
-          "name": "exam_centers_org_code_idx",
+        "exam_center_org_unique": {
+          "name": "exam_center_org_unique",
           "columns": [
             {
               "expression": "org_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "code",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1115,12 +995,6 @@
           "primaryKey": true,
           "notNull": true,
           "default": "gen_random_uuid()"
-        },
-        "org_id": {
-          "name": "org_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
         },
         "exam_center_id": {
           "name": "exam_center_id",
@@ -1209,37 +1083,9 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "orders_org_idx": {
-          "name": "orders_org_idx",
-          "columns": [
-            {
-              "expression": "org_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
-        "orders_org_id_organizations_id_fk": {
-          "name": "orders_org_id_organizations_id_fk",
-          "tableFrom": "orders",
-          "tableTo": "organizations",
-          "columnsFrom": [
-            "org_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "orders_exam_center_id_exam_centers_id_fk": {
           "name": "orders_exam_center_id_exam_centers_id_fk",
           "tableFrom": "orders",
@@ -1415,10 +1261,22 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "default": "'free'"
+          "default": "'inactive'"
         },
         "subscription_expires_at": {
           "name": "subscription_expires_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "trial_started_at": {
+          "name": "trial_started_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "trial_ends_at": {
+          "name": "trial_ends_at",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
@@ -1481,8 +1339,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.qp_inventory": {
-      "name": "qp_inventory",
+    "public.payments": {
+      "name": "payments",
       "schema": "",
       "columns": {
         "id": {
@@ -1497,6 +1355,245 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
+        },
+        "plan_id": {
+          "name": "plan_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "plan_name": {
+          "name": "plan_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount": {
+          "name": "amount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "promo_code_id": {
+          "name": "promo_code_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "razorpay_order_id": {
+          "name": "razorpay_order_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "razorpay_payment_id": {
+          "name": "razorpay_payment_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "start_date": {
+          "name": "start_date",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "end_date": {
+          "name": "end_date",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "payments_org_idx": {
+          "name": "payments_org_idx",
+          "columns": [
+            {
+              "expression": "org_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "payments_order_idx": {
+          "name": "payments_order_idx",
+          "columns": [
+            {
+              "expression": "razorpay_order_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "payments_org_id_organizations_id_fk": {
+          "name": "payments_org_id_organizations_id_fk",
+          "tableFrom": "payments",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "org_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "payments_promo_code_id_promo_codes_id_fk": {
+          "name": "payments_promo_code_id_promo_codes_id_fk",
+          "tableFrom": "payments",
+          "tableTo": "promo_codes",
+          "columnsFrom": [
+            "promo_code_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.promo_codes": {
+      "name": "promo_codes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "duration_days": {
+          "name": "duration_days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 30
+        },
+        "amount": {
+          "name": "amount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 100
+        },
+        "is_used": {
+          "name": "is_used",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "used_by_org_id": {
+          "name": "used_by_org_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "used_at": {
+          "name": "used_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "promo_codes_used_by_org_id_organizations_id_fk": {
+          "name": "promo_codes_used_by_org_id_organizations_id_fk",
+          "tableFrom": "promo_codes",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "used_by_org_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "promo_codes_code_unique": {
+          "name": "promo_codes_code_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "code"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.qp_inventory": {
+      "name": "qp_inventory",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
         },
         "exam_center_id": {
           "name": "exam_center_id",
@@ -1602,37 +1699,9 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "qp_org_idx": {
-          "name": "qp_org_idx",
-          "columns": [
-            {
-              "expression": "org_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
-        "qp_inventory_org_id_organizations_id_fk": {
-          "name": "qp_inventory_org_id_organizations_id_fk",
-          "tableFrom": "qp_inventory",
-          "tableTo": "organizations",
-          "columnsFrom": [
-            "org_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "qp_inventory_exam_center_id_exam_centers_id_fk": {
           "name": "qp_inventory_exam_center_id_exam_centers_id_fk",
           "tableFrom": "qp_inventory",
@@ -1747,12 +1816,6 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "org_id": {
-          "name": "org_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
         "exam_center_id": {
           "name": "exam_center_id",
           "type": "uuid",
@@ -1791,6 +1854,18 @@
         },
         "role": {
           "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "designation": {
+          "name": "designation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "post_held_in_examination": {
+          "name": "post_held_in_examination",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -1853,37 +1928,9 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "staff_org_idx": {
-          "name": "staff_org_idx",
-          "columns": [
-            {
-              "expression": "org_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
-        "staff_org_id_organizations_id_fk": {
-          "name": "staff_org_id_organizations_id_fk",
-          "tableFrom": "staff",
-          "tableTo": "organizations",
-          "columnsFrom": [
-            "org_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "staff_exam_center_id_exam_centers_id_fk": {
           "name": "staff_exam_center_id_exam_centers_id_fk",
           "tableFrom": "staff",
@@ -1915,12 +1962,6 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "org_id": {
-          "name": "org_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
         "exam_center_id": {
           "name": "exam_center_id",
           "type": "uuid",
@@ -1938,6 +1979,12 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true
+        },
+        "institute_code": {
+          "name": "institute_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "enrollment_number": {
           "name": "enrollment_number",
@@ -2029,37 +2076,9 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "students_org_idx": {
-          "name": "students_org_idx",
-          "columns": [
-            {
-              "expression": "org_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
-        "students_org_id_organizations_id_fk": {
-          "name": "students_org_id_organizations_id_fk",
-          "tableFrom": "students",
-          "tableTo": "organizations",
-          "columnsFrom": [
-            "org_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "students_exam_center_id_exam_centers_id_fk": {
           "name": "students_exam_center_id_exam_centers_id_fk",
           "tableFrom": "students",
@@ -2103,12 +2122,6 @@
           "primaryKey": true,
           "notNull": true,
           "default": "gen_random_uuid()"
-        },
-        "org_id": {
-          "name": "org_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
         },
         "code": {
           "name": "code",
@@ -2157,15 +2170,9 @@
         }
       },
       "indexes": {
-        "subjects_org_code_scheme_idx": {
-          "name": "subjects_org_code_scheme_idx",
+        "subjects_code_scheme_idx": {
+          "name": "subjects_code_scheme_idx",
           "columns": [
-            {
-              "expression": "org_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
             {
               "expression": "code",
               "isExpression": false,
@@ -2183,38 +2190,9 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "subjects_org_idx": {
-          "name": "subjects_org_idx",
-          "columns": [
-            {
-              "expression": "org_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
-      "foreignKeys": {
-        "subjects_org_id_organizations_id_fk": {
-          "name": "subjects_org_id_organizations_id_fk",
-          "tableFrom": "subjects",
-          "tableTo": "organizations",
-          "columnsFrom": [
-            "org_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -2232,12 +2210,6 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "org_id": {
-          "name": "org_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
         "exam_center_id": {
           "name": "exam_center_id",
           "type": "uuid",
@@ -2249,6 +2221,12 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
+        },
+        "exam_day": {
+          "name": "exam_day",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
         },
         "date": {
           "name": "date",
@@ -2406,19 +2384,6 @@
         }
       },
       "foreignKeys": {
-        "timetable_org_id_organizations_id_fk": {
-          "name": "timetable_org_id_organizations_id_fk",
-          "tableFrom": "timetable",
-          "tableTo": "organizations",
-          "columnsFrom": [
-            "org_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "timetable_exam_center_id_exam_centers_id_fk": {
           "name": "timetable_exam_center_id_exam_centers_id_fk",
           "tableFrom": "timetable",

@@ -8,13 +8,6 @@ import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Script from 'next/script';
 
-import {
-  checkSlugAvailability,
-  createOrganization,
-  getOnboardingStatus,
-  saveExamCenter,
-} from '@/app/actions/onboarding';
-import { applyTrialPromo, validatePromoCode } from '@/app/actions/promo.actions';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Infinity as InfinityIcon,
@@ -27,6 +20,7 @@ import {
   Loader2,
   Rocket,
   Users,
+  X,
   Zap,
 } from 'lucide-react';
 import { ArrowRight, LogOut, ShieldCheck } from 'lucide-react';
@@ -34,22 +28,20 @@ import { ArrowRight, LogOut, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-
-import { useUser } from '@/hooks/useUser';
-
-import { cn } from '@/lib/utils';
-
-import { useAppStore } from '@/stores/appStore';
-
 import pricingPlans from '@/config/pricing.json';
+import { useUserInfo } from '@/hooks/useUserInfo';
+import {
+  checkSlugAvailability,
+  createOrganization,
+  getOnboardingStatus,
+  saveExamCenter,
+} from '@/lib/actions/onboarding';
+import { applyTrialPromo, validatePromoCode } from '@/lib/actions/promo.actions';
+import { authClient } from '@/lib/auth-client';
+import { cn } from '@/lib/utils';
+import { useAppStore } from '@/stores/appStore';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -100,7 +92,7 @@ export function writeStorage(key: string, value: unknown) {
 }
 
 export function clearOnboardingStorage() {
-  Object.values(STORAGE_KEYS).forEach((k) => {
+  Object.values(STORAGE_KEYS).forEach(k => {
     try {
       localStorage.removeItem(k);
     } catch {}
@@ -119,7 +111,7 @@ declare global {
 
 export async function ensureRazorpay() {
   if (typeof window !== 'undefined' && window.Razorpay) return;
-  await new Promise<void>((resolve) => {
+  await new Promise<void>(resolve => {
     const s = document.createElement('script');
     s.src = 'https://checkout.razorpay.com/v1/checkout.js';
     s.onload = () => resolve();
@@ -168,19 +160,19 @@ function SidebarProgress({ currentStep }: { currentStep: StepId }) {
             <li key={id} className="flex items-center gap-3 py-1.5">
               <div
                 className={cn(
-                  'w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-colors',
+                  'flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-colors',
                   done
-                    ? 'bg-emerald-500'
+                    ? 'bg-primary'
                     : active
-                      ? 'border-2 border-emerald-500 bg-transparent'
-                      : 'border border-neutral-300 dark:border-neutral-700 bg-transparent'
+                      ? 'border-primary border-2 bg-transparent'
+                      : 'border border-neutral-300 bg-transparent dark:border-neutral-700'
                 )}
                 aria-hidden
               >
                 {done ? (
                   <Check className="h-3 w-3 text-white" strokeWidth={2.5} />
                 ) : active ? (
-                  <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                  <div className="bg-primary h-2 w-2 rounded-full" />
                 ) : null}
               </div>
               <span
@@ -219,22 +211,20 @@ function SetupSummary({ data }: { data: SetupSummaryData }) {
       label: 'Session',
       value: data.season && data.examYear ? `${data.season} ${data.examYear}` : undefined,
     },
-  ].filter((r) => r.value);
+  ].filter(r => r.value);
 
   if (!rows.length) return null;
 
   return (
     <div>
-      <p className="text-xs font-medium uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-3">
+      <p className="mb-3 text-xs font-medium tracking-wider text-neutral-400 uppercase dark:text-neutral-500">
         Current setup
       </p>
       <dl className="space-y-2">
         {rows.map(({ label, value }) => (
           <div key={label}>
             <dt className="text-xs text-neutral-400 dark:text-neutral-500">{label}</dt>
-            <dd className="text-sm text-neutral-700 dark:text-neutral-300 font-medium truncate">
-              {value}
-            </dd>
+            <dd className="truncate text-sm font-medium text-neutral-700 dark:text-neutral-300">{value}</dd>
           </div>
         ))}
       </dl>
@@ -253,28 +243,27 @@ export function OnboardingShell({
   summaryData: SetupSummaryData;
   children: React.ReactNode;
 }) {
-  const { signOut } = useUser();
+  const handleSignOut = async () => {
+    await authClient.signOut();
+    window.location.href = '/login';
+  };
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 flex">
+    <div className="flex min-h-screen bg-neutral-50 dark:bg-neutral-950">
       {/* ── Sidebar ── */}
-      <aside className="hidden lg:flex flex-col w-80 shrink-0 sticky top-0 h-screen border-r border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 px-8 py-10">
+      <aside className="sticky top-0 hidden h-screen w-80 shrink-0 flex-col border-r border-neutral-200 bg-white px-8 py-10 lg:flex dark:border-neutral-800 dark:bg-neutral-950">
         {/* Branding */}
         <div className="mb-10">
-          <div className="flex items-center gap-2.5 mb-1">
-            <ShieldCheck className="h-5 w-5 text-emerald-500" aria-hidden />
-            <span className="font-semibold text-neutral-900 dark:text-neutral-100 tracking-tight">
-              TestForge
-            </span>
+          <div className="mb-1 flex items-center gap-2.5">
+            <ShieldCheck className="text-primary h-5 w-5" aria-hidden />
+            <span className="font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">TestForge</span>
           </div>
-          <p className="text-xs text-neutral-400 dark:text-neutral-500 pl-7">
-            Examination Management Platform
-          </p>
+          <p className="pl-7 text-xs text-neutral-400 dark:text-neutral-500">Examination Management Platform</p>
         </div>
 
         {/* Progress */}
         <div className="mb-10">
-          <p className="text-xs font-medium uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-4">
+          <p className="mb-4 text-xs font-medium tracking-wider text-neutral-400 uppercase dark:text-neutral-500">
             Setup progress
           </p>
           <SidebarProgress currentStep={currentStep} />
@@ -286,14 +275,14 @@ export function OnboardingShell({
         </div>
 
         {/* Support + logout */}
-        <div className="space-y-4 pt-8 border-t border-neutral-100 dark:border-neutral-800">
+        <div className="space-y-4 border-t border-neutral-100 pt-8 dark:border-neutral-800">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-1">
+            <p className="mb-1 text-xs font-medium tracking-wider text-neutral-400 uppercase dark:text-neutral-500">
               Need help?
             </p>
             <a
               href="mailto:support@testforge.app"
-              className="text-sm text-neutral-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+              className="hover:text-primary dark:hover:text-primary text-sm text-neutral-500 transition-colors"
             >
               support@testforge.app
             </a>
@@ -302,10 +291,10 @@ export function OnboardingShell({
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => signOut()}
-            className="w-full justify-start text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 px-0 font-normal"
+            onClick={() => handleSignOut()}
+            className="w-full justify-start px-0 font-normal text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
           >
-            <LogOut className="h-4 w-4 mr-2" aria-hidden />
+            <LogOut className="mr-2 h-4 w-4" aria-hidden />
             Log out
           </Button>
         </div>
@@ -314,26 +303,24 @@ export function OnboardingShell({
       {/* ── Content area ── */}
       <main className="flex-1 overflow-y-auto">
         {/* Mobile brand bar */}
-        <div className="lg:hidden flex items-center justify-between px-6 py-4 border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
+        <div className="flex items-center justify-between border-b border-neutral-200 bg-white px-6 py-4 lg:hidden dark:border-neutral-800 dark:bg-neutral-950">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-emerald-500" aria-hidden />
-            <span className="font-semibold text-sm text-neutral-900 dark:text-neutral-100">
-              TestForge
-            </span>
+            <ShieldCheck className="text-primary h-4 w-4" aria-hidden />
+            <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">TestForge</span>
           </div>
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => signOut()}
-            className="text-neutral-400 px-2"
+            onClick={() => handleSignOut()}
+            className="px-2 text-neutral-400"
           >
             <LogOut className="h-4 w-4" aria-hidden />
             <span className="sr-only">Log out</span>
           </Button>
         </div>
 
-        <div className="max-w-3xl mx-auto px-6 py-12 lg:py-16">{children}</div>
+        <div className="mx-auto max-w-3xl px-6 py-12 lg:py-16">{children}</div>
       </main>
     </div>
   );
@@ -341,29 +328,17 @@ export function OnboardingShell({
 
 // ─── StepHeader ───────────────────────────────────────────────────────────────
 
-export function StepHeader({
-  label,
-  title,
-  description,
-}: {
-  label?: string;
-  title: string;
-  description?: string;
-}) {
+export function StepHeader({ label, title, description }: { label?: string; title: string; description?: string }) {
   return (
     <div className="mb-10">
       {label && (
-        <p className="text-xs font-medium uppercase tracking-widest text-neutral-400 dark:text-neutral-500 mb-2">
+        <p className="mb-2 text-xs font-medium tracking-widest text-neutral-400 uppercase dark:text-neutral-500">
           {label}
         </p>
       )}
-      <h1 className="text-3xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 mb-3">
-        {title}
-      </h1>
+      <h1 className="mb-3 text-3xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">{title}</h1>
       {description && (
-        <p className="text-[15px] text-neutral-500 dark:text-neutral-400 leading-relaxed max-w-lg">
-          {description}
-        </p>
+        <p className="max-w-lg text-[15px] leading-relaxed text-neutral-500 dark:text-neutral-400">{description}</p>
       )}
     </div>
   );
@@ -375,9 +350,7 @@ export function FormSection({ title, children }: { title?: string; children: Rea
   return (
     <div className="space-y-4">
       {title && (
-        <p className="text-xs font-medium uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
-          {title}
-        </p>
+        <p className="text-xs font-medium tracking-wider text-neutral-400 uppercase dark:text-neutral-500">{title}</p>
       )}
       {children}
     </div>
@@ -404,7 +377,7 @@ export function FormField({
       <label className="text-[13px] text-neutral-600 dark:text-neutral-400">
         {label}
         {required && (
-          <span className="text-rose-400 ml-0.5" aria-hidden>
+          <span className="ml-0.5 text-rose-400" aria-hidden>
             *
           </span>
         )}
@@ -435,13 +408,13 @@ export function ActionBar({
   note?: string;
 }) {
   return (
-    <div className="flex items-center gap-4 pt-8 border-t border-neutral-100 dark:border-neutral-800 mt-10">
+    <div className="mt-10 flex items-center gap-4 border-t border-neutral-100 pt-8 dark:border-neutral-800">
       {onBack && (
         <Button
           type="button"
           variant="ghost"
           onClick={onBack}
-          className="text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 font-normal"
+          className="font-normal text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
         >
           Back
         </Button>
@@ -449,7 +422,7 @@ export function ActionBar({
       <Button
         type="submit"
         disabled={disabled || loading}
-        className="h-11 px-8 bg-emerald-600 hover:bg-emerald-700 font-medium text-white"
+        className="bg-primary hover:bg-primary h-11 px-8 font-medium text-white"
       >
         {loading ? (
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -484,24 +457,24 @@ export function SlugInput({
     state === 'checking' ? (
       <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-400" />
     ) : state === 'available' ? (
-      <Check className="h-3.5 w-3.5 text-emerald-500" />
+      <Check className="text-primary h-3.5 w-3.5" />
     ) : state === 'taken' ? (
       <span className="text-xs text-rose-500">Taken</span>
     ) : null;
 
   return (
     <div className="relative flex items-center">
-      <span className="absolute left-3 text-sm text-neutral-400 select-none pointer-events-none whitespace-nowrap">
+      <span className="pointer-events-none absolute left-3 text-sm whitespace-nowrap text-neutral-400 select-none">
         {prefix}
       </span>
       <Input
         value={value}
-        onChange={(e) => onChange(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+        onChange={e => onChange(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
         placeholder="your-org"
         required
         className={cn(
           'h-11 pr-10',
-          state === 'available' && 'border-emerald-400 focus-visible:ring-emerald-400',
+          state === 'available' && 'border-primary focus-visible:ring-primary',
           state === 'taken' && 'border-rose-400 focus-visible:ring-rose-400'
         )}
         style={{ paddingLeft: `${prefix.length * 7.5 + 12}px` }}
@@ -637,9 +610,7 @@ function OrganizationStep({
             label="Your URL"
             hint="Used in document links and staff access. Cannot be changed after setup."
             required
-            error={
-              slugState === 'taken' ? 'That URL is already in use — try a different one' : undefined
-            }
+            error={slugState === 'taken' ? 'That URL is already in use — try a different one' : undefined}
           >
             <SlugInput value={slug} onChange={setSlug} state={slugState} />
           </FormField>
@@ -681,8 +652,7 @@ function ExamCenterStep({
   const [error, setError] = useState('');
   const { organization, setExamCenterFromDB } = useAppStore();
 
-  const set = (k: keyof typeof EC_DEFAULTS, v: string | number) =>
-    setForm((p) => ({ ...p, [k]: v }));
+  const set = (k: keyof typeof EC_DEFAULTS, v: string | number) => setForm(p => ({ ...p, [k]: v }));
 
   useEffect(() => {
     writeStorage(STORAGE_KEYS.EXAM_CENTER, form);
@@ -714,11 +684,11 @@ function ExamCenterStep({
       <div className="space-y-10">
         {/* Section: Center identity */}
         <FormSection title="Center information">
-          <div className="grid sm:grid-cols-2 gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <FormField label="Center code" required>
               <Input
                 value={form.code}
-                onChange={(e) => set('code', e.target.value.toUpperCase())}
+                onChange={e => set('code', e.target.value.toUpperCase())}
                 placeholder="1234"
                 required
                 className="h-10"
@@ -727,7 +697,7 @@ function ExamCenterStep({
             <FormField label="Center name" required>
               <Input
                 value={form.name}
-                onChange={(e) => set('name', e.target.value)}
+                onChange={e => set('name', e.target.value)}
                 placeholder="Rajarambapu Institute of Technology, Sangli"
                 required
                 className="h-10"
@@ -738,17 +708,13 @@ function ExamCenterStep({
 
         {/* Section: Examination session */}
         <FormSection title="Examination session">
-          <div className="grid sm:grid-cols-2 gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <FormField label="Season" required>
-              <RadioGroup
-                value={form.season}
-                onValueChange={(v) => set('season', v)}
-                className="flex gap-6 mt-2"
-              >
-                {['Summer', 'Winter'].map((s) => (
+              <RadioGroup value={form.season} onValueChange={v => set('season', v)} className="mt-2 flex gap-6">
+                {['Summer', 'Winter'].map(s => (
                   <label
                     key={s}
-                    className="flex items-center gap-2 cursor-pointer text-sm text-neutral-700 dark:text-neutral-300"
+                    className="flex cursor-pointer items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300"
                   >
                     <RadioGroupItem value={s} />
                     {s}
@@ -757,15 +723,12 @@ function ExamCenterStep({
               </RadioGroup>
             </FormField>
             <FormField label="Exam year" required>
-              <Select
-                value={String(form.examYear)}
-                onValueChange={(v) => set('examYear', Number(v))}
-              >
+              <Select value={String(form.examYear)} onValueChange={v => set('examYear', Number(v))}>
                 <SelectTrigger className="h-10">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {YEARS.map((y) => (
+                  {YEARS.map(y => (
                     <SelectItem key={y} value={String(y)}>
                       {y}
                     </SelectItem>
@@ -778,11 +741,11 @@ function ExamCenterStep({
 
         {/* Section: Distribution center */}
         <FormSection title="Distribution center">
-          <div className="grid sm:grid-cols-2 gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <FormField label="Distribution code" required>
               <Input
                 value={form.distCenterCode}
-                onChange={(e) => set('distCenterCode', e.target.value.toUpperCase())}
+                onChange={e => set('distCenterCode', e.target.value.toUpperCase())}
                 placeholder="DC001"
                 required
                 className="h-10"
@@ -791,7 +754,7 @@ function ExamCenterStep({
             <FormField label="Distribution center name">
               <Input
                 value={form.distCenterName}
-                onChange={(e) => set('distCenterName', e.target.value)}
+                onChange={e => set('distCenterName', e.target.value)}
                 placeholder="Walchand College of Engineering, Sangli"
                 className="h-10"
               />
@@ -801,11 +764,11 @@ function ExamCenterStep({
 
         {/* Section: Administrative contacts */}
         <FormSection title="Administrative contacts">
-          <div className="grid sm:grid-cols-2 gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <FormField label="Officer in-charge">
               <Input
                 value={form.officerIncharge}
-                onChange={(e) => set('officerIncharge', e.target.value)}
+                onChange={e => set('officerIncharge', e.target.value)}
                 placeholder="Full name"
                 className="h-10"
               />
@@ -813,7 +776,7 @@ function ExamCenterStep({
             <FormField label="Sealing supervisor">
               <Input
                 value={form.sealingSupervisor}
-                onChange={(e) => set('sealingSupervisor', e.target.value)}
+                onChange={e => set('sealingSupervisor', e.target.value)}
                 placeholder="Full name"
                 className="h-10"
               />
@@ -826,7 +789,7 @@ function ExamCenterStep({
           <FormField label="Address">
             <Input
               value={form.address}
-              onChange={(e) => set('address', e.target.value)}
+              onChange={e => set('address', e.target.value)}
               placeholder="Full postal address"
               className="h-10"
             />
@@ -859,7 +822,7 @@ function SubscriptionStep({
   onBack: () => void;
 }) {
   // Find the recommended plan — first with popular flag, else first plan
-  const recommended = plans.find((p) => p.popular) ?? plans[0];
+  const recommended = plans.find(p => p.popular) ?? plans[0];
 
   return (
     <div>
@@ -869,8 +832,8 @@ function SubscriptionStep({
         description="All plans include full access to every feature. Select the one that matches your institution's exam cycle."
       />
 
-      <div className="space-y-3 mb-10">
-        {plans.map((plan) => {
+      <div className="mb-10 space-y-3">
+        {plans.map(plan => {
           const isSelected = plan.id === selectedId;
           const isRecommended = plan.id === recommended.id;
           const Icon = planIcon(plan.id);
@@ -882,10 +845,10 @@ function SubscriptionStep({
               onClick={() => onSelect(plan.id)}
               aria-pressed={isSelected}
               className={cn(
-                'w-full text-left rounded-xl border-2 p-5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2',
+                'focus-visible:ring-primary w-full rounded-xl border-2 p-5 text-left transition-all focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none',
                 isSelected
-                  ? 'border-emerald-500 bg-white dark:bg-neutral-900'
-                  : 'border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:border-neutral-300 dark:hover:border-neutral-700',
+                  ? 'border-primary bg-white dark:bg-neutral-900'
+                  : 'border-neutral-200 bg-white hover:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700',
                 // De-emphasise non-recommended when nothing selected
                 !isSelected && !isRecommended && 'opacity-80'
               )}
@@ -894,18 +857,16 @@ function SubscriptionStep({
                 {/* Selector circle */}
                 <div
                   className={cn(
-                    'mt-0.5 h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors',
-                    isSelected
-                      ? 'border-emerald-500 bg-emerald-500'
-                      : 'border-neutral-300 dark:border-neutral-600'
+                    'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
+                    isSelected ? 'border-primary bg-primary' : 'border-neutral-300 dark:border-neutral-600'
                   )}
                 >
                   {isSelected && <Check className="h-3 w-3 text-white" strokeWidth={2.5} />}
                 </div>
 
                 {/* Plan body */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline gap-3 flex-wrap mb-1">
+                <div className="min-w-0 flex-1">
+                  <div className="mb-1 flex flex-wrap items-baseline gap-3">
                     <span
                       className={cn(
                         'font-semibold text-neutral-900 dark:text-neutral-100',
@@ -915,14 +876,14 @@ function SubscriptionStep({
                       {plan.title}
                     </span>
                     {isRecommended && (
-                      <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                      <span className="border-primary 200 bg-primary 50 text-primary dark:border-primary dark:bg-primary 950/40 dark:text-primary rounded border px-2 py-0.5 text-[11px] font-medium">
                         Recommended
                       </span>
                     )}
                   </div>
                   <p
                     className={cn(
-                      'text-sm mb-3',
+                      'mb-3 text-sm',
                       isRecommended || isSelected
                         ? 'text-neutral-500 dark:text-neutral-400'
                         : 'text-neutral-400 dark:text-neutral-500'
@@ -934,12 +895,9 @@ function SubscriptionStep({
                   {/* Features — only show on recommended or selected */}
                   {(isRecommended || isSelected) && (
                     <ul className="space-y-1">
-                      {plan.features.map((f) => (
-                        <li
-                          key={f}
-                          className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400"
-                        >
-                          <Check className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                      {plan.features.map(f => (
+                        <li key={f} className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
+                          <Check className="text-primary h-3.5 w-3.5 shrink-0" />
                           {f}
                         </li>
                       ))}
@@ -948,7 +906,7 @@ function SubscriptionStep({
                 </div>
 
                 {/* Price */}
-                <div className="text-right shrink-0 ml-4">
+                <div className="ml-4 shrink-0 text-right">
                   <div
                     className={cn(
                       'text-2xl font-semibold tracking-tight',
@@ -961,9 +919,7 @@ function SubscriptionStep({
                   </div>
                   <div className="text-xs text-neutral-400">per {plan.period}</div>
                   {plan.originalPrice && (
-                    <div className="text-xs text-neutral-400 line-through">
-                      {plan.originalPrice}
-                    </div>
+                    <div className="text-xs text-neutral-400 line-through">{plan.originalPrice}</div>
                   )}
                 </div>
               </div>
@@ -973,12 +929,12 @@ function SubscriptionStep({
       </div>
 
       {/* Non-form action bar */}
-      <div className="flex items-center gap-4 pt-8 border-t border-neutral-100 dark:border-neutral-800">
+      <div className="flex items-center gap-4 border-t border-neutral-100 pt-8 dark:border-neutral-800">
         <Button
           type="button"
           variant="ghost"
           onClick={onBack}
-          className="text-neutral-500 hover:text-neutral-700 font-normal"
+          className="font-normal text-neutral-500 hover:text-neutral-700"
         >
           Back
         </Button>
@@ -986,7 +942,7 @@ function SubscriptionStep({
           type="button"
           onClick={onContinue}
           disabled={!selectedId}
-          className="h-11 px-8 bg-emerald-600 hover:bg-emerald-700 font-medium text-white"
+          className="bg-primary hover:bg-primary h-11 px-8 font-medium text-white"
         >
           Review order
           <span className="ml-2">→</span>
@@ -1040,10 +996,9 @@ function ReviewStep({
     },
     {
       label: 'Session',
-      value:
-        summary.season && summary.examYear ? `${summary.season} ${summary.examYear}` : undefined,
+      value: summary.season && summary.examYear ? `${summary.season} ${summary.examYear}` : undefined,
     },
-  ].filter((r) => r.value);
+  ].filter(r => r.value);
 
   return (
     <div>
@@ -1053,19 +1008,17 @@ function ReviewStep({
         description="Confirm your setup details before payment. You can go back to make changes."
       />
 
-      <div className="space-y-8 mb-10">
+      <div className="mb-10 space-y-8">
         {/* Setup summary */}
         <div>
-          <p className="text-xs font-medium uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-4">
+          <p className="mb-4 text-xs font-medium tracking-wider text-neutral-400 uppercase dark:text-neutral-500">
             Your setup
           </p>
           <dl className="space-y-3">
             {reviewRows.map(({ label, value }) => (
-              <div key={label} className="flex justify-between items-baseline gap-4">
-                <dt className="text-sm text-neutral-500 dark:text-neutral-400 shrink-0">{label}</dt>
-                <dd className="text-sm font-medium text-neutral-900 dark:text-neutral-100 text-right">
-                  {value}
-                </dd>
+              <div key={label} className="flex items-baseline justify-between gap-4">
+                <dt className="shrink-0 text-sm text-neutral-500 dark:text-neutral-400">{label}</dt>
+                <dd className="text-right text-sm font-medium text-neutral-900 dark:text-neutral-100">{value}</dd>
               </div>
             ))}
           </dl>
@@ -1075,31 +1028,24 @@ function ReviewStep({
 
         {/* Plan summary */}
         <div>
-          <p className="text-xs font-medium uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-4">
+          <p className="mb-4 text-xs font-medium tracking-wider text-neutral-400 uppercase dark:text-neutral-500">
             Selected plan
           </p>
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="font-semibold text-neutral-900 dark:text-neutral-100">{plan.title}</p>
-              <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-0.5">
-                {plan.description}
-              </p>
+              <p className="mt-0.5 text-sm text-neutral-500 dark:text-neutral-400">{plan.description}</p>
               <ul className="mt-3 space-y-1">
-                {plan.features.map((f) => (
-                  <li
-                    key={f}
-                    className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400"
-                  >
-                    <Check className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                {plan.features.map(f => (
+                  <li key={f} className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
+                    <Check className="text-primary h-3.5 w-3.5 shrink-0" />
                     {f}
                   </li>
                 ))}
               </ul>
             </div>
-            <div className="text-right shrink-0">
-              <div className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
-                {plan.price}
-              </div>
+            <div className="shrink-0 text-right">
+              <div className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">{plan.price}</div>
               <div className="text-xs text-neutral-400">per {plan.period}</div>
             </div>
           </div>
@@ -1108,13 +1054,9 @@ function ReviewStep({
         <Separator />
 
         {/* Total */}
-        <div className="flex justify-between items-baseline">
-          <span className="text-base font-medium text-neutral-900 dark:text-neutral-100">
-            Total due today
-          </span>
-          <span className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
-            {plan.price}
-          </span>
+        <div className="flex items-baseline justify-between">
+          <span className="text-base font-medium text-neutral-900 dark:text-neutral-100">Total due today</span>
+          <span className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">{plan.price}</span>
         </div>
 
         {/* Promo code — secondary, below total */}
@@ -1123,7 +1065,7 @@ function ReviewStep({
             <button
               type="button"
               onClick={() => setPromoOpen(true)}
-              className="text-sm text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 underline underline-offset-2 transition-colors"
+              className="text-sm text-neutral-400 underline underline-offset-2 transition-colors hover:text-neutral-600 dark:hover:text-neutral-300"
             >
               Have a promo code?
             </button>
@@ -1132,9 +1074,9 @@ function ReviewStep({
               <div className="flex gap-2">
                 <Input
                   value={promoCode}
-                  onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                  onChange={e => setPromoCode(e.target.value.toUpperCase())}
                   placeholder="PROMO CODE"
-                  className="flex-1 h-9 font-mono text-sm tracking-wider"
+                  className="h-9 flex-1 font-mono text-sm tracking-wider"
                   autoFocus
                 />
                 <Button
@@ -1154,18 +1096,16 @@ function ReviewStep({
                     setPromoOpen(false);
                     setPromoCode('');
                   }}
-                  className="text-neutral-400 px-2"
+                  className="px-2 text-neutral-400"
                 >
-                  ✕
+                  <X className="h-3 w-3" />
                 </Button>
               </div>
               {promoStatus && (
                 <div
                   className={cn(
-                    'text-sm flex items-center gap-2',
-                    promoStatus.valid
-                      ? 'text-emerald-600 dark:text-emerald-400'
-                      : 'text-rose-600 dark:text-rose-400'
+                    'flex items-center gap-2 text-sm',
+                    promoStatus.valid ? 'text-primary dark:text-primary' : 'text-rose-600 dark:text-rose-400'
                   )}
                 >
                   {promoStatus.valid ? (
@@ -1177,7 +1117,7 @@ function ReviewStep({
                         size="sm"
                         onClick={onActivatePromo}
                         disabled={loading}
-                        className="ml-auto h-8 bg-emerald-600 hover:bg-emerald-700"
+                        className="bg-primary hover:bg-primary ml-auto h-8"
                       >
                         {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Activate trial'}
                       </Button>
@@ -1193,12 +1133,12 @@ function ReviewStep({
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-4 pt-8 border-t border-neutral-100 dark:border-neutral-800">
+      <div className="flex items-center gap-4 border-t border-neutral-100 pt-8 dark:border-neutral-800">
         <Button
           type="button"
           variant="ghost"
           onClick={onBack}
-          className="text-neutral-500 hover:text-neutral-700 font-normal"
+          className="font-normal text-neutral-500 hover:text-neutral-700"
         >
           Back
         </Button>
@@ -1206,7 +1146,7 @@ function ReviewStep({
           type="button"
           onClick={onConfirm}
           disabled={loading}
-          className="h-11 px-8 bg-emerald-600 hover:bg-emerald-700 font-medium text-white"
+          className="bg-primary hover:bg-primary h-11 px-8 font-medium text-white"
         >
           {loading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -1217,9 +1157,7 @@ function ReviewStep({
             </>
           )}
         </Button>
-        <p className="ml-auto text-xs text-neutral-400 dark:text-neutral-500">
-          Secured by Razorpay
-        </p>
+        <p className="ml-auto text-xs text-neutral-400 dark:text-neutral-500">Secured by Razorpay</p>
       </div>
     </div>
   );
@@ -1243,52 +1181,46 @@ function CompleteStep({ onComplete }: { onComplete: () => void }) {
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-8">
+      <div className="mb-8 flex items-center gap-3">
         <motion.div
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: 'spring', damping: 20, stiffness: 300 }}
         >
-          <div className="h-10 w-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-            <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+          <div className="bg-primary 100 dark:bg-primary/30 flex h-10 w-10 items-center justify-center rounded-full">
+            <CheckCircle2 className="text-primary dark:text-primary h-5 w-5" />
           </div>
         </motion.div>
         <div>
-          <p className="text-xs font-medium uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-            Setup complete
-          </p>
+          <p className="text-primary dark:text-primary text-xs font-medium tracking-wider uppercase">Setup complete</p>
           <h1 className="text-3xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
             Your institution is ready
           </h1>
         </div>
       </div>
 
-      <p className="text-[15px] text-neutral-500 dark:text-neutral-400 leading-relaxed mb-10 max-w-lg">
-        Everything is configured. Here are the recommended next steps to get your exam center fully
-        operational.
+      <p className="mb-10 max-w-lg text-[15px] leading-relaxed text-neutral-500 dark:text-neutral-400">
+        Everything is configured. Here are the recommended next steps to get your exam center fully operational.
       </p>
 
-      <div className="space-y-3 mb-10">
+      <div className="mb-10 space-y-3">
         {nextSteps.map(({ icon: Icon, label, desc }) => (
           <div
             key={label}
-            className="flex items-start gap-4 p-4 rounded-lg border border-neutral-100 dark:border-neutral-800 bg-white dark:bg-neutral-900"
+            className="flex items-start gap-4 rounded-lg border border-neutral-100 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
           >
-            <div className="h-8 w-8 rounded bg-neutral-50 dark:bg-neutral-800 flex items-center justify-center shrink-0">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-neutral-50 dark:bg-neutral-800">
               <Icon className="h-4 w-4 text-neutral-400" />
             </div>
             <div>
               <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200">{label}</p>
-              <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-0.5">{desc}</p>
+              <p className="mt-0.5 text-xs text-neutral-400 dark:text-neutral-500">{desc}</p>
             </div>
           </div>
         ))}
       </div>
 
-      <Button
-        onClick={onComplete}
-        className="h-11 px-8 bg-emerald-600 hover:bg-emerald-700 font-medium text-white"
-      >
+      <Button onClick={onComplete} className="bg-primary hover:bg-primary h-11 px-8 font-medium text-white">
         <Rocket className="mr-2 h-4 w-4" />
         Go to dashboard
       </Button>
@@ -1317,12 +1249,12 @@ export default function OnboardingPage() {
   const [summary, setSummary] = useState<SetupSummaryData>({});
 
   const router = useRouter();
-  const { user } = useUser();
+  const { user } = useUserInfo();
 
   // ── Fetch DB status on mount, hydrate step + summary ──────────────────────
 
   useEffect(() => {
-    getOnboardingStatus().then((result) => {
+    getOnboardingStatus().then(result => {
       setDbStatus(result);
 
       // Determine starting step
@@ -1352,10 +1284,7 @@ export default function OnboardingPage() {
       // Pre-select plan
       const plans: Plan[] = result.plans ?? pricingPlans;
       const preferred =
-        readStorage<string>(STORAGE_KEYS.SELECTED_PLAN) ??
-        plans.find((p) => p.popular)?.id ??
-        plans[0]?.id ??
-        '';
+        readStorage<string>(STORAGE_KEYS.SELECTED_PLAN) ?? plans.find(p => p.popular)?.id ?? plans[0]?.id ?? '';
       setSelectedPlanId(preferred);
 
       setPageLoading(false);
@@ -1475,13 +1404,13 @@ export default function OnboardingPage() {
   const go = (step: StepId) => setCurrentStep(step);
 
   const plans: Plan[] = dbStatus?.plans ?? pricingPlans;
-  const selectedPlan = plans.find((p) => p.id === selectedPlanId);
+  const selectedPlan = plans.find(p => p.id === selectedPlanId);
 
   // ── Loading screen ────────────────────────────────────────────────────────
 
   if (pageLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950">
+      <div className="flex min-h-screen items-center justify-center bg-neutral-50 dark:bg-neutral-950">
         <Loader2 className="h-8 w-8 animate-spin text-neutral-300" />
       </div>
     );
@@ -1510,7 +1439,7 @@ export default function OnboardingPage() {
                   slug: dbData?.organization?.slug,
                 }}
                 onComplete={({ name }) => {
-                  setSummary((s) => ({ ...s, orgName: name }));
+                  setSummary(s => ({ ...s, orgName: name }));
                   go('exam_center');
                 }}
               />
@@ -1519,8 +1448,8 @@ export default function OnboardingPage() {
             {currentStep === 'exam_center' && (
               <ExamCenterStep
                 prefill={dbData?.existingCenter ?? undefined}
-                onComplete={(data) => {
-                  setSummary((s) => ({
+                onComplete={data => {
+                  setSummary(s => ({
                     ...s,
                     centerCode: data.code,
                     centerName: data.name,
@@ -1537,7 +1466,7 @@ export default function OnboardingPage() {
               <SubscriptionStep
                 plans={plans}
                 selectedId={selectedPlanId}
-                onSelect={(id) => {
+                onSelect={id => {
                   setSelectedPlanId(id);
                   writeStorage(STORAGE_KEYS.SELECTED_PLAN, id);
                 }}
@@ -1562,9 +1491,7 @@ export default function OnboardingPage() {
               />
             )}
 
-            {currentStep === 'complete' && (
-              <CompleteStep onComplete={() => router.push('/exam-center/dashboard')} />
-            )}
+            {currentStep === 'complete' && <CompleteStep onComplete={() => router.push('/exam-center/dashboard')} />}
           </motion.div>
         </AnimatePresence>
       </OnboardingShell>

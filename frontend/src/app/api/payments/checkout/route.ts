@@ -44,15 +44,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const {
-      action,
-      planId,
-      amount,
-      razorpay_payment_id,
-      razorpay_order_id,
-      razorpay_signature,
-      promoCode,
-    } = body;
+    const { action, planId, amount, razorpay_payment_id, razorpay_order_id, razorpay_signature, promoCode } = body;
 
     // Get user's organization
     const orgMember = await db.query.orgMembers.findFirst({
@@ -100,7 +92,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Regular plan validation
-      const plan = VALID_PLANS.find((p) => p.id === planId && p.amount === amount);
+      const plan = VALID_PLANS.find(p => p.id === planId && p.amount === amount);
       if (!plan) {
         return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
       }
@@ -209,7 +201,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Handle regular plan
-      const plan = VALID_PLANS.find((p) => p.id === payment.planId);
+      const plan = VALID_PLANS.find(p => p.id === payment.planId);
       if (!plan) {
         return NextResponse.json({ error: 'Plan not found' }, { status: 400 });
       }

@@ -9,79 +9,79 @@
             "route": "/dashboard",
             "order": 1
         },
-        {
-            "id": "exam-setup",
-            "name": "Exam Setup",
-            "icon": "Settings2",
-            "description": "Configure everything before exams begin",
-            "route": "/exam-setup",
-            "order": 2,
-            "children": [
-                {
-                    "id": "center-profile",
-                    "name": "Exam Center",
-                    "description": "Set up center details, address, and key personnel",
-                    "route": "/exam-setup/center-profile",
-                    "icon": "Building2"
-                },
-                {
-                    "id": "timetable",
-                    "name": "Timetable",
-                    "description": "Upload examination schedule",
-                    "route": "/exam-setup/timetable",
-                    "icon": "CalendarDays"
-                },
-                {
-                    "id": "supervisors",
-                    "name": "Supervisors",
-                    "description": "Manage supervisor profiles",
-                    "route": "/exam-setup/supervisors",
-                    "icon": "UserCog"
-                },
-                {
-                    "id": "relievers",
-                    "name": "Relievers",
-                    "description": "Manage reliever staff",
-                    "route": "/exam-setup/relievers",
-                    "icon": "Users2"
-                },
-                {
-                    "id": "control-room",
-                    "name": "Control Room",
-                    "description": "Configure control room personnel",
-                    "route": "/exam-setup/control-room",
-                    "icon": "Radio"
-                },
-                {
-                    "id": "seating-chart",
-                    "name": "Seating Chart",
-                    "description": "Upload institute-wise seating charts",
-                    "route": "/exam-setup/seating-chart",
-                    "icon": "Grid2x2"
-                },
-                {
-                    "id": "seating-arrangement",
-                    "name": "Seating Arrangement",
-                    "description": "Final seating arrangement with block mapping",
-                    "route": "/exam-setup/seating-arrangement",
-                    "icon": "LayoutGrid"
-                },
-                {
-                    "id": "emarksheet",
-                    "name": "E-Marksheet",
-                    "description": "Upload e-marksheet data",
-                    "route": "/exam-setup/emarksheet",
-                    "icon": "FileSpreadsheet"
-                },
-                {
-                    "id": "qp-inventory",
-                    "name": "Inventory",
-                    "description": "Upload question paper inventory",
-                    "route": "/exam-setup/qp-inventory",
-                    "icon": "Package"
-                }
-            ]
-        },
+    {
+        "id": "exam-setup",
+        "name": "Exam Setup",
+        "icon": "Settings2",
+        "description": "Configure everything before exams begin",
+        "route": "/exam-setup",
+        "order": 2,
+        "children": [
+            {
+                "id": "center-profile",
+                "name": "Exam Center",
+                "description": "Set up center details, address, and key personnel",
+                "route": "/exam-setup/center-profile",
+                "icon": "Building2"
+            },
+            {
+                "id": "timetable",
+                "name": "Timetable",
+                "description": "Upload examination schedule",
+                "route": "/exam-setup/timetable",
+                "icon": "CalendarDays"
+            },
+            {
+                "id": "supervisors",
+                "name": "Supervisors",
+                "description": "Manage supervisor profiles",
+                "route": "/exam-setup/supervisors",
+                "icon": "UserCog"
+            },
+            {
+                "id": "relievers",
+                "name": "Relievers",
+                "description": "Manage reliever staff",
+                "route": "/exam-setup/relievers",
+                "icon": "Users2"
+            },
+            {
+                "id": "control-room",
+                "name": "Control Room",
+                "description": "Configure control room personnel",
+                "route": "/exam-setup/control-room",
+                "icon": "Radio"
+            },
+            {
+                "id": "seating-chart",
+                "name": "Seating Chart",
+                "description": "Upload institute-wise seating charts",
+                "route": "/exam-setup/seating-chart",
+                "icon": "Grid2x2"
+            },
+            {
+                "id": "seating-arrangement",
+                "name": "Seating Arrangement",
+                "description": "Final seating arrangement with block mapping",
+                "route": "/exam-setup/seating-arrangement",
+                "icon": "LayoutGrid"
+            },
+            {
+                "id": "emarksheet",
+                "name": "E-Marksheet",
+                "description": "Upload e-marksheet data",
+                "route": "/exam-setup/emarksheet",
+                "icon": "FileSpreadsheet"
+            },
+            {
+                "id": "qp-inventory",
+                "name": "Inventory",
+                "description": "Upload question paper inventory",
+                "route": "/exam-setup/qp-inventory",
+                "icon": "Package"
+            }
+        ]
+    },
         {
             "id": "block-allocation",
             "name": "Block Allocation",
@@ -97,20 +97,7 @@
                     "route": "/block-allocation/allocate",
                     "icon": "Map"
                 },
-                {
-                    "id": "supervisor-assignment",
-                    "name": "Supervisor Assignment",
-                    "description": "Assign supervisors to blocks",
-                    "route": "/block-allocation/supervisor-assignment",
-                    "icon": "UserCheck"
-                },
-                {
-                    "id": "reliever-assignment",
-                    "name": "Reliever Assignment",
-                    "description": "Assign relievers to support supervisors",
-                    "route": "/block-allocation/reliever-assignment",
-                    "icon": "UserPlus"
-                },
+
                 {
                     "id": "change-supervisor",
                     "name": "Change Supervisor",

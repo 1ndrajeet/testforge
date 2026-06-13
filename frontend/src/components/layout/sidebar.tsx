@@ -3,63 +3,83 @@
 
 import { memo, useCallback, useEffect, useState } from 'react';
 
-import { useTheme } from 'next-themes';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 import { AnimatePresence, motion } from 'framer-motion';
 import {
+  AlertCircle,
+  AlertOctagon,
   AlertTriangle,
+  BarChart,
+  BookOpen,
+  Building,
   Building2,
   Calculator,
+  CalendarCheck,
   CalendarDays,
   ChevronDown,
-  ChevronRight,
+  ClipboardCheck,
   ClipboardList,
   Crown,
   Eye,
   FileBadge,
+  FileCheck,
   FileCode,
+  FileDown,
+  FileInput,
+  FileMinus,
+  FileOutput,
   FilePlus,
+  FileSignature,
   FileSpreadsheet,
   FileText,
+  FileUp,
+  Gavel,
   Grid2x2,
   Grid3x3,
+  History,
   LayoutDashboard,
   LayoutGrid,
+  Mail,
+  MailCheck,
+  MailOpen,
+  MailPlus,
   Map,
-  Moon,
   Package,
   PackageCheck,
+  PackageOpen,
+  PackagePlus,
+  Palette,
   Radio,
   RefreshCw,
+  Scroll,
+  ScrollText,
   Search,
   Settings,
+  Settings2,
+  ShieldAlert,
   Star,
-  Sun,
   Trash2,
   UserCheck,
+  UserCircle,
   UserCog,
   UserMinus,
   UserPlus,
   UserX,
+  Users,
   Users2,
   X,
+  Zap,
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-
-import { useSidebar } from '@/hooks/useSidebar';
-import { useUser } from '@/hooks/useUser';
-
-import { cn } from '@/lib/utils';
-
 import modulesConfig from '@/config/modules.json';
-
-import { Skeleton } from '../ui/skeleton';
+import { useSidebar } from '@/hooks/useSidebar';
+import { cn } from '@/lib/utils';
 
 // ============================================
 // Types
@@ -92,9 +112,8 @@ interface Module {
 // ============================================
 const iconMap: Record<string, any> = {
   LayoutDashboard: LayoutDashboard,
+  Settings2: Settings2,
   Building2: Building2,
-  FileText: FileText,
-  Settings: Settings,
   CalendarDays: CalendarDays,
   UserCog: UserCog,
   Users2: Users2,
@@ -120,9 +139,37 @@ const iconMap: Record<string, any> = {
   UserMinus: UserMinus,
   FilePlus: FilePlus,
   FileBadge: FileBadge,
-  ChevronRight: ChevronRight,
-  ChevronDown: ChevronDown,
-  Crown: Crown,
+  CalendarCheck: CalendarCheck,
+  FileMinus: FileMinus,
+  BarChart: BarChart,
+  Users: Users,
+  Zap: Zap,
+  MailCheck: MailCheck,
+  MailPlus: MailPlus,
+  Mail: Mail,
+  MailOpen: MailOpen,
+  Settings: Settings,
+  UserCircle: UserCircle,
+  Building: Building,
+  Palette: Palette,
+  History: History,
+  // MSBTE Reports specific icons
+  ScrollText: ScrollText,
+  FileDown: FileDown,
+  FileUp: FileUp,
+  FileCheck: FileCheck,
+  FileOutput: FileOutput,
+  FileInput: FileInput,
+  BookOpen: BookOpen,
+  FileSignature: FileSignature,
+  AlertOctagon: AlertOctagon,
+  ShieldAlert: ShieldAlert,
+  Gavel: Gavel,
+  PackagePlus: PackagePlus,
+  PackageOpen: PackageOpen,
+  ClipboardCheck: ClipboardCheck,
+  AlertCircle: AlertCircle,
+  Scroll: Scroll,
 };
 
 // ============================================
@@ -141,15 +188,15 @@ const SidebarSearch = memo(({ onSearch }: { onSearch?: (query: string) => void }
   );
 
   return (
-    <div className="px-4 pt-4 pb-3 flex-shrink-0">
+    <div className="flex-shrink-0 px-4 pt-4 pb-3">
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" />
+        <Search className="absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" />
         <input
           type="text"
           value={query}
           onChange={handleChange}
           placeholder="Search modules..."
-          className="w-full rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 py-2 pl-9 pr-3 text-sm placeholder:text-neutral-400 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/20 transition-all"
+          className="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-neutral-200 bg-neutral-50 py-2 pr-3 pl-9 text-sm transition-all placeholder:text-neutral-400 focus:ring-2 focus:outline-none dark:border-neutral-800 dark:bg-neutral-900"
           aria-label="Search modules"
         />
       </div>
@@ -160,91 +207,13 @@ const SidebarSearch = memo(({ onSearch }: { onSearch?: (query: string) => void }
 SidebarSearch.displayName = 'SidebarSearch';
 
 // ============================================
-// Sidebar Footer
-// ============================================
-const SidebarFooter = memo(() => {
-  const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-  const { user, isLoading } = useUser();
-  const { close } = useSidebar();
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const getInitials = useCallback(() => {
-    if (!user?.name) return 'U';
-    return user.name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .slice(0, 2)
-      .toUpperCase();
-  }, [user?.name]);
-
-  return (
-    <div className="border-t border-neutral-200 dark:border-neutral-800 p-3 flex-shrink-0">
-      {isLoading ? (
-        <div className="flex items-center gap-2">
-          <Skeleton className="h-7 w-7 rounded-lg" />
-          <div className="flex-1">
-            <Skeleton className="h-3 w-20 mb-1" />
-            <Skeleton className="h-2 w-16" />
-          </div>
-        </div>
-      ) : (
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-sm">
-              <span className="text-xs font-bold text-white">{getInitials()}</span>
-            </div>
-            <div>
-              <p className="text-xs font-medium truncate max-w-[120px]">{user?.name || 'User'}</p>
-              <p className="text-[10px] text-neutral-500 truncate max-w-[120px]">
-                {user?.email?.split('@')[0] || 'user'}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-              aria-label="Toggle theme"
-            >
-              {mounted &&
-                (theme === 'dark' ? (
-                  <Sun className="h-3.5 w-3.5" />
-                ) : (
-                  <Moon className="h-3.5 w-3.5" />
-                ))}
-            </button>
-            <Link
-              href="/settings"
-              onClick={close}
-              className="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-              aria-label="Settings"
-            >
-              <Settings className="h-3.5 w-3.5" />
-            </Link>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-});
-
-SidebarFooter.displayName = 'SidebarFooter';
-
-// ============================================
 // Sidebar Component (Slide-out)
 // ============================================
 export function Sidebar() {
   const pathname = usePathname();
   const { isOpen, close } = useSidebar();
   const [searchQuery, setSearchQuery] = useState('');
-  const [filteredModules, setFilteredModules] = useState<Module[]>(
-    modulesConfig.modules as Module[]
-  );
+  const [filteredModules, setFilteredModules] = useState<Module[]>(modulesConfig.modules as Module[]);
 
   // Filter modules based on search
   useEffect(() => {
@@ -256,17 +225,16 @@ export function Sidebar() {
     const query = searchQuery.toLowerCase();
     const filterModules = (modules: Module[]): Module[] => {
       return modules
-        .map((module) => {
+        .map(module => {
           // Check if module matches
           const moduleMatches =
-            module.name.toLowerCase().includes(query) ||
-            module.description.toLowerCase().includes(query);
+            module.name.toLowerCase().includes(query) || module.description.toLowerCase().includes(query);
 
           // Filter children
           let filteredChildren: ModuleChild[] | undefined;
           if (module.children) {
             filteredChildren = module.children.filter(
-              (child) =>
+              child =>
                 child.name.toLowerCase().includes(query) ||
                 (child.description && child.description.toLowerCase().includes(query))
             );
@@ -335,26 +303,24 @@ export function Sidebar() {
             animate={{ x: 0 }}
             exit={{ x: '-100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed left-0 top-0 z-50 h-full w-80 bg-white dark:bg-neutral-950 border-r border-neutral-200 dark:border-neutral-800 flex flex-col shadow-2xl"
+            className="fixed top-0 left-0 z-50 flex h-full w-80 flex-col border-r border-neutral-200 bg-white shadow-2xl dark:border-neutral-800 dark:bg-neutral-950"
             role="navigation"
             aria-label="Main sidebar"
           >
             {/* Header with close button */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 dark:border-neutral-800">
+            <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">
               <div className="flex items-center gap-2">
-                <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
-                  <span className="text-white font-bold text-xs">TF</span>
+                <div className="from-primary to-primary flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br">
+                  <span className="text-xs font-bold text-white">TF</span>
                 </div>
-                <span className="font-semibold text-neutral-900 dark:text-neutral-100">
-                  TestForge
-                </span>
-                <Badge variant="outline" className="text-[9px] px-1">
+                <span className="font-semibold text-neutral-900 dark:text-neutral-100">TestForge</span>
+                <Badge variant="outline" className="px-1 text-[9px]">
                   v{modulesConfig.version}
                 </Badge>
               </div>
               <button
                 onClick={close}
-                className="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors lg:hidden"
+                className="rounded-md p-1.5 text-neutral-500 transition-colors hover:bg-neutral-100 lg:hidden dark:hover:bg-neutral-800"
                 aria-label="Close sidebar"
               >
                 <X className="h-4 w-4" />
@@ -368,8 +334,8 @@ export function Sidebar() {
 
             {/* Navigation - Scrollable area */}
             <ScrollArea className="flex-1">
-              <nav className="px-3 py-3 space-y-1">
-                {filteredModules.map((module) => (
+              <nav className="space-y-1 px-3 py-3">
+                {filteredModules.map(module => (
                   <NavItem
                     key={module.id}
                     module={module}
@@ -382,17 +348,14 @@ export function Sidebar() {
 
                 {/* Empty state for search */}
                 {filteredModules.length === 0 && (
-                  <div className="text-center py-8">
-                    <Search className="h-8 w-8 mx-auto text-neutral-400 mb-2" />
+                  <div className="py-8 text-center">
+                    <Search className="mx-auto mb-2 h-8 w-8 text-neutral-400" />
                     <p className="text-sm text-neutral-500">No modules found</p>
-                    <p className="text-xs text-neutral-400 mt-1">Try a different search term</p>
+                    <p className="mt-1 text-xs text-neutral-400">Try a different search term</p>
                   </div>
                 )}
               </nav>
             </ScrollArea>
-
-            {/* Footer */}
-            <SidebarFooter />
           </motion.aside>
         )}
       </AnimatePresence>
@@ -415,9 +378,7 @@ function NavItem({ module, pathname, onNavigate, level, searchQuery }: NavItemPr
   const [isExpanded, setIsExpanded] = useState(false);
   const hasChildren = module.children && module.children.length > 0;
   const Icon = iconMap[module.icon || 'FileText'] || FileText;
-  const isActive =
-    pathname === `/exam-center${module.route}` ||
-    pathname.startsWith(`/exam-center${module.route}/`);
+  const isActive = pathname === `/exam-center${module.route}` || pathname.startsWith(`/exam-center${module.route}/`);
 
   // Auto-expand when searching
   useEffect(() => {
@@ -426,19 +387,16 @@ function NavItem({ module, pathname, onNavigate, level, searchQuery }: NavItemPr
     }
   }, [searchQuery, hasChildren, module.children]);
 
-  // Auto-expand if child is active
   useEffect(() => {
     if (hasChildren && module.children) {
       const hasActiveChild = module.children.some(
-        (child) =>
-          pathname === `/exam-center${child.route}` ||
-          pathname.startsWith(`/exam-center${child.route}/`)
+        child => pathname === `/exam-center${child.route}` || pathname.startsWith(`/exam-center${child.route}/`)
       );
       if (hasActiveChild && !isExpanded) {
         setIsExpanded(true);
       }
     }
-  }, [pathname, module.children, hasChildren, isExpanded]);
+  }, [pathname, module.children, hasChildren]);
 
   const handleToggle = useCallback(() => {
     if (hasChildren) {
@@ -475,28 +433,21 @@ function NavItem({ module, pathname, onNavigate, level, searchQuery }: NavItemPr
                 className={cn(
                   'flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200',
                   'hover:bg-neutral-100 dark:hover:bg-neutral-900',
-                  isActive &&
-                    !hasChildren &&
-                    'bg-neutral-100 dark:bg-neutral-900 text-emerald-600 dark:text-emerald-400'
+                  isActive && !hasChildren && 'text-primary dark:text-primary bg-neutral-100 dark:bg-neutral-900'
                 )}
                 aria-expanded={isExpanded}
               >
                 <div className="flex items-center gap-3">
-                  <Icon
-                    className={cn('h-4 w-4', isActive ? 'text-emerald-500' : 'text-neutral-500')}
-                  />
+                  <Icon className={cn('h-4 w-4', isActive ? 'text-primary' : 'text-neutral-500')} />
                   <span>{module.name}</span>
                   {module.premium && <Crown className="h-3.5 w-3.5 text-amber-500" />}
                   {isMsbteReports && (
-                    <Badge className="h-5 px-1.5 text-[9px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-0">
+                    <Badge className="bg-primary 100 text-primary dark:bg-primary/30 dark:text-primary h-5 border-0 px-1.5 text-[9px]">
                       {reportCount}
                     </Badge>
                   )}
                 </div>
-                <motion.div
-                  animate={{ rotate: isExpanded ? 180 : 0 }}
-                  transition={{ duration: 0.2 }}
-                >
+                <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
                   <ChevronDown className="h-4 w-4 text-neutral-400" />
                 </motion.div>
               </button>
@@ -518,11 +469,11 @@ function NavItem({ module, pathname, onNavigate, level, searchQuery }: NavItemPr
             >
               <div
                 className={cn(
-                  'ml-7 mt-1 space-y-0.5',
-                  !isMsbteReports && 'border-l border-neutral-200 dark:border-neutral-800 pl-2'
+                  'mt-1 ml-7 space-y-0.5',
+                  !isMsbteReports && 'border-l border-neutral-200 pl-2 dark:border-neutral-800'
                 )}
               >
-                {module.children?.map((child) => (
+                {module.children?.map(child => (
                   <NavItem
                     key={child.id}
                     module={child}
@@ -552,11 +503,11 @@ function NavItem({ module, pathname, onNavigate, level, searchQuery }: NavItemPr
         'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200',
         'hover:bg-neutral-100 dark:hover:bg-neutral-900',
         isLinkActive
-          ? 'bg-neutral-100 dark:bg-neutral-900 text-emerald-600 dark:text-emerald-400'
+          ? 'text-primary dark:text-primary bg-neutral-100 dark:bg-neutral-900'
           : 'text-neutral-700 dark:text-neutral-300'
       )}
     >
-      <Icon className={cn('h-4 w-4', isLinkActive ? 'text-emerald-500' : 'text-neutral-500')} />
+      <Icon className={cn('h-4 w-4', isLinkActive ? 'text-primary' : 'text-neutral-500')} />
       <span className="flex-1 truncate">
         {module.id?.startsWith('f') ? `${module.name} - ${module.description}` : module.name}
       </span>
@@ -569,7 +520,7 @@ function NavItem({ module, pathname, onNavigate, level, searchQuery }: NavItemPr
     <TooltipProvider delayDuration={200}>
       <Tooltip>
         <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
-        <TooltipContent side="right" className="text-xs max-w-[200px]">
+        <TooltipContent side="right" className="max-w-[200px] text-xs">
           <p>{getTooltipText(module)}</p>
         </TooltipContent>
       </Tooltip>

@@ -5,36 +5,22 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1781202361025,
-      "tag": "0000_colorful_proudstar",
+      "when": 1781265708482,
+      "tag": "0000_black_rocket_racer",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1781204292772,
-      "tag": "0001_left_radioactive_man",
+      "when": 1781285185059,
+      "tag": "0001_nice_scalphunter",
       "breakpoints": true
     },
     {
       "idx": 2,
       "version": "7",
-      "when": 1781214251113,
-      "tag": "0002_lethal_thunderbolts",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1781245201513,
-      "tag": "0003_violet_stick",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1781248202001,
-      "tag": "0004_mixed_stark_industries",
+      "when": 1781285508107,
+      "tag": "0002_daily_zaran",
       "breakpoints": true
     }
   ]
