@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { format } from 'date-fns';
-import { AlertTriangle, ChevronLeft, Loader2, RefreshCw, Trash2 } from 'lucide-react';
+import { AlertTriangle, ChevronLeft, Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { MSBTEContextBar } from '@/components/layout/msbte-context-bar';
@@ -21,8 +21,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useUserInfo } from '@/hooks/useUserInfo';
@@ -124,7 +122,7 @@ export default function ClearSessionPage() {
         } else {
           toast.error('Failed to load allocations');
         }
-      } catch (error) {
+      } catch {
         toast.error('Failed to load allocations');
       } finally {
         setLoading(false);
@@ -133,7 +131,7 @@ export default function ClearSessionPage() {
     [groupAllocationsByBlock]
   );
 
-  const handleSessionSelect = async (session: { date: string; session: 'Morning' | 'Afternoon' }) => {
+  const handleSessionSelect = async (session: { date: string; session: 'Morning' | 'Afternoon' | 'All' }) => {
     setSelectedDate(session.date);
     setSelectedSession(session.session);
     await loadAllocations(session.date, session.session);
@@ -154,7 +152,7 @@ export default function ClearSessionPage() {
       } else {
         toast.error('Failed to clear allocations');
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to clear allocations');
     } finally {
       setDeleting(false);

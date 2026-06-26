@@ -7,10 +7,10 @@ import { and, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { db } from '@/lib/db';
-import { blockAllocations, orders, staff } from '@/lib/db/schema';
+import { blockAllocations, staff } from '@/lib/db/schema';
 import { logger } from '@/lib/misc/logger';
 import { getExamCenterId, requireExamCenter } from '@/lib/session';
-import { StaffAllocation, StaffMember, StaffStats, StaffType, StaffWithAllocations } from '@/lib/types';
+import { StaffAllocation, StaffStats, StaffType, StaffWithAllocations } from '@/lib/types';
 
 const MODULE = 'staff';
 
@@ -42,7 +42,7 @@ const BulkCreateStaffSchema = z.object({
 
 const AssignSupervisorsSchema = z.object({
   date: z.date(),
-  session: z.enum(['Morning', 'Afternoon']),
+  session: z.enum(['Morning', 'Afternoon', 'All']),
   assignments: z.array(
     z.object({
       allocationId: z.string().uuid(),
@@ -51,15 +51,9 @@ const AssignSupervisorsSchema = z.object({
   ),
 });
 
-const AssignRelieversSchema = z.object({
-  date: z.date(),
-  session: z.enum(['Morning', 'Afternoon']),
-  relieverUids: z.array(z.string()),
-});
-
 const ReplaceStaffSchema = z.object({
   date: z.date(),
-  session: z.enum(['Morning', 'Afternoon']),
+  session: z.enum(['Morning', 'Afternoon', 'All']),
   oldUid: z.string(),
   newUid: z.string(),
   staffType: z.enum(['SUPERVISOR', 'RELIEVER']),

@@ -474,7 +474,7 @@ const StaffTable = ({
 // ============================================================================
 
 export default function StaffPage({ type = 'SUPERVISOR' }: { type?: StaffType }) {
-  const { examCenter, isLoading: userLoading } = useUserInfo();
+  const { isLoading: userLoading } = useUserInfo();
   const config = STAFF_CONFIGS[type];
 
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
@@ -530,7 +530,7 @@ export default function StaffPage({ type = 'SUPERVISOR' }: { type?: StaffType })
         toast.error(result.error || `Failed to search ${config.type}`);
         setStaffMembers([]);
       }
-    } catch (error) {
+    } catch {
       toast.error(`Failed to search ${config.type}`);
       setStaffMembers([]);
     } finally {

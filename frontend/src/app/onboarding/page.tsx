@@ -9,20 +9,7 @@ import { useRouter } from 'next/navigation';
 import Script from 'next/script';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import {
-  Infinity as InfinityIcon,
-  Calendar,
-  Check,
-  CheckCircle2,
-  Crown,
-  FileText,
-  LayoutDashboard,
-  Loader2,
-  Rocket,
-  Users,
-  X,
-  Zap,
-} from 'lucide-react';
+import { Calendar, Check, CheckCircle2, FileText, LayoutDashboard, Loader2, Rocket, Users, X } from 'lucide-react';
 import { ArrowRight, LogOut, ShieldCheck } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -491,8 +478,6 @@ const STATUS_TO_STEP: Record<string, StepId> = {
   needs_subscription: 'subscription',
 };
 
-const STEP_ORDER: StepId[] = ['organization', 'exam_center', 'subscription', 'review', 'complete'];
-
 // ─── EC defaults ─────────────────────────────────────────────────────────────
 
 const EC_DEFAULTS = {
@@ -509,16 +494,6 @@ const EC_DEFAULTS = {
 };
 
 const YEARS = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() + i);
-
-// ─── Plan icons ───────────────────────────────────────────────────────────────
-
-const PLAN_ICONS: Record<string, React.ElementType> = {
-  lifetime_access: InfinityIcon,
-  semester_online: Zap,
-};
-function planIcon(id: string): React.ElementType {
-  return PLAN_ICONS[id] ?? Crown;
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Step: Organization
@@ -836,7 +811,6 @@ function SubscriptionStep({
         {plans.map(plan => {
           const isSelected = plan.id === selectedId;
           const isRecommended = plan.id === recommended.id;
-          const Icon = planIcon(plan.id);
 
           return (
             <button
@@ -876,7 +850,7 @@ function SubscriptionStep({
                       {plan.title}
                     </span>
                     {isRecommended && (
-                      <span className="border-primary 200 bg-primary 50 text-primary dark:border-primary dark:bg-primary 950/40 dark:text-primary rounded border px-2 py-0.5 text-[11px] font-medium">
+                      <span className="border-primary 200 bg-primary 50 text-primary-foreground rounded border px-2 py-0.5 text-[11px] font-medium">
                         Recommended
                       </span>
                     )}

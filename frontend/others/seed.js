@@ -9,7 +9,7 @@ const crypto = require('crypto');
 // ============================================
 
 const CONFIG = {
-  USER_ID: 'Wwq861iZHrzoS2eFwC2VoD3GERcUgCCs',
+  USER_ID: 'SVrnOYNA1V1V8Q7MkJGr1HkT15OhJ9mr',
   USER_NAME: 'MMCOE',
   USER_EMAIL: 'rit@testforge.tech',
   USER_PASSWORD: 'rit@bludhaven',
@@ -26,7 +26,6 @@ const CONFIG = {
 // UUID Maps
 // ============================================
 async function hashPassword(password) {
-  // Use 10 rounds - matches BetterAuth's default
   return await bcrypt.hash(password, 10);
 }
 
@@ -68,8 +67,15 @@ function jsonb(obj) {
 function safeJson(value, fallback = []) {
   if (!value || value === 'NULL' || value === "''") return fallback;
   try {
-    return JSON.parse(value);
-  } catch {
+    let cleaned = value;
+    cleaned = cleaned.replace(/\\"/g, '"');
+    cleaned = cleaned.replace(/\\'/g, "'");
+    cleaned = cleaned.replace(/\\\\/g, '\\');
+    const parsed = JSON.parse(cleaned);
+    return parsed;
+  } catch (e) {
+    console.log(`   ⚠️ Failed to parse JSON: ${String(value).substring(0, 80)}...`);
+    console.log(`   Error: ${e.message}`);
     return fallback;
   }
 }
@@ -84,17 +90,13 @@ function generateUuidFromString(str) {
 // ============================================
 
 function parseInsert(statement) {
-  // Match INSERT INTO `table` ... VALUES
   const insertMatch = statement.match(/INSERT\s+INTO\s+`?(\w+)`?\s+.*?VALUES\s+/is);
   if (!insertMatch) return null;
 
   const tableName = insertMatch[1];
 
-  // Extract everything after VALUES
   const valuesStart = statement.indexOf('VALUES', insertMatch.index) + 6;
   let valuesPart = statement.substring(valuesStart).trim();
-
-  // Remove trailing semicolon
   valuesPart = valuesPart.replace(/;+\s*$/, '');
 
   const rows = [];
@@ -201,6 +203,7 @@ const data = {
   students: [],
   staff: [],
   blocks: [],
+  rawBlockAllocations: [],
   blockAllocations: [],
   timetable: [],
   orders: [],
@@ -246,7 +249,6 @@ function processExamCenterConfig(rows) {
     const departments = safeJson(departmentsJson, []);
 
     const EXAM_CENTER_ID = generateUuidFromString(`EC_${CONFIG.EC_CODE}`);
-    //  const EXAM_CENTER_ID =  CONFIG.EXAM_CENTER_ID
 
     data.examCenters = {
       id: EXAM_CENTER_ID,
@@ -276,7 +278,6 @@ function processExamCenterConfig(rows) {
         maps.institutes.set(instCode, instUuid);
         data.connectedInstitutes.push({
           id: instUuid,
-
           examCenterId: EXAM_CENTER_ID,
           instituteCode: instCode,
           instituteName: inst.NAME,
@@ -296,8 +297,7 @@ function processSupervisor(rows) {
       maps.staff.set(uid, generateUuidFromString(uid));
       data.staff.push({
         id: maps.staff.get(uid),
-
-        examCenterId: data.examCenters.id, // Use the actual exam center ID
+        examCenterId: data.examCenters.id,
         uid,
         name,
         department: department || 'UNKNOWN',
@@ -321,8 +321,7 @@ function processReliever(rows) {
       maps.staff.set(uid, generateUuidFromString(uid));
       data.staff.push({
         id: maps.staff.get(uid),
-
-        examCenterId: data.examCenters.id, // Use the actual exam center ID
+        examCenterId: data.examCenters.id,
         uid,
         name,
         department: department || 'UNKNOWN',
@@ -346,8 +345,7 @@ function processControlRoom(rows) {
     maps.staff.set(fakeUid, generateUuidFromString(fakeUid));
     data.staff.push({
       id: maps.staff.get(fakeUid),
-
-      examCenterId: data.examCenters.id, // Use the actual exam center ID
+      examCenterId: data.examCenters.id,
       uid: fakeUid,
       name,
       department: 'CONTROL_ROOM',
@@ -369,7 +367,6 @@ function processBlockDetails(rows) {
     maps.blocks.set(location, generateUuidFromString(location));
     data.blocks.push({
       id: maps.blocks.get(location),
-
       examCenterId: data.examCenters?.id,
       blockNo: id.toString(),
       location,
@@ -382,6 +379,7 @@ function processBlockDetails(rows) {
     });
   }
 }
+
 function calculateExamDays() {
   const uniqueDates = [...new Set(data.timetable.map(t => t.date))].sort();
 
@@ -421,7 +419,6 @@ function processTimetable(rows) {
 
     data.timetable.push({
       id: generateUuidFromString(`${date}_${session}_${subjectCode}_${scheme}`),
-
       examCenterId: data.examCenters?.id,
       subjectId,
       examDay: null,
@@ -451,7 +448,6 @@ function processStudent(rows) {
       maps.institutes.set(instCode, instituteUuid);
       data.connectedInstitutes.push({
         id: instituteUuid,
-
         examCenterId: data.examCenters?.id,
         instituteCode: instCode,
         instituteName: `Institute ${instCode}`,
@@ -463,7 +459,6 @@ function processStudent(rows) {
 
     data.students.push({
       id: generateUuidFromString(`${instCode}_${seatNo}`),
-
       examCenterId: data.examCenters?.id,
       connectedInstituteId: instituteUuid || null,
       seatNumber: seatNo ? parseInt(seatNo) : null,
@@ -502,9 +497,8 @@ function processBlockAllocation(rows) {
       supervisorName,
     ] = values;
 
-    data.blockAllocations.push({
+    data.rawBlockAllocations.push({
       id: generateUuidFromString(`${date}_${session}_${location}_${subjectCode}`),
-
       examCenterId: data.examCenters?.id,
       date,
       session,
@@ -522,10 +516,65 @@ function processBlockAllocation(rows) {
       strength: strength ? parseInt(strength) : null,
       supervisorUid: supervisorUid || null,
       supervisorName: supervisorName || null,
+      instCode: instCode,
       createdAt: CONFIG.NOW,
       updatedAt: CONFIG.NOW,
     });
   }
+}
+
+function resolveBlockAllocationInstitutes() {
+  console.log(`   🔗 Resolving institutes for ${data.rawBlockAllocations.length} block allocations...`);
+
+  for (const raw of data.rawBlockAllocations) {
+    let connectedInstituteId = null;
+
+    // Try to get from instCode first
+    if (raw.instCode) {
+      connectedInstituteId = maps.institutes.get(raw.instCode);
+    }
+
+    if (!connectedInstituteId && raw.seatNumbers.length > 0) {
+      // Build a Set of seat numbers for faster lookup
+      const seatSet = new Set(raw.seatNumbers);
+      for (const student of data.students) {
+        if (seatSet.has(student.seatNumber)) {
+          connectedInstituteId = student.connectedInstituteId;
+          break;
+        }
+      }
+    }
+    if (!connectedInstituteId) {
+      console.log(`⚠️ No institute for ${raw.location} - ${raw.subjectCode} (${raw.seatNumbers.length} seats)`);
+    }
+
+    data.blockAllocations.push({
+      id: raw.id,
+      examCenterId: raw.examCenterId,
+      date: raw.date,
+      session: raw.session,
+      timeslot: raw.timeslot,
+      blockNo: raw.blockNo,
+      blockId: raw.blockId,
+      location: raw.location,
+      scheme: raw.scheme,
+      subjectCode: raw.subjectCode,
+      subjectName: raw.subjectName,
+      seatNumbers: raw.seatNumbers,
+      firstSeat: raw.firstSeat,
+      lastSeat: raw.lastSeat,
+      assignedCount: raw.assignedCount,
+      strength: raw.strength,
+      supervisorUid: raw.supervisorUid,
+      supervisorName: raw.supervisorName,
+      connectedInstituteId: connectedInstituteId,
+      createdAt: raw.createdAt,
+      updatedAt: raw.updatedAt,
+    });
+  }
+
+  const resolvedCount = data.blockAllocations.filter(b => b.connectedInstituteId).length;
+  console.log(`   ✅ Resolved institutes for ${resolvedCount}/${data.blockAllocations.length} allocations`);
 }
 
 function processSupervisorOrder(rows) {
@@ -553,7 +602,6 @@ function processInventory(rows) {
 
     data.qpInventory.push({
       id: generateUuidFromString(`${date}_${session}_${subjectCode}`),
-
       examCenterId: data.examCenters?.id,
       day: day ? parseInt(day) : null,
       date,
@@ -575,7 +623,6 @@ function processEMarksheet(rows) {
 
     data.eMarksheets.push({
       id: generateUuidFromString(`${paperCode}_${scheme}_${sheetNo}`),
-
       examCenterId: data.examCenters?.id,
       sheetNo: sheetNo || null,
       subjectName: subjectName || null,
@@ -595,7 +642,6 @@ function resolveOrders() {
     if (staffId) {
       data.orders.push({
         id: generateUuidFromString(`${pending.date}_${pending.session}_${pending.uid}`),
-
         examCenterId: data.examCenters?.id,
         staffId,
         orderType: pending.type,
@@ -611,52 +657,49 @@ function resolveOrders() {
 }
 
 // ============================================
-// Process line by line (accumulating multi-line statements)
-// ============================================
-// ============================================
-// Process line by line - FIXED to handle separate INSERTs for same table
+// Process line by line
 // ============================================
 function processFile(content) {
   let currentStatement = '';
   let inStatement = false;
   let processed = 0;
 
-  // Track pending rows for ALL tables that need exam center
   const pendingRows = new Map();
+  const pendingStudents = [];
 
   const lines = content.split('\n');
 
   for (const line of lines) {
     const trimmed = line.trim();
 
-    // Skip comments and empty lines
     if (!trimmed || trimmed.startsWith('--') || trimmed.startsWith('/*')) {
       continue;
     }
 
-    // Start of INSERT statement
     if (!inStatement && trimmed.toUpperCase().startsWith('INSERT INTO')) {
       inStatement = true;
       currentStatement = line;
-    }
-    // Continue building multi-line statement
-    else if (inStatement) {
+    } else if (inStatement) {
       currentStatement += ' ' + line;
 
-      // Check if statement ends (with semicolon)
       if (line.includes(';')) {
         const parsed = parseInsert(currentStatement);
         if (parsed) {
           const { tableName, rows } = parsed;
 
-          // COLLECT ALL STAFF TABLES - don't process immediately
-          if (tableName === 'TH_CROOM_1740' || tableName === 'TH_SUP_1740' || tableName === 'TH_REL_1740') {
+          if (tableName === 'THC_EC_CONFIG') {
+            if (!pendingRows.has(tableName)) {
+              pendingRows.set(tableName, []);
+            }
+            pendingRows.get(tableName).push(...rows);
+          } else if (tableName === 'TH_SC_1740') {
+            pendingStudents.push(...rows);
+          } else if (tableName === 'TH_CROOM_1740' || tableName === 'TH_SUP_1740' || tableName === 'TH_REL_1740') {
             if (!pendingRows.has(tableName)) {
               pendingRows.set(tableName, []);
             }
             pendingRows.get(tableName).push(...rows);
           } else {
-            // Process other tables immediately
             processTableRows(tableName, rows);
           }
 
@@ -671,49 +714,36 @@ function processFile(content) {
     }
   }
 
-  // FIRST, ensure exam center exists with your specific ID
-  if (!data.examCenters) {
-    console.log(`   📝 Creating exam center with ID: ${CONFIG.EXAM_CENTER_ID}`);
-    data.examCenters = {
-      id: CONFIG.EXAM_CENTER_ID,
-      orgId: CONFIG.ORG_ID,
-      code: CONFIG.EC_CODE,
-      name: 'MMCOE',
-      address: null,
-      officerIncharge: null,
-      sealingSupervisor: null,
-      distCenterCode: null,
-      distCenterName: null,
-      season: null,
-      examYear: null,
-      startDate: null,
-      endDate: null,
-      departments: [],
-      isActive: true,
-      isDeleted: false,
-      createdAt: CONFIG.NOW,
-      updatedAt: CONFIG.NOW,
-    };
+  if (pendingRows.has('THC_EC_CONFIG')) {
+    const configRows = pendingRows.get('THC_EC_CONFIG');
+    console.log(`   📋 Processing ${configRows.length} THC_EC_CONFIG rows...`);
+    processExamCenterConfig(configRows);
   }
 
-  // Process collected staff rows AFTER exam center exists
+  if (!data.examCenters) {
+    console.log(`   ❌ No exam center found for EC_CODE ${CONFIG.EC_CODE}`);
+    throw new Error(`Exam center ${CONFIG.EC_CODE} not found in SQL dump`);
+  }
+
+  if (pendingStudents.length > 0) {
+    console.log(`   📋 Processing ${pendingStudents.length} student rows after config...`);
+    processStudent(pendingStudents);
+  }
+
   console.log(`   📋 Processing pending staff tables...`);
 
-  // Process supervisors first
   if (pendingRows.has('TH_SUP_1740')) {
     const allRows = pendingRows.get('TH_SUP_1740');
     console.log(`   📋 TH_SUP_1740: collected ${allRows.length} rows`);
     processSupervisor(allRows);
   }
 
-  // Process relievers
   if (pendingRows.has('TH_REL_1740')) {
     const allRows = pendingRows.get('TH_REL_1740');
     console.log(`   📋 TH_REL_1740: collected ${allRows.length} rows`);
     processReliever(allRows);
   }
 
-  // Process control room last
   if (pendingRows.has('TH_CROOM_1740')) {
     const allRows = pendingRows.get('TH_CROOM_1740');
     console.log(`   📋 TH_CROOM_1740: collected ${allRows.length} rows`);
@@ -723,12 +753,8 @@ function processFile(content) {
   return processed;
 }
 
-// Helper function to process table rows
 function processTableRows(tableName, rows) {
   switch (tableName) {
-    case 'THC_SCHEME_DETAILS':
-      processSubjects(rows);
-      break;
     case 'THC_EC_CONFIG':
       processExamCenterConfig(rows);
       break;
@@ -768,14 +794,10 @@ function processTableRows(tableName, rows) {
 // ============================================
 // Generate PostgreSQL SQL
 // ============================================
-// ============================================
-// Generate PostgreSQL SQL
-// ============================================
 async function generatePostgresSQL() {
   writeLine('BEGIN;');
   writeLine('');
 
-  // Enable pgcrypto for UUID generation if needed
   writeLine('CREATE EXTENSION IF NOT EXISTS pgcrypto;');
   writeLine('');
 
@@ -788,14 +810,12 @@ async function generatePostgresSQL() {
     writeLine('-- ============================================');
     writeLine('');
 
-    // Insert user
     writeLine(`INSERT INTO "user" (id, name, email, email_verified, image, created_at, updated_at) VALUES (`);
     writeLine(`  ${escape(CONFIG.USER_ID)}, ${escape(CONFIG.USER_NAME)}, ${escape(CONFIG.USER_EMAIL)},`);
     writeLine(`  true, NULL, ${escape(CONFIG.NOW)}, ${escape(CONFIG.NOW)}`);
     writeLine(`) ON CONFLICT (id) DO NOTHING;`);
     writeLine('');
 
-    // Insert account with hashed password for credential provider
     writeLine(`INSERT INTO account (id, account_id, provider_id, user_id, password, created_at, updated_at) VALUES (`);
     writeLine(`  ${escape(accountId)}, ${escape(CONFIG.USER_EMAIL)}, 'credential', ${escape(CONFIG.USER_ID)},`);
     writeLine(`  ${escape(hashedPassword)}, ${escape(CONFIG.NOW)}, ${escape(CONFIG.NOW)}`);
@@ -805,9 +825,7 @@ async function generatePostgresSQL() {
     console.log(`   🔐 Created user: ${CONFIG.USER_EMAIL} with hashed password`);
   }
 
-  // ==========================================
   // 1. Organizations
-  // ==========================================
   writeLine('-- ============================================');
   writeLine('-- 1. Organizations');
   writeLine('-- ============================================');
@@ -825,11 +843,6 @@ async function generatePostgresSQL() {
   writeLine(`) ON CONFLICT (id) DO NOTHING;`);
   writeLine('');
 
-  // Add Org Member entry (user is owner)
-  writeLine('-- ============================================');
-  writeLine('-- 1b. Organization Member (Owner)');
-  writeLine('-- ============================================');
-  writeLine('');
   const orgMemberId = generateUuidFromString(`${CONFIG.ORG_ID}_${CONFIG.USER_ID}`);
   writeLine(`INSERT INTO org_members (id, org_id, user_id, role, permissions, created_at, updated_at) VALUES (`);
   writeLine(`  ${escape(orgMemberId)}, ${escape(CONFIG.ORG_ID)}, ${escape(CONFIG.USER_ID)}, 'owner',`);
@@ -837,9 +850,7 @@ async function generatePostgresSQL() {
   writeLine(`) ON CONFLICT (id) DO NOTHING;`);
   writeLine('');
 
-  // ==========================================
-  // 2. Exam Centers (only if data exists)
-  // ==========================================
+  // 2. Exam Centers
   if (data.examCenters) {
     writeLine('-- ============================================');
     writeLine('-- 2. Exam Centers');
@@ -863,9 +874,7 @@ async function generatePostgresSQL() {
     writeLine('');
   }
 
-  // ==========================================
   // 3. Connected Institutes
-  // ==========================================
   writeLine('-- ============================================');
   writeLine('-- 3. Connected Institutes');
   writeLine('-- ============================================');
@@ -878,7 +887,17 @@ async function generatePostgresSQL() {
     const uniqueInstitutes = new Map();
     for (const ci of data.connectedInstitutes) {
       const key = `${ci.examCenterId}_${ci.instituteCode}`;
-      if (!uniqueInstitutes.has(key)) uniqueInstitutes.set(key, ci);
+      const existing = uniqueInstitutes.get(key);
+
+      if (!existing) {
+        uniqueInstitutes.set(key, ci);
+      } else if (!existing.instituteName.startsWith('Institute ') && ci.instituteName.startsWith('Institute ')) {
+        continue;
+      } else if (existing.instituteName.startsWith('Institute ') && !ci.instituteName.startsWith('Institute ')) {
+        uniqueInstitutes.set(key, ci);
+      } else {
+        if (!uniqueInstitutes.has(key)) uniqueInstitutes.set(key, ci);
+      }
     }
 
     if (uniqueInstitutes.size > 0) {
@@ -900,9 +919,7 @@ async function generatePostgresSQL() {
     }
   }
 
-  // ==========================================
   // 4. Subjects
-  // ==========================================
   writeLine('-- ============================================');
   writeLine('-- 4. Subjects');
   writeLine('-- ============================================');
@@ -920,9 +937,7 @@ async function generatePostgresSQL() {
     writeLine('');
   }
 
-  // ==========================================
-  // 5. Staff (NO org_id - only exam_center_id)
-  // ==========================================
+  // 5. Staff
   writeLine('-- ============================================');
   writeLine('-- 5. Staff');
   writeLine('-- ============================================');
@@ -949,9 +964,7 @@ async function generatePostgresSQL() {
     writeLine('');
   }
 
-  // ==========================================
-  // 6. Blocks (NO org_id)
-  // ==========================================
+  // 6. Blocks
   writeLine('-- ============================================');
   writeLine('-- 6. Blocks');
   writeLine('-- ============================================');
@@ -971,9 +984,7 @@ async function generatePostgresSQL() {
     writeLine('');
   }
 
-  // ==========================================
-  // 7. Timetable (NO org_id)
-  // ==========================================
+  // 7. Timetable
   writeLine('-- ============================================');
   writeLine('-- 7. Timetable');
   writeLine('-- ============================================');
@@ -993,9 +1004,7 @@ async function generatePostgresSQL() {
     writeLine('');
   }
 
-  // ==========================================
-  // 8. Students (NO org_id)
-  // ==========================================
+  // 8. Students
   writeLine('-- ============================================');
   writeLine('-- 8. Students');
   writeLine('-- ============================================');
@@ -1015,31 +1024,27 @@ async function generatePostgresSQL() {
     writeLine('');
   }
 
-  // ==========================================
-  // 9. Block Allocations (NO org_id)
-  // ==========================================
+  // 9. Block Allocations
   writeLine('-- ============================================');
   writeLine('-- 9. Block Allocations');
   writeLine('-- ============================================');
   writeLine('');
   if (data.blockAllocations.length > 0 && data.examCenters) {
     writeLine(
-      `INSERT INTO block_allocations (id, exam_center_id, date, session, timeslot, block_no, block_id, location, scheme, subject_code, subject_name, seat_numbers, first_seat, last_seat, assigned_count, strength, supervisor_uid, supervisor_name, created_at, updated_at) VALUES`
+      `INSERT INTO block_allocations (id, exam_center_id, date, session, timeslot, block_no, block_id, location, scheme, subject_code, subject_name, seat_numbers, first_seat, last_seat, assigned_count, strength, supervisor_uid, supervisor_name, connected_institute_id, created_at, updated_at) VALUES`
     );
     for (let i = 0; i < data.blockAllocations.length; i++) {
       const ba = data.blockAllocations[i];
       const isLast = i === data.blockAllocations.length - 1;
       writeLine(
-        `  (${escape(ba.id)}, ${escape(data.examCenters.id)}, ${escape(ba.date)}, ${escape(ba.session)}, ${escape(ba.timeslot)}, ${escape(ba.blockNo)}, ${escape(ba.blockId)}, ${escape(ba.location)}, ${escape(ba.scheme)}, ${escape(ba.subjectCode)}, ${escape(ba.subjectName)}, ${jsonb(ba.seatNumbers)}, ${ba.firstSeat}, ${ba.lastSeat}, ${ba.assignedCount}, ${ba.strength}, ${escape(ba.supervisorUid)}, ${escape(ba.supervisorName)}, ${escape(ba.createdAt)}, ${escape(ba.updatedAt)})${isLast ? '' : ','}`
+        `  (${escape(ba.id)}, ${escape(data.examCenters.id)}, ${escape(ba.date)}, ${escape(ba.session)}, ${escape(ba.timeslot)}, ${escape(ba.blockNo)}, ${escape(ba.blockId)}, ${escape(ba.location)}, ${escape(ba.scheme)}, ${escape(ba.subjectCode)}, ${escape(ba.subjectName)}, ${jsonb(ba.seatNumbers)}, ${ba.firstSeat}, ${ba.lastSeat}, ${ba.assignedCount}, ${ba.strength}, ${escape(ba.supervisorUid)}, ${escape(ba.supervisorName)}, ${escape(ba.connectedInstituteId)}, ${escape(ba.createdAt)}, ${escape(ba.updatedAt)})${isLast ? '' : ','}`
       );
     }
     writeLine(` ON CONFLICT (id) DO NOTHING;`);
     writeLine('');
   }
 
-  // ==========================================
-  // 10. Orders (NO org_id)
-  // ==========================================
+  // 10. Orders
   writeLine('-- ============================================');
   writeLine('-- 10. Orders');
   writeLine('-- ============================================');
@@ -1059,9 +1064,7 @@ async function generatePostgresSQL() {
     writeLine('');
   }
 
-  // ==========================================
-  // 11. QP Inventory (NO org_id)
-  // ==========================================
+  // 11. QP Inventory
   writeLine('-- ============================================');
   writeLine('-- 11. QP Inventory');
   writeLine('-- ============================================');
@@ -1081,9 +1084,7 @@ async function generatePostgresSQL() {
     writeLine('');
   }
 
-  // ==========================================
-  // 12. E-Marksheets (NO org_id)
-  // ==========================================
+  // 12. E-Marksheets
   writeLine('-- ============================================');
   writeLine('-- 12. E-Marksheets');
   writeLine('-- ============================================');
@@ -1102,6 +1103,8 @@ async function generatePostgresSQL() {
     writeLine(` ON CONFLICT (id) DO NOTHING;`);
     writeLine('');
   }
+
+  // 13. Promo Codes
   writeLine(
     `INSERT INTO promo_codes(code, type, duration_days, amount, expires_at)VALUES('EARLYACCESS2026', 'trial_30day', 30, 100, '2026-12-31'),('FOUNDER30',       'trial_30day', 30, 100, '2026-12-31'),('LAUNCH30',        'trial_30day', 30, 100, '2026-12-31'),('MSBTE30',         'trial_30day', 30, 100, '2026-12-31'),('TESTFORGE30',     'trial_30day', 30, 100, '2026-12-31');`
   );
@@ -1129,6 +1132,9 @@ async function main() {
   console.log('🔗 Resolving order relationships...');
   resolveOrders();
   calculateExamDays();
+
+  // Resolve block allocation institutes AFTER students are loaded
+  resolveBlockAllocationInstitutes();
 
   console.log('📈 Data counts:');
   console.log(`   Subjects: ${data.subjects.length}`);

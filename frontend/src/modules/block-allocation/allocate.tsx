@@ -2,12 +2,12 @@
 
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useRouter } from 'next/navigation';
 
 import { format } from 'date-fns';
-import { AlertCircle, Calendar, Check, ChevronLeft, Trash2, X } from 'lucide-react';
+import { AlertCircle, Calendar, Check, ChevronLeft, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { MSBTEContextBar } from '@/components/layout/msbte-context-bar';
@@ -27,7 +27,6 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -43,7 +42,6 @@ import {
   clearLocalTimetable,
   clearSessionContext,
   getLocalAllocations,
-  getLocalTimetable,
   getSessionContext,
   hasLocalData,
   removeLocalAllocation,
@@ -140,14 +138,7 @@ interface AvailableBlocksProps {
   supervisorsAllocated?: Set<string>;
 }
 
-function AvailableBlocks({
-  blocks,
-  isLoading,
-  selectedBlockId,
-  onSelectBlock,
-  allocatedBlocks,
-  supervisorsAllocated,
-}: AvailableBlocksProps) {
+function AvailableBlocks({ blocks, isLoading, selectedBlockId, onSelectBlock, allocatedBlocks }: AvailableBlocksProps) {
   if (isLoading) {
     return (
       <div className="space-y-2">
@@ -403,7 +394,6 @@ function AssignmentForm({
   isSubmitting,
   blockRemainingCapacity,
   schemeRemainingStudents,
-  allocatedSupervisors,
   localAllocations,
   existingAllocationsByBlockScheme,
 }: AssignmentFormProps) {
@@ -414,23 +404,93 @@ function AssignmentForm({
   const schemeRemaining = schemeRemainingStudents?.get(selectedScheme) ?? selectedTimetableEntry?.totalStudents ?? 0;
 
   const maxCandidates = Math.min(schemeRemaining, blockRemaining);
+  const schemeDepartment = selectedScheme?.split('-')[0];
 
-  // Filter supervisors: different department AND not already assigned to ANY block in this session
+  // Get block allocations map for quick lookup
+  const blockAllocationMap = useMemo(() => {
+    const map = new Map<string, LocalAllocation>();
+    localAllocations.forEach(alloc => {
+      if (!map.has(alloc.blockName)) {
+        map.set(alloc.blockName, alloc);
+      }
+    });
+    return map;
+  }, [localAllocations]);
+
+  // Check if current block has any allocation
+  const currentBlockAllocation = blockAllocationMap.get(selectedBlock);
+  const currentBlockSupervisor = currentBlockAllocation?.supervisor || null;
+  const isBlockLocked = !!currentBlockAllocation;
+
+  // Get set of supervisors already assigned to blocks (excluding current block)
+  const assignedSupervisorsSet = useMemo(() => {
+    const set = new Set<string>();
+    localAllocations.forEach(alloc => {
+      if (alloc.blockName !== selectedBlock && alloc.supervisor) {
+        set.add(alloc.supervisor);
+      }
+    });
+    return set;
+  }, [localAllocations, selectedBlock]);
+
+  // Filter available schemes (only those with remaining students > 0)
+  const availableSchemes = useMemo(() => {
+    return timetable.filter(entry => (schemeRemainingStudents?.get(entry.scheme) ?? entry.totalStudents) > 0);
+  }, [timetable, schemeRemainingStudents]);
+
+  // Filter supervisors based on current context
   const filteredSupervisors = useMemo(() => {
-    if (!selectedScheme) return supervisors;
-    const schemeDepartment = selectedScheme.split('-')[0];
     return supervisors.filter(sup => {
-      // Different department check
+      // Skip if no scheme selected
+      if (!schemeDepartment) return false;
+
+      // Must be from different department
       if (sup.department === schemeDepartment) return false;
-      // One supervisor per block constraint (already assigned to ANY block)
-      if (allocatedSupervisors?.has(sup.uid)) return false;
+
+      // If block is locked, only allow the current block's supervisor
+      if (isBlockLocked) {
+        return sup.uid === currentBlockSupervisor;
+      }
+
+      // Exclude supervisors already assigned to other blocks
+      if (assignedSupervisorsSet.has(sup.uid)) {
+        return false;
+      }
+
       return true;
     });
-  }, [selectedScheme, supervisors, allocatedSupervisors]);
+  }, [supervisors, schemeDepartment, isBlockLocked, currentBlockSupervisor, assignedSupervisorsSet]);
+
+  // Reset supervisor when block changes and block is not locked
+  useEffect(() => {
+    if (!isBlockLocked) {
+      onSupervisorChange('');
+    }
+  }, [selectedBlock, isBlockLocked]);
+
+  // Set supervisor to locked supervisor when block is locked
+  useEffect(() => {
+    if (isBlockLocked && currentBlockSupervisor) {
+      onSupervisorChange(currentBlockSupervisor);
+    }
+  }, [selectedBlock, isBlockLocked, currentBlockSupervisor]);
 
   // Check if scheme already assigned to this block
-  const isSchemeAlreadyInBlock =
-    selectedBlock && selectedScheme && existingAllocationsByBlockScheme?.has(`${selectedBlock}-${selectedScheme}`);
+  const isSchemeAlreadyInBlock = useMemo(() => {
+    return (
+      selectedBlock && selectedScheme && existingAllocationsByBlockScheme?.has(`${selectedBlock}-${selectedScheme}`)
+    );
+  }, [selectedBlock, selectedScheme, existingAllocationsByBlockScheme]);
+
+  // Validation checks
+  const showDepartmentWarning =
+    selectedScheme &&
+    selectedSupervisor &&
+    supervisors.find(s => s.uid === selectedSupervisor)?.department === schemeDepartment;
+
+  const showSupervisorAllocatedWarning = selectedSupervisor && assignedSupervisorsSet.has(selectedSupervisor);
+
+  const showNoSupervisorsWarning = selectedScheme && filteredSupervisors.length === 0 && !isBlockLocked;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -446,22 +506,23 @@ function AssignmentForm({
     }
 
     if (isSchemeAlreadyInBlock) {
-      toast.error(
-        `Scheme ${selectedScheme} already assigned to block ${selectedBlock}. Please remove the existing allocation first.`
-      );
+      toast.error(`Scheme ${selectedScheme} already assigned to block ${selectedBlock}`);
       return;
     }
 
     await onSubmit();
   };
 
-  const isFormValid =
-    selectedScheme &&
-    selectedBlock &&
-    selectedSupervisor &&
-    candidateCount > 0 &&
-    maxCandidates > 0 &&
-    !isSchemeAlreadyInBlock;
+  const isFormValid = useMemo(() => {
+    return (
+      selectedScheme &&
+      selectedBlock &&
+      selectedSupervisor &&
+      candidateCount > 0 &&
+      maxCandidates > 0 &&
+      !isSchemeAlreadyInBlock
+    );
+  }, [selectedScheme, selectedBlock, selectedSupervisor, candidateCount, maxCandidates, isSchemeAlreadyInBlock]);
 
   if (timetable.length === 0) {
     return (
@@ -472,9 +533,6 @@ function AssignmentForm({
     );
   }
 
-  const existingBlockAllocation = localAllocations.find(a => a.blockName === selectedBlock);
-
-  const lockedSupervisor = existingBlockAllocation?.supervisor;
   return (
     <div className="space-y-2">
       <SectionHeader title="Assignment" />
@@ -485,7 +543,7 @@ function AssignmentForm({
             value={selectedScheme}
             onValueChange={onSchemeChange}
             placeholder="Select scheme"
-            items={timetable.map(entry => ({
+            items={availableSchemes.map(entry => ({
               value: entry.scheme,
               label: entry.scheme,
               sublabel: `${entry.subjectCode} · ${schemeRemainingStudents?.get(entry.scheme) ?? entry.totalStudents} remaining`,
@@ -506,14 +564,9 @@ function AssignmentForm({
 
           <div className="space-y-1">
             <label className="text-xs font-medium text-neutral-700 dark:text-neutral-300">Supervisor</label>
-            <Select
-              value={lockedSupervisor || selectedSupervisor}
-              onValueChange={onSupervisorChange}
-              disabled={!!lockedSupervisor}
-            >
-              {' '}
+            <Select value={selectedSupervisor} onValueChange={onSupervisorChange} disabled={isBlockLocked}>
               <SelectTrigger className="h-8 text-sm">
-                <SelectValue placeholder="Select supervisor" />
+                <SelectValue placeholder={isBlockLocked ? 'Supervisor locked' : 'Select supervisor'} />
               </SelectTrigger>
               <SelectContent>
                 {filteredSupervisors.map(sup => (
@@ -527,19 +580,43 @@ function AssignmentForm({
                   </SelectItem>
                 ))}
                 {filteredSupervisors.length === 0 && (
-                  <div className="px-2 py-4 text-center text-xs text-neutral-500">
-                    No available supervisors. All supervisors either:
-                    {selectedScheme && <div>• From same department ({selectedScheme.split('-')[0]})</div>}
-                    <div>• Already assigned to another block in this session</div>
-                  </div>
+                  <div className="px-2 py-4 text-center text-xs text-neutral-500">No available supervisors</div>
                 )}
               </SelectContent>
             </Select>
-            {selectedScheme && (
-              <p className="text-[10px] text-neutral-500">
-                Must be from different department than {selectedScheme.split('-')[0]} and not assigned to any block
+
+            {showDepartmentWarning && (
+              <p className="text-[10px] text-red-500">
+                Supervisor is from the same department as scheme ({schemeDepartment})
               </p>
             )}
+
+            {showSupervisorAllocatedWarning && (
+              <p className="text-[10px] text-amber-600">Supervisor already assigned to another block in this session</p>
+            )}
+
+            {showNoSupervisorsWarning && (
+              <p className="text-[10px] text-amber-600">
+                No available supervisors. Try selecting a different scheme or block.
+              </p>
+            )}
+
+            {isBlockLocked && currentBlockSupervisor && (
+              <p className="text-[10px] text-amber-600">
+                Supervisor locked for this block ({currentBlockSupervisor}). Remove all allocations for this block to
+                change.
+              </p>
+            )}
+
+            {selectedScheme &&
+              !isBlockLocked &&
+              !showDepartmentWarning &&
+              !showSupervisorAllocatedWarning &&
+              filteredSupervisors.length > 0 && (
+                <p className="text-[10px] text-neutral-500">
+                  Select supervisor from different department than {schemeDepartment}
+                </p>
+              )}
           </div>
 
           <div className="space-y-1">
@@ -558,12 +635,18 @@ function AssignmentForm({
                 {isSubmitting ? 'Assigning...' : 'Assign'}
               </Button>
             </div>
-            <div className="flex justify-between text-[10px] text-neutral-500">
-              <span>Students remaining: {schemeRemaining}</span>
-              <span>Block capacity: {blockRemaining}</span>
-            </div>
+
+            {selectedScheme && selectedBlock && (
+              <div className="flex justify-between text-[10px] text-neutral-500">
+                <span>Students remaining: {schemeRemaining}</span>
+                <span>Block capacity: {blockRemaining}</span>
+              </div>
+            )}
+
             {isSchemeAlreadyInBlock && (
-              <p className="text-[10px] text-red-500">Scheme already assigned to this block</p>
+              <p className="text-[10px] text-red-500">
+                Scheme {selectedScheme} already assigned to block {selectedBlock}
+              </p>
             )}
           </div>
         </form>
@@ -749,7 +832,6 @@ function UnsaveChangesDialog({
   open,
   onClose,
   onDiscard,
-  onContinue,
   allocationCount,
 }: {
   open: boolean;
@@ -881,7 +963,6 @@ function ExistingAllocationsDialog({
 // ============================================================================
 
 export default function BlockAllocationPage() {
-  const router = useRouter();
   const { examCenter, isLoading: userLoading } = useUserInfo();
 
   // Session state
@@ -919,7 +1000,7 @@ export default function BlockAllocationPage() {
   const [showExistingAllocations, setShowExistingAllocations] = useState(false);
   const [existingAllocations, setExistingAllocations] = useState<ExistingAllocation[]>([]);
   const [showUnsaveDialog, setShowUnsaveDialog] = useState(false);
-  const [pendingSessionChange, setPendingSessionChange] = useState<{ date: string; session: string } | null>(null);
+  const [, setPendingSessionChange] = useState<{ date: string; session: string } | null>(null);
 
   // Derived stats
   const totalBlocks = blocks.length;
@@ -976,42 +1057,6 @@ export default function BlockAllocationPage() {
     setExistingAllocationsByBlockScheme(newExistingPairs);
   }, [localAllocations, blocks, timetable]);
 
-  // Load saved session on mount
-  useEffect(() => {
-    const savedContext = getSessionContext();
-    if (savedContext && hasLocalData()) {
-      setSelectedDate(savedContext.date);
-      setSelectedSession(savedContext.session);
-      loadSessionData(savedContext.date, savedContext.session, true);
-    }
-  }, []);
-
-  // Load metadata
-  useEffect(() => {
-    const fetchMetadata = async () => {
-      setLoading(true);
-      const [datesResult, sessionsResult] = await Promise.all([getUniqueDates(), getUniqueSessions()]);
-      if (datesResult.success && datesResult.data) setDates(datesResult.data);
-      if (sessionsResult.success && sessionsResult.data) setSessions(sessionsResult.data);
-      setLoading(false);
-    };
-    fetchMetadata();
-  }, []);
-
-  // Load blocks and supervisors
-  useEffect(() => {
-    const fetchBlocksAndSupervisors = async () => {
-      setBlocksLoading(true);
-      setSupervisorsLoading(true);
-      const [blocksResult, supervisorsResult] = await Promise.all([getBlocks(), getSupervisors()]);
-      if (blocksResult.success && blocksResult.data) setBlocks(blocksResult.data);
-      if (supervisorsResult.success && supervisorsResult.data) setSupervisors(supervisorsResult.data);
-      setBlocksLoading(false);
-      setSupervisorsLoading(false);
-    };
-    fetchBlocksAndSupervisors();
-  }, []);
-
   const loadSessionData = async (date: string, session: string, fromLocal: boolean = false) => {
     setIsLoadingSession(true);
     try {
@@ -1061,9 +1106,16 @@ export default function BlockAllocationPage() {
       if (fromLocal) {
         const savedAllocations = getLocalAllocations();
         setLocalAllocations(savedAllocations);
+        // FIX: Populate allocated supervisors
+        const supervisorSet = new Set<string>();
+        savedAllocations.forEach(a => {
+          if (a.supervisor) supervisorSet.add(a.supervisor);
+        });
+        setAllocatedSupervisorsSet(supervisorSet);
       } else {
         clearLocalAllocations();
         setLocalAllocations([]);
+        setAllocatedSupervisorsSet(new Set());
       }
 
       // Save session context
@@ -1081,11 +1133,41 @@ export default function BlockAllocationPage() {
     }
   };
 
-  const handleConfirmSession = () => {
-    if (selectedDate && selectedSession) {
-      loadSessionData(selectedDate, selectedSession, false);
+  // Load saved session on mount
+  useEffect(() => {
+    const savedContext = getSessionContext();
+    if (savedContext && hasLocalData()) {
+      setSelectedDate(savedContext.date);
+      setSelectedSession(savedContext.session);
+      loadSessionData(savedContext.date, savedContext.session, true);
     }
-  };
+  }, []);
+
+  // Load metadata
+  useEffect(() => {
+    const fetchMetadata = async () => {
+      setLoading(true);
+      const [datesResult, sessionsResult] = await Promise.all([getUniqueDates(), getUniqueSessions()]);
+      if (datesResult.success && datesResult.data) setDates(datesResult.data);
+      if (sessionsResult.success && sessionsResult.data) setSessions(sessionsResult.data);
+      setLoading(false);
+    };
+    fetchMetadata();
+  }, []);
+
+  // Load blocks and supervisors
+  useEffect(() => {
+    const fetchBlocksAndSupervisors = async () => {
+      setBlocksLoading(true);
+      setSupervisorsLoading(true);
+      const [blocksResult, supervisorsResult] = await Promise.all([getBlocks(), getSupervisors()]);
+      if (blocksResult.success && blocksResult.data) setBlocks(blocksResult.data);
+      if (supervisorsResult.success && supervisorsResult.data) setSupervisors(supervisorsResult.data);
+      setBlocksLoading(false);
+      setSupervisorsLoading(false);
+    };
+    fetchBlocksAndSupervisors();
+  }, []);
 
   const handleNavigateToClear = () => {
     setShowExistingAllocations(false);
@@ -1093,17 +1175,6 @@ export default function BlockAllocationPage() {
     clearLocalTimetable();
     clearSessionContext();
     setLocalAllocations([]);
-  };
-
-  const handleSessionChange = (date: string, session: string) => {
-    if (localAllocations.length > 0) {
-      setPendingSessionChange({ date, session });
-      setShowUnsaveDialog(true);
-    } else {
-      setSelectedDate(date);
-      setSelectedSession(session);
-      loadSessionData(date, session, false);
-    }
   };
 
   const handleChangeSessionClick = () => {
@@ -1156,11 +1227,6 @@ export default function BlockAllocationPage() {
     toast.success('All local data cleared. You can now select a new session.');
   };
 
-  const handleContinueEditing = () => {
-    setShowUnsaveDialog(false);
-    setPendingSessionChange(null);
-  };
-
   const handleAssign = async () => {
     if (!selectedScheme || !selectedBlock || !selectedSupervisor || candidateCount <= 0) {
       toast.error('Please fill all fields');
@@ -1168,7 +1234,9 @@ export default function BlockAllocationPage() {
     }
 
     // Check supervisor not already assigned to another block
-    if (allocatedSupervisorsSet.has(selectedSupervisor)) {
+    const blockSupervisor = localAllocations.find(a => a.blockName === selectedBlock)?.supervisor;
+
+    if (allocatedSupervisorsSet.has(selectedSupervisor) && blockSupervisor !== selectedSupervisor) {
       toast.error('Supervisor already assigned to another block in this session');
       return;
     }
@@ -1209,6 +1277,7 @@ export default function BlockAllocationPage() {
     setSelectedScheme('');
     setSelectedBlock('');
     setSelectedSupervisor('');
+    setAllocatedSupervisorsSet(prev => new Set(prev).add(selectedSupervisor));
     setCandidateCount(0);
 
     toast.success(`Assigned ${candidateCount} students to ${selectedBlock} (saved locally)`);
@@ -1216,12 +1285,24 @@ export default function BlockAllocationPage() {
 
   const handleRemoveAllocation = (id: string) => {
     const allocation = localAllocations.find(a => a.id === id);
-    if (allocation) {
-      removeLocalAllocation(id);
-      setLocalAllocations(prev => prev.filter(a => a.id !== id));
-      updateLocalTimetable(allocation.scheme, -allocation.numberOfCandidates);
-      toast.info('Allocation removed from local changes');
+    if (!allocation) return;
+
+    removeLocalAllocation(id);
+    setLocalAllocations(prev => prev.filter(a => a.id !== id));
+    updateLocalTimetable(allocation.scheme, -allocation.numberOfCandidates);
+
+    // Check if supervisor still used
+    const remainingAllocations = localAllocations.filter(a => a.id !== id);
+    const stillUsed = remainingAllocations.some(a => a.supervisor === allocation.supervisor);
+    if (!stillUsed) {
+      setAllocatedSupervisorsSet(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(allocation.supervisor);
+        return newSet;
+      });
     }
+
+    toast.info('Allocation removed from local changes');
   };
 
   const handleSubmitAll = async () => {
@@ -1277,7 +1358,7 @@ export default function BlockAllocationPage() {
           toast.error(result.error || 'Failed to submit allocations');
         }
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to submit allocations');
     } finally {
       setIsSubmitting(false);

@@ -4,14 +4,12 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { format } from 'date-fns';
-import { AlertCircle, CalendarIcon, ChevronRight, Clock, Loader2, Zap } from 'lucide-react';
+import { AlertCircle, CalendarIcon, ChevronRight, Loader2, Zap } from 'lucide-react';
 
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SessionData, SessionInfo, SessionSelectorProps } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -23,13 +21,24 @@ import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 // Types
 // ============================================================================
 
+export type AllowedSession = 'Morning' | 'Afternoon' | 'All';
+
 // ============================================================================
-// TEMPORARY: Quick Select Configuration
+// Constants
 // ============================================================================
+
+const SESSION_OPTIONS: AllowedSession[] = ['Morning', 'Afternoon', 'All'];
+
+const SESSION_DETAILS: Record<AllowedSession, { label: string; time: string; value: string }> = {
+  Morning: { label: 'Morning', time: '09:00 AM – 12:00 PM', value: 'Morning' },
+  Afternoon: { label: 'Afternoon', time: '02:00 PM – 05:00 PM', value: 'Afternoon' },
+  All: { label: 'All Sessions', time: 'Morning + Afternoon', value: 'all' },
+};
+
 const QUICK_SELECT = {
-  date: '2024-12-17',
-  session: 'Afternoon' as const,
-  enabled: true, // Set to false to hide the button
+  date: '2024-12-04',
+  session: 'Morning' as const,
+  enabled: true,
 };
 
 // ============================================================================
@@ -40,11 +49,10 @@ export function SessionSelector({
   onSessionSelect,
   onCancel,
   availableDates = [],
-  availableSessions = ['Morning', 'Afternoon'],
   isLoading = false,
   error: externalError = null,
   defaultDate = '',
-  defaultSession = '',
+  defaultSession = 'Morning',
   title = 'Select Examination Session',
   description = 'Choose a date and session to continue',
   className,
@@ -55,9 +63,13 @@ export function SessionSelector({
   showMetadata = false,
   metadataRenderer,
   actions = [],
-}: SessionSelectorProps) {
+  hideSession = false,
+}: SessionSelectorProps & { hideSession?: boolean }) {
   const [selectedDate, setSelectedDate] = useState(defaultDate);
-  const [selectedSession, setSelectedSession] = useState(defaultSession);
+  // When hideSession is true, default to 'All', otherwise use defaultSession
+  const [selectedSession, setSelectedSession] = useState<AllowedSession>(
+    hideSession ? 'All' : (defaultSession as AllowedSession)
+  );
   const [isValidating, setIsValidating] = useState(false);
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -72,8 +84,10 @@ export function SessionSelector({
   }, [defaultDate]);
 
   useEffect(() => {
-    if (defaultSession) setSelectedSession(defaultSession);
-  }, [defaultSession]);
+    if (defaultSession && !hideSession) {
+      setSelectedSession(defaultSession as AllowedSession);
+    }
+  }, [defaultSession, hideSession]);
 
   // Handle date change
   const handleDateChange = (value: string) => {
@@ -84,7 +98,7 @@ export function SessionSelector({
   };
 
   // Handle session change
-  const handleSessionChange = (value: string) => {
+  const handleSessionChange = (value: AllowedSession) => {
     setSelectedSession(value);
     setValidationError(null);
     setSessionData(null);
@@ -103,7 +117,6 @@ export function SessionSelector({
     onDateChange?.(QUICK_SELECT.date);
     onSessionChange?.(QUICK_SELECT.session);
 
-    // Auto confirm
     if (validateSession) {
       setIsValidating(true);
       try {
@@ -133,12 +146,14 @@ export function SessionSelector({
       return;
     }
 
+    const sessionValue = SESSION_DETAILS[selectedSession].value;
+
     if (validateSession) {
       setIsValidating(true);
       setValidationError(null);
 
       try {
-        const result = await validateSession(selectedDate, selectedSession);
+        const result = await validateSession(selectedDate, sessionValue);
 
         if (!result.valid) {
           setValidationError(result.message || 'Invalid session selection');
@@ -156,13 +171,16 @@ export function SessionSelector({
       }
     }
 
-    await onSessionSelect({ date: selectedDate, session: selectedSession as 'Morning' | 'Afternoon' });
+    await onSessionSelect({
+      date: selectedDate,
+      session: sessionValue as 'Morning' | 'Afternoon',
+    });
   };
 
   // Handle cancel
   const handleCancel = () => {
     setSelectedDate('');
-    setSelectedSession('');
+    setSelectedSession('All');
     setValidationError(null);
     setSessionData(null);
     onCancel?.();
@@ -178,7 +196,7 @@ export function SessionSelector({
         </CardHeader>
         <CardContent className={compact ? 'space-y-3' : 'space-y-4'}>
           <Skeleton className="h-9 w-full" />
-          <Skeleton className="h-9 w-full" />
+          {!hideSession && <Skeleton className="h-9 w-full" />}
           <Skeleton className="h-9 w-24" />
         </CardContent>
       </Card>
@@ -187,7 +205,6 @@ export function SessionSelector({
 
   return (
     <Card className={cn('mx-auto w-auto shadow-sm', className, compact && 'max-w-xl')}>
-      {/* TEMPORARY: Quick Select Button - Shows only when enabled */}
       {QUICK_SELECT.enabled && (
         <div className="m-auto">
           <Button
@@ -218,7 +235,6 @@ export function SessionSelector({
             <PopoverTrigger asChild>
               <Button variant="outline" className="w-full justify-start text-left font-normal">
                 <CalendarIcon className="mr-2 h-4 w-4" />
-
                 {selectedDate ? format(new Date(selectedDate), 'dd MMMM yyyy') : 'Select examination date'}
               </Button>
             </PopoverTrigger>
@@ -237,7 +253,6 @@ export function SessionSelector({
                 }}
                 disabled={date => {
                   const dateString = format(date, 'yyyy-MM-dd');
-
                   return !availableDates.some(d => format(d, 'yyyy-MM-dd') === dateString);
                 }}
               />
@@ -245,43 +260,53 @@ export function SessionSelector({
           </Popover>
         </div>
 
-        {/* Session Selector */}
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => handleSessionChange('Morning')}
-            className={cn(
-              'rounded-lg border p-4 text-left transition-all',
-              selectedSession === 'Morning' ? 'border-primary bg-primary/5' : 'hover:border-muted-foreground/30'
-            )}
-          >
-            <p className="font-medium">Morning</p>
-            <p className="text-muted-foreground text-xs">09:00 AM – 12:00 PM</p>
-          </button>
+        {/* Session Selector - Only show if not hidden */}
+        {!hideSession && (
+          <div className="grid grid-cols-3 gap-2">
+            {SESSION_OPTIONS.map(session => {
+              const isSelected = selectedSession === session;
+              const details = SESSION_DETAILS[session];
+              const isAll = session === 'All';
 
-          <button
-            type="button"
-            onClick={() => handleSessionChange('Afternoon')}
-            className={cn(
-              'rounded-lg border p-4 text-left transition-all',
-              selectedSession === 'Afternoon' ? 'border-primary bg-primary/5' : 'hover:border-muted-foreground/30'
-            )}
-          >
-            <p className="font-medium">Afternoon</p>
-            <p className="text-muted-foreground text-xs">02:00 PM – 05:00 PM</p>
-          </button>
-        </div>
+              return (
+                <button
+                  key={session}
+                  type="button"
+                  onClick={() => handleSessionChange(session)}
+                  className={cn(
+                    'rounded-lg border p-3 text-center transition-all',
+                    isSelected
+                      ? 'border-primary bg-primary/5 ring-primary/20 ring-2'
+                      : 'hover:border-muted-foreground/30',
+                    isAll && 'border-dashed'
+                  )}
+                >
+                  <p className="text-sm font-medium">{details.label}</p>
+                  <p className="text-muted-foreground text-[10px]">{details.time}</p>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Show selected session when hidden */}
+        {hideSession && (
+          <div className="text-muted-foreground text-center text-sm">
+            <span className="font-medium">Session:</span> All Sessions
+          </div>
+        )}
 
         {/* Metadata Display */}
         {showMetadata && sessionData && metadataRenderer && (
           <div className="bg-muted/50 rounded-md p-3">{metadataRenderer(sessionData)}</div>
         )}
 
-        {/* Error Display */}
+        {/* Error Alert */}
         {error && (
-          <Alert variant="destructive" className="py-2">
-            <AlertCircle className="h-3.5 w-3.5" />
-            <AlertDescription className="text-xs">{error}</AlertDescription>
+          <Alert variant="destructive" className="mt-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
 
@@ -332,26 +357,33 @@ export function SessionSelector({
 }
 
 // ============================================================================
-// Compact Version for Sidebars/Modals
+// Compact Version
 // ============================================================================
 
-export function CompactSessionSelector(props: Omit<SessionSelectorProps, 'compact'>) {
+export function CompactSessionSelector(props: Omit<SessionSelectorProps, 'compact'> & { hideSession?: boolean }) {
   return <SessionSelector {...props} compact />;
 }
 
 // ============================================================================
-// Hook for managing session state
+// Hook
 // ============================================================================
 
 export interface UseSessionSelectorOptions {
   initialDate?: string;
-  initialSession?: string;
+  initialSession?: AllowedSession;
   autoLoad?: boolean;
   onSessionChange?: (session: SessionInfo) => void;
+  hideSession?: boolean;
 }
 
 export function useSessionSelector(options: UseSessionSelectorOptions = {}) {
-  const { initialDate = '', initialSession = '', autoLoad = false, onSessionChange } = options;
+  const {
+    initialDate = '',
+    initialSession = 'Morning',
+    autoLoad = false,
+    onSessionChange,
+    hideSession = false,
+  } = options;
 
   const [selectedSession, setSelectedSession] = useState<SessionInfo | null>(null);
   const [isSelecting, setIsSelecting] = useState(false);
@@ -379,12 +411,11 @@ export function useSessionSelector(options: UseSessionSelectorOptions = {}) {
     setError(null);
   }, []);
 
-  // Auto-load initial session if provided
   useEffect(() => {
-    if (autoLoad && initialDate && initialSession && !selectedSession) {
+    if (autoLoad && initialDate && initialSession && !selectedSession && !hideSession) {
       selectSession({ date: initialDate, session: initialSession as 'Morning' | 'Afternoon' });
     }
-  }, [autoLoad, initialDate, initialSession, selectedSession, selectSession]);
+  }, [autoLoad, initialDate, initialSession, selectedSession, selectSession, hideSession]);
 
   return {
     selectedSession,

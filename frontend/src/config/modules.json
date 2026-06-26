@@ -9,84 +9,91 @@
             "route": "/dashboard",
             "order": 1
         },
-    {
-        "id": "exam-setup",
-        "name": "Exam Setup",
-        "icon": "Settings2",
-        "description": "Configure everything before exams begin",
-        "route": "/exam-setup",
-        "order": 2,
-        "children": [
-            {
-                "id": "center-profile",
-                "name": "Exam Center",
-                "description": "Set up center details, address, and key personnel",
-                "route": "/exam-setup/center-profile",
-                "icon": "Building2"
-            },
-            {
-                "id": "timetable",
-                "name": "Timetable",
-                "description": "Upload examination schedule",
-                "route": "/exam-setup/timetable",
-                "icon": "CalendarDays"
-            },
-            {
-                "id": "supervisors",
-                "name": "Supervisors",
-                "description": "Manage supervisor profiles",
-                "route": "/exam-setup/supervisors",
-                "icon": "UserCog"
-            },
-            {
-                "id": "relievers",
-                "name": "Relievers",
-                "description": "Manage reliever staff",
-                "route": "/exam-setup/relievers",
-                "icon": "Users2"
-            },
-            {
-                "id": "control-room",
-                "name": "Control Room",
-                "description": "Configure control room personnel",
-                "route": "/exam-setup/control-room",
-                "icon": "Radio"
-            },
-            {
-                "id": "seating-chart",
-                "name": "Seating Chart",
-                "description": "Upload institute-wise seating charts",
-                "route": "/exam-setup/seating-chart",
-                "icon": "Grid2x2"
-            },
-            {
-                "id": "seating-arrangement",
-                "name": "Seating Arrangement",
-                "description": "Final seating arrangement with block mapping",
-                "route": "/exam-setup/seating-arrangement",
-                "icon": "LayoutGrid"
-            },
-            {
-                "id": "emarksheet",
-                "name": "E-Marksheet",
-                "description": "Upload e-marksheet data",
-                "route": "/exam-setup/emarksheet",
-                "icon": "FileSpreadsheet"
-            },
-            {
-                "id": "qp-inventory",
-                "name": "Inventory",
-                "description": "Upload question paper inventory",
-                "route": "/exam-setup/qp-inventory",
-                "icon": "Package"
-            }
-        ]
-    },
+        {
+            "id": "exam-setup",
+            "name": "Exam Setup",
+            "icon": "Settings2",
+            "description": "Configure everything before exams begin",
+            "route": "/exam-setup",
+            "order": 2,
+            "children": [
+                {
+                    "id": "center-profile",
+                    "name": "Exam Center",
+                    "description": "Set up center details, address, and key personnel",
+                    "route": "/exam-setup/center-profile",
+                    "icon": "Building2"
+                },
+                {
+                    "id": "blocks",
+                    "name": "Block Configuration",
+                    "description": "Configure institution classrooms & blocks",
+                    "route": "/exam-setup/block",
+                    "icon": "Blocks"
+                },
+                {
+                    "id": "timetable",
+                    "name": "Timetable",
+                    "description": "Upload examination schedule",
+                    "route": "/exam-setup/timetable",
+                    "icon": "CalendarDays"
+                },
+                {
+                    "id": "supervisors",
+                    "name": "Supervisors",
+                    "description": "Manage supervisor profiles",
+                    "route": "/exam-setup/supervisors",
+                    "icon": "UserCog"
+                },
+                {
+                    "id": "relievers",
+                    "name": "Relievers",
+                    "description": "Manage reliever staff",
+                    "route": "/exam-setup/relievers",
+                    "icon": "Users2"
+                },
+                {
+                    "id": "control-room",
+                    "name": "Control Room",
+                    "description": "Configure control room personnel",
+                    "route": "/exam-setup/control-room",
+                    "icon": "Radio"
+                },
+                {
+                    "id": "seating-chart",
+                    "name": "Seating Chart",
+                    "description": "Upload institute-wise seating charts",
+                    "route": "/exam-setup/seating-chart",
+                    "icon": "Grid2x2"
+                },
+                {
+                    "id": "seating-arrangement",
+                    "name": "Seating Arrangement",
+                    "description": "Final seating arrangement with block mapping",
+                    "route": "/exam-setup/seating-arrangement",
+                    "icon": "LayoutGrid"
+                },
+                {
+                    "id": "emarksheet",
+                    "name": "E-Marksheet",
+                    "description": "Upload e-marksheet data",
+                    "route": "/exam-setup/emarksheet",
+                    "icon": "FileSpreadsheet"
+                },
+                {
+                    "id": "qp-inventory",
+                    "name": "Inventory",
+                    "description": "Upload question paper inventory",
+                    "route": "/exam-setup/qp-inventory",
+                    "icon": "Package"
+                }
+            ]
+        },
         {
             "id": "block-allocation",
             "name": "Block Allocation",
             "icon": "Grid3x3",
-            "description": "Assign duties to examination staff",
+            "description": "Assign students and staff to examination blocks",
             "route": "/block-allocation",
             "order": 3,
             "children": [
@@ -97,7 +104,6 @@
                     "route": "/block-allocation/allocate",
                     "icon": "Map"
                 },
-
                 {
                     "id": "change-supervisor",
                     "name": "Change Supervisor",
@@ -186,6 +192,13 @@
                     "tooltip": "Format 3A - QP Verification"
                 },
                 {
+                    "id": "f4",
+                    "name": "Format 4",
+                    "description": "QP Packet Verification",
+                    "route": "/msbte-reports/f4",
+                    "icon": "FileCheck"
+                },
+                {
                     "id": "f5",
                     "name": "Format 5",
                     "description": "Attendance Register",
@@ -268,10 +281,10 @@
                 {
                     "id": "f15",
                     "name": "Format 15",
-                    "description": "Absent Candidates",
+                    "description": "Show Cause Notice",
                     "route": "/msbte-reports/f15",
                     "icon": "UserMinus",
-                    "tooltip": "Format 15 - Absent Candidates List"
+                    "tooltip": "Format 15 - Show Cause Notice"
                 },
                 {
                     "id": "f16",
@@ -284,10 +297,10 @@
                 {
                     "id": "f17",
                     "name": "Format 17",
-                    "description": "UFM Report",
+                    "description": "Bharari Squad Report",
                     "route": "/msbte-reports/f17",
                     "icon": "Gavel",
-                    "tooltip": "Format 17 - Unfair Means Report"
+                    "tooltip": "Format 17 - Bharari Squad Report"
                 },
                 {
                     "id": "f18",
@@ -345,13 +358,6 @@
                     "description": "Paper code to block mapping",
                     "route": "/testforge-reports/subject-allocation",
                     "icon": "FileCode"
-                },
-                {
-                    "id": "allotment-details",
-                    "name": "Allotment Details",
-                    "description": "Complete block allotment",
-                    "route": "/testforge-reports/allotment-details",
-                    "icon": "LayoutGrid"
                 },
                 {
                     "id": "block-allocation",

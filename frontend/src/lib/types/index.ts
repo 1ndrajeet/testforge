@@ -61,7 +61,7 @@ export interface StaffAllocation {
 // Timetable Types
 // ============================================
 
-export type SessionType = 'Morning' | 'Afternoon';
+export type SessionType = 'Morning' | 'Afternoon' | 'All';
 
 export interface TimetableEntry {
   id: string;
@@ -128,8 +128,11 @@ export interface AllocationStats {
   dates: Date[];
 }
 
+// lib/types/index.ts - Update PackingSlipEntry
+
 export interface PackingSlipEntry {
   instituteCode: string;
+  instituteName: string; // ADD THIS
   date: string;
   session: string;
   timeSlot: string;
@@ -141,7 +144,6 @@ export interface PackingSlipEntry {
   absentNumbers: number[];
   cpsNumbers: number[];
 }
-
 export interface SupervisionReportEntry {
   blockNo: string;
   location: string;
@@ -269,6 +271,7 @@ export interface Student {
 // Block Types
 // ============================================
 
+// lib/types/index.ts
 export interface Block {
   id: string;
   examCenterId: string;
@@ -277,6 +280,7 @@ export interface Block {
   name: string;
   strength: number;
   distribution: number[];
+  template: number; // Add this
   isDeleted: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -617,7 +621,7 @@ export interface ExistingCheckResponse {
 }
 export interface SessionInfo {
   date: string;
-  session: 'Morning' | 'Afternoon';
+  session: 'Morning' | 'Afternoon' | 'All' | 'All';
 }
 
 export interface SessionData {

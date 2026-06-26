@@ -1,0 +1,1 @@
+ALTER TABLE "exam_centers" ADD COLUMN "exam_controller" text;

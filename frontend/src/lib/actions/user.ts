@@ -81,7 +81,7 @@ export async function getUserBasicInfo() {
           }
         : null,
     };
-  } catch (error) {
+  } catch {
     return { success: false, error: 'Failed to fetch user', data: null };
   }
 }
@@ -104,7 +104,7 @@ export async function getUserOrganization() {
           }
         : null,
     };
-  } catch (error) {
+  } catch {
     return { success: false, error: 'Failed to fetch organization', data: null };
   }
 }
@@ -129,7 +129,7 @@ export async function getUserExamCenter() {
           }
         : null,
     };
-  } catch (error) {
+  } catch {
     return { success: false, error: 'Failed to fetch exam center', data: null };
   }
 }

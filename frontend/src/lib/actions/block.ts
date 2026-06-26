@@ -1,4 +1,4 @@
-// lib/actions/blocks.ts
+// lib/actions/block.ts
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -24,6 +24,7 @@ const CreateBlockSchema = z.object({
   name: z.string().min(1, 'Block name is required'),
   strength: z.number().int().min(1, 'Strength must be at least 1'),
   distribution: z.array(z.number()).default([10, 10, 10, 10]),
+  template: z.number().int().default(1),
 });
 
 const UpdateBlockSchema = CreateBlockSchema.partial().extend({
@@ -53,6 +54,7 @@ export async function getBlocks(): Promise<{ success: true; data: Block[] } | { 
     const normalizedBlockList: Block[] = blockList.map(block => ({
       ...block,
       distribution: block.distribution ?? [10, 10, 10, 10],
+      template: block.template ?? 1, // Add this line
     }));
 
     logger.debug(MODULE_FN, `Fetched ${normalizedBlockList.length} blocks`);
@@ -190,6 +192,7 @@ export async function createBlock(data: z.infer<typeof CreateBlockSchema>) {
       id: created.id,
       blockNo: created.blockNo,
       location: created.location,
+      template: created.template,
     });
     revalidatePath('/exam-center/exam-setup/blocks');
 

@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 
-import { and, eq, sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { db } from '@/lib/db';

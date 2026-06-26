@@ -5,7 +5,6 @@ import { memo, useEffect, useState } from 'react';
 
 import { useTheme } from 'next-themes';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 
 import { AnimatePresence, motion } from 'framer-motion';
 import { Bell, Building2, DollarSign, LogOut, Menu, Moon, Settings, Sun, User, X } from 'lucide-react';
@@ -141,7 +140,6 @@ const HamburgerButton = memo(() => {
 HamburgerButton.displayName = 'HamburgerButton';
 
 function UserMenu({ user, subscription }: { user: HeaderProps['user']; subscription: HeaderProps['subscription'] }) {
-  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
 
   const handleSignOut = async () => {

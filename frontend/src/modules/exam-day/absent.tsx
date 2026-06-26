@@ -1,16 +1,26 @@
-// modules/exam-day-edits/absent-marking.tsx
+// modules/exam-day-edits/absent.tsx
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { format } from 'date-fns';
-import { AlertCircle, CheckCircle2, ChevronLeft, Copy, Loader2, RefreshCw, Save, Search, UserX } from 'lucide-react';
+import {
+  AlertCircle,
+  Check,
+  CheckCircle2,
+  ChevronLeft,
+  Copy,
+  Loader2,
+  RefreshCw,
+  Save,
+  Search,
+  UserX,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import { MSBTEContextBar } from '@/components/layout/msbte-context-bar';
 import { PageHeader } from '@/components/layout/page-layout';
 import { SessionSelector } from '@/components/shared/date-selector';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -541,7 +551,7 @@ function SeatGrid({
                       checkmarkColor
                     )}
                   >
-                    ✓
+                    <Check className="h-4 w-4 text-green-500" />
                   </div>
                 )}
               </button>
@@ -669,8 +679,7 @@ function ConfirmDialog({
 async function fetchMarkedData(
   schemes: SchemeData[],
   date: Date,
-  session: string,
-  CURRENT_CONFIG: ExamDayEditConfig
+  session: string
 ): Promise<Map<string, { absent: number[]; cps: number[] }>> {
   const markedMap = new Map<string, { absent: number[]; cps: number[] }>();
 
@@ -793,7 +802,7 @@ export default function ExamDayEditsPage({ mode = 'absent' }: { mode?: Mode }) {
           blockLocation: alloc.location || '?',
         }));
 
-        const markedMap = await fetchMarkedData(rawSchemes, new Date(date), session, CURRENT_CONFIG);
+        const markedMap = await fetchMarkedData(rawSchemes, new Date(date), session);
 
         const schemesWithData = rawSchemes.map(scheme => ({
           ...scheme,
@@ -816,7 +825,7 @@ export default function ExamDayEditsPage({ mode = 'absent' }: { mode?: Mode }) {
     [CURRENT_CONFIG]
   );
 
-  const handleSessionSelect = async (session: { date: string; session: 'Morning' | 'Afternoon' }) => {
+  const handleSessionSelect = async (session: { date: string; session: 'Morning' | 'Afternoon' | 'All' }) => {
     setSelectedDate(session.date);
     setSelectedSession(session.session);
     await loadData(session.date, session.session);
@@ -933,7 +942,7 @@ export default function ExamDayEditsPage({ mode = 'absent' }: { mode?: Mode }) {
         const errorMsg = typeof result.error === 'string' ? result.error : 'Failed to save';
         toast.error(errorMsg);
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to save');
     } finally {
       setSaving(false);

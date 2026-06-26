@@ -74,7 +74,7 @@ export async function validatePromoCode(code: string) {
 // Apply trial promo (creates ₹1 payment)
 export async function applyTrialPromo(code: string) {
   try {
-    const { org, orgId } = await getCurrentOrg();
+    const { orgId } = await getCurrentOrg();
 
     // Validate promo
     const validation = await validatePromoCode(code);

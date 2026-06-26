@@ -23,7 +23,6 @@ export default function LoginPage() {
   const router = useRouter();
   const { setOrganizationFromDB, setExamCenterFromDB, reset } = useAppStore();
 
-
   // Clear stale state on mount
   useEffect(() => {
     reset();
@@ -119,7 +118,7 @@ export default function LoginPage() {
           setError(result.error.message || 'Signup failed');
         }
       }
-    } catch (err) {
+    } catch {
       setError('An unexpected error occurred');
     } finally {
       setLoading(false);

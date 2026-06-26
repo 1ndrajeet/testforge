@@ -36,7 +36,6 @@ qp_inventory,
 session,
 staff,
 students,
-subjects,
 timetable,
 \"user\",
 verification

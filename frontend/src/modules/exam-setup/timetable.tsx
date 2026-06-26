@@ -4,23 +4,20 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { format } from 'date-fns';
-import { Calendar, ChevronLeft, ChevronRight, RefreshCw, Trash2, Upload } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Download, RefreshCw, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { MSBTEContextBar } from '@/components/layout/msbte-context-bar';
 import { PageEmpty, PageHeader, PageToolbar } from '@/components/layout/page-layout';
+import { UniversalFileUploader } from '@/components/shared/file-uploader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useUserInfo } from '@/hooks/useUserInfo';
-import { deleteAllTimetable, getTimetable, getTimetableStats, hasTimetable } from '@/lib/actions/timetable';
+import { getTimetable, getTimetableStats, hasTimetable } from '@/lib/actions/timetable';
 import { TimetableEntry, TimetableStats } from '@/lib/types';
 import { cn } from '@/lib/utils';
-
-// ============================================================================
-// Types
-// ============================================================================
 
 // ============================================================================
 // Helper Functions
@@ -213,7 +210,6 @@ export default function TimetablePage() {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 25;
 
-  // In component, fix fetchData:
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -232,14 +228,43 @@ export default function TimetablePage() {
       if (statsResult.success && statsResult.data) {
         setStats(statsResult.data);
       }
-
-      setShowUpload(!hasDataResult.data);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to load timetable');
     } finally {
       setLoading(false);
     }
   }, []);
+  const handleExport = () => {
+    if (!filteredEntries.length) {
+      toast.error('No data to export');
+      return;
+    }
+
+    const headers = ['Date', 'Session', 'Subject Code', 'Subject Name', 'Scheme', 'Students'];
+
+    const rows = filteredEntries.map(entry => [
+      format(entry.date, 'dd/MM/yyyy'),
+      entry.session,
+      entry.subjectCode,
+      entry.subjectName,
+      entry.scheme,
+      entry.totalStudents,
+    ]);
+
+    const csv = [headers, ...rows].map(row => row.map(cell => `"${cell ?? ''}"`).join(',')).join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'timetable.csv';
+    a.click();
+
+    URL.revokeObjectURL(url);
+
+    toast.success('Exported successfully');
+  };
 
   useEffect(() => {
     fetchData();
@@ -249,7 +274,16 @@ export default function TimetablePage() {
     return [...new Set(entries.map(e => e.scheme))].sort();
   }, [entries]);
 
+  // Use useMemo with proper dependencies
   const filteredEntries = useMemo(() => {
+    // If no filters are active, return entries directly (optimization)
+    const hasActiveFilters =
+      filters.subjectCode || filters.subjectName || filters.session || filters.scheme || filters.date;
+
+    if (!hasActiveFilters) {
+      return entries;
+    }
+
     return entries.filter(entry => {
       if (filters.subjectCode && !entry.subjectCode.toLowerCase().includes(filters.subjectCode.toLowerCase())) {
         return false;
@@ -267,7 +301,7 @@ export default function TimetablePage() {
       }
       return true;
     });
-  }, [entries, filters]);
+  }, [entries, filters.subjectCode, filters.subjectName, filters.session, filters.scheme, filters.date]);
 
   const sortedEntries = useMemo(() => {
     const sorted = [...filteredEntries];
@@ -331,20 +365,12 @@ export default function TimetablePage() {
     setCurrentPage(1);
   };
 
-  const handleDeleteAll = async () => {
-    if (!confirm('This will delete ALL timetable entries. This action cannot be undone. Are you sure?')) return;
-    try {
-      const result = await deleteAllTimetable();
-      if (!result.success) {
-        throw new Error(result.error);
-      }
-      toast.success('All entries deleted');
-      await fetchData();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to delete');
-    }
+  const handleUploadSuccess = () => {
+    toast.success('Timetable uploaded successfully!');
+    fetchData();
+    setShowUpload(false);
   };
-  // Filter bar options
+
   const filterOptions = [
     {
       id: 'session',
@@ -365,25 +391,18 @@ export default function TimetablePage() {
 
   const toolbarActions = [
     {
+      id: 'export',
+      label: 'Export',
+      icon: <Download className="h-3.5 w-3.5" />,
+      onClick: handleExport,
+      variant: 'ghost' as const,
+    },
+    {
       id: 'refresh',
       label: 'Refresh',
       icon: <RefreshCw className="h-3.5 w-3.5" />,
       onClick: fetchData,
       variant: 'outline' as const,
-    },
-    {
-      id: 'upload',
-      label: 'Upload',
-      icon: <Upload className="h-3.5 w-3.5" />,
-      onClick: () => setShowUpload(!showUpload),
-      variant: 'outline' as const,
-    },
-    {
-      id: 'delete',
-      label: 'Delete All',
-      icon: <Trash2 className="h-3.5 w-3.5" />,
-      onClick: handleDeleteAll,
-      variant: 'destructive' as const,
     },
   ];
 
@@ -391,31 +410,43 @@ export default function TimetablePage() {
   if ((loading && hasData === null) || userLoading) {
     return (
       <div className="space-y-6">
-        <div className="space-y-2">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-4 w-64" />
-        </div>
+        <Skeleton className="h-8 w-48" />
         <Skeleton className="h-24 w-full" />
         <Skeleton className="h-96 w-full" />
       </div>
     );
   }
 
-  // Show upload screen when no data
-  if (!hasData && !loading) {
+  // Upload screen (no data OR upload button clicked)
+  if (!hasData || showUpload) {
     return (
-      <div>
-        <PageHeader
-          title="Examination Timetable"
-          description="Upload the MSBTE timetable to begin exam configuration."
-          icon={Calendar}
-        />
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <PageHeader
+            title="Examination Timetable"
+            description="Upload the MSBTE timetable to begin exam configuration."
+            icon={Calendar}
+          />
+          {hasData && (
+            <Button variant="ghost" size="sm" onClick={() => setShowUpload(false)}>
+              Cancel
+            </Button>
+          )}
+        </div>
         <MSBTEContextBar season={examCenter?.season as 'Summer' | 'Winter'} year={examCenter?.examYear!} />
-        {/* <UploadSection onSuccess={fetchData} /> */} {/* Implemented as shared screen  */}
+        <div className="rounded-lg border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-950">
+          <UniversalFileUploader
+            fileType="timetable"
+            ecCode={examCenter?.code || ''}
+            onSuccess={handleUploadSuccess}
+            onProcessingComplete={handleUploadSuccess}
+          />
+        </div>
       </div>
     );
   }
 
+  // Table view
   return (
     <div>
       <PageHeader
@@ -423,22 +454,17 @@ export default function TimetablePage() {
         description="View and manage your examination schedule."
         icon={Calendar}
         actions={
-          <Button variant="ghost" size="sm" onClick={() => setShowUpload(!showUpload)} className="gap-1.5">
+          <Button variant="outline" size="sm" onClick={() => setShowUpload(true)} className="gap-1.5">
             <Upload className="h-4 w-4" />
-            {showUpload ? 'Hide Upload' : 'Upload New'}
+            Upload New
           </Button>
         }
       />
 
       <MSBTEContextBar season={examCenter?.season as 'Summer' | 'Winter'} year={examCenter?.examYear!} />
 
-      {/* Conditional Upload Section */}
-      {showUpload && <div className="mb-8">{/* <UploadSection onSuccess={fetchData} /> */}</div>}
-
-      {/* Stats Cards */}
       {stats && <StatsCards stats={stats} />}
 
-      {/* Toolbar with Filters */}
       <PageToolbar
         filters={filterOptions}
         onFilterChange={(id, value) => {
@@ -458,7 +484,6 @@ export default function TimetablePage() {
         actions={toolbarActions}
       />
 
-      {/* Results info */}
       <div className="mb-3 flex items-center justify-between">
         <p className="text-xs text-neutral-500">
           {filteredEntries.length} record{filteredEntries.length !== 1 ? 's' : ''}
@@ -490,10 +515,8 @@ export default function TimetablePage() {
         )}
       </div>
 
-      {/* Data Table */}
       <DataTable entries={paginatedEntries} sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
 
-      {/* Filters reset when filters are active */}
       {Object.values(filters).some(v => v !== '') && (
         <div className="mt-4 flex justify-end">
           <Button variant="ghost" size="sm" onClick={handleClearFilters} className="text-xs">

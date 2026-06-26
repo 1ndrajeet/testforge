@@ -1,3 +1,4 @@
+import { relations } from 'drizzle-orm';
 import { boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 
 // ============================================
@@ -181,6 +182,7 @@ export const examCenters = pgTable(
     address: text('address'),
     officerIncharge: text('officer_incharge'),
     sealingSupervisor: text('sealing_supervisor'),
+    examController: text('exam_controller'),
     distCenterCode: text('dist_center_code'),
     distCenterName: text('dist_center_name'),
     season: text('season'),
@@ -298,6 +300,7 @@ export const blocks = pgTable(
     name: text('name').notNull(),
     strength: integer('strength').notNull(),
     distribution: jsonb('distribution').$type<number[]>().default([10, 10, 10, 10]),
+    template: integer('template').default(1),
     isDeleted: boolean('is_deleted').default(false).notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -311,11 +314,12 @@ export const blocks = pgTable(
 // Timetable
 // ============================================
 
+// lib/db/schema.ts - Add this to timetable table definition
+
 export const timetable = pgTable(
   'timetable',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-
     examCenterId: uuid('exam_center_id')
       .notNull()
       .references(() => examCenters.id, { onDelete: 'cascade' }),
@@ -331,6 +335,7 @@ export const timetable = pgTable(
     totalStudents: integer('total_students').default(0),
     absentNumbers: jsonb('absent_numbers').$type<number[]>().default([]),
     cpsStudents: jsonb('cps_students').$type<number[]>().default([]),
+    cpsResolved: jsonb('cps_resolved').$type<number[]>().default([]),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
@@ -346,7 +351,6 @@ export const timetable = pgTable(
     centerDateIdx: index('tt_center_date_idx').on(table.examCenterId, table.date),
   })
 );
-
 // ============================================
 // Block Allocations
 // ============================================
@@ -358,6 +362,9 @@ export const blockAllocations = pgTable(
     examCenterId: uuid('exam_center_id')
       .notNull()
       .references(() => examCenters.id, { onDelete: 'cascade' }),
+    connectedInstituteId: uuid('connected_institute_id').references(() => connectedInstitutes.id, {
+      onDelete: 'set null',
+    }),
     date: timestamp('date').notNull(),
     session: text('session').notNull(),
     timeslot: text('timeslot'),
@@ -387,9 +394,40 @@ export const blockAllocations = pgTable(
     ),
     dateSessionIdx: index('alloc_date_session_idx').on(table.date, table.session),
     blockIdx: index('alloc_block_idx').on(table.blockId),
+    instituteIdx: index('alloc_institute_idx').on(table.connectedInstituteId),
   })
 );
 
+// ============================================
+// Relations
+// ============================================
+
+export const blockAllocationsRelations = relations(blockAllocations, ({ one }) => ({
+  connectedInstitute: one(connectedInstitutes, {
+    fields: [blockAllocations.connectedInstituteId],
+    references: [connectedInstitutes.id],
+  }),
+  examCenter: one(examCenters, {
+    fields: [blockAllocations.examCenterId],
+    references: [examCenters.id],
+  }),
+  block: one(blocks, {
+    fields: [blockAllocations.blockId],
+    references: [blocks.id],
+  }),
+}));
+
+export const connectedInstitutesRelations = relations(connectedInstitutes, ({ many }) => ({
+  blockAllocations: many(blockAllocations),
+  students: many(students),
+}));
+
+export const studentsRelations = relations(students, ({ one }) => ({
+  connectedInstitute: one(connectedInstitutes, {
+    fields: [students.connectedInstituteId],
+    references: [connectedInstitutes.id],
+  }),
+}));
 // ============================================
 // Orders (Staff duty orders)
 // ============================================
@@ -499,5 +537,34 @@ export const auditLogs = pgTable(
   table => ({
     orgTimeIdx: index('audit_org_time_idx').on(table.orgId, table.createdAt),
     entityIdx: index('audit_entity_idx').on(table.entityType, table.entityId),
+  })
+);
+
+export const UPLOAD_STATUSES = ['UPLOADED', 'PROCESSING', 'PROCESSED', 'FAILED'] as const;
+export type UploadStatus = (typeof UPLOAD_STATUSES)[number];
+
+export const uploads = pgTable(
+  'uploads',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    examCenterId: uuid('exam_center_id')
+      .notNull()
+      .references(() => examCenters.id, { onDelete: 'cascade' }),
+    fileType: text('file_type').notNull(),
+    originalFilename: text('original_filename').notNull(),
+    storedFilename: text('stored_filename').notNull(),
+    fileHash: text('file_hash').notNull(),
+    fileSize: integer('file_size').notNull(),
+    status: text('status').$type<UploadStatus>().default('UPLOADED').notNull(),
+    recordCount: integer('record_count').default(0).notNull(),
+    errorMessage: text('error_message'),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>().default({}).notNull(),
+    processedAt: timestamp('processed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  table => ({
+    uniqueUploadIdx: uniqueIndex('upload_status_exam_center_file_type_idx').on(table.examCenterId, table.fileType),
+    examCenterIdx: index('upload_status_exam_center_idx').on(table.examCenterId),
   })
 );

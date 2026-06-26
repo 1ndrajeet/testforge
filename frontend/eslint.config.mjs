@@ -16,7 +16,7 @@ export default defineConfig([
     'dist/**',
     'coverage/**',
     'next-env.d.ts',
-  'others/seed.js',
+    'others/seed.js',
   ]),
 
   {
@@ -24,30 +24,32 @@ export default defineConfig([
       'unused-imports': unusedImports,
     },
 
-   rules: {
-  'react-hooks/set-state-in-effect': 'off',
-  'react-hooks/purity': 'off',
-  'react-hooks/static-components': 'off',
+    rules: {
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/purity': 'off',
+      'react-hooks/static-components': 'off',
 
-  'unused-imports/no-unused-imports': 'error',
+      'react/no-unescaped-entities': 'off',
 
-  'unused-imports/no-unused-vars': [
-    'error',
-    {
-      vars: 'all',
-      varsIgnorePattern: '^_',
-      args: 'after-used',
-      argsIgnorePattern: '^_',
-      ignoreRestSiblings: true,
-    },
-  ],
+      'unused-imports/no-unused-imports': 'error',
 
-  '@typescript-eslint/no-explicit-any': 'warn',
-  '@typescript-eslint/no-non-null-asserted-optional-chain': 'warn',
+      'unused-imports/no-unused-vars': [
+        'error',
+        {
+          vars: 'all',
+          varsIgnorePattern: '^_',
+          args: 'after-used',
+          argsIgnorePattern: '^_',
+          ignoreRestSiblings: true,
+        },
+      ],
 
-  'no-unused-vars': 'off',
-  '@typescript-eslint/no-unused-vars': 'off',
-}
+      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-non-null-asserted-optional-chain': 'warn',
+
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+    }
   },
-  
+
 ]);

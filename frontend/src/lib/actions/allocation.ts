@@ -3,15 +3,24 @@
 
 import { revalidatePath } from 'next/cache';
 
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { db } from '@/lib/db';
-import { blockAllocations, blocks, eMarksheets, qpInventory, staff, students, timetable } from '@/lib/db/schema';
+import {
+  blockAllocations,
+  blocks,
+  connectedInstitutes,
+  qpInventory,
+  staff,
+  students,
+  subjects,
+  timetable,
+} from '@/lib/db/schema';
 import { orders as ordersTable } from '@/lib/db/schema';
 import { logger } from '@/lib/misc/logger';
 import { getExamCenterId, requireExamCenter } from '@/lib/session';
-import { AllocationData, PackingSlipEntry, SupervisionReportEntry } from '@/lib/types';
+import { PackingSlipEntry, SupervisionReportEntry } from '@/lib/types';
 
 const MODULE = 'allocation';
 
@@ -21,7 +30,7 @@ const MODULE = 'allocation';
 
 const CreateAllocationSchema = z.object({
   date: z.date(),
-  session: z.enum(['Morning', 'Afternoon']),
+  session: z.enum(['Morning', 'Afternoon', 'All']),
   timeslot: z.string().optional().nullable(),
   blockId: z.string().min(1),
   blockNo: z.string(),
@@ -56,7 +65,7 @@ const AssignSupervisorSchema = z.object({
 
 const BulkAssignSupervisorsSchema = z.object({
   date: z.date(),
-  session: z.enum(['Morning', 'Afternoon']),
+  session: z.enum(['Morning', 'Afternoon', 'All']),
   assignments: z.array(
     z.object({
       blockNo: z.string(),
@@ -67,7 +76,7 @@ const BulkAssignSupervisorsSchema = z.object({
 
 const AutoAllocateSchema = z.object({
   date: z.date(),
-  session: z.enum(['Morning', 'Afternoon']),
+  session: z.enum(['Morning', 'Afternoon', 'All']),
 });
 
 const ClearAllocationsSchema = z.object({
@@ -704,15 +713,18 @@ export async function autoAllocateStudents(data: z.infer<typeof AutoAllocateSche
 // Report Generation
 // ============================================
 
+// lib/actions/allocation.ts - FIXED getPackingSlip
+
 export async function getPackingSlip(date: Date, session: string) {
   const MODULE_FN = `${MODULE}.getPackingSlip`;
 
   try {
     const examCenter = await requireExamCenter();
 
-    // Get timetable entries for the date/session
+    // Get ALL timetable entries for the date/session (don't filter by subject/scheme)
     const timetableEntries = await db.query.timetable.findMany({
       where: and(eq(timetable.examCenterId, examCenter.id), eq(timetable.date, date), eq(timetable.session, session)),
+      orderBy: [timetable.subjectCode, timetable.scheme],
     });
 
     if (timetableEntries.length === 0) {
@@ -720,36 +732,86 @@ export async function getPackingSlip(date: Date, session: string) {
       return { success: true, data: [] };
     }
 
-    const packingSlip: PackingSlipEntry[] = [];
+    // Get block allocations for this date/session to get institute info
+    const allocations = await db.query.blockAllocations.findMany({
+      where: and(
+        eq(blockAllocations.examCenterId, examCenter.id),
+        eq(blockAllocations.date, date),
+        eq(blockAllocations.session, session)
+      ),
+      with: {
+        connectedInstitute: {
+          columns: {
+            instituteCode: true,
+            instituteName: true,
+          },
+        },
+      },
+    });
 
-    // Get e-marksheet data (assuming there's an eMarksheets table)
-    for (const entry of timetableEntries) {
-      const Marksheets = await db.query.eMarksheets.findMany({
-        where: and(eq(eMarksheets.examCenterId, examCenter.id), eq(eMarksheets.paperCode, entry.subjectCode)),
+    // Create a map of subjectCode+scheme to institute info
+    const instituteMap = new Map<string, { instituteCode: string; instituteName: string }>();
+
+    for (const alloc of allocations) {
+      const key = `${alloc.subjectCode}_${alloc.scheme}`;
+      if (alloc.connectedInstitute) {
+        instituteMap.set(key, {
+          instituteCode: alloc.connectedInstitute.instituteCode,
+          instituteName: alloc.connectedInstitute.instituteName,
+        });
+      }
+    }
+
+    // If no allocations found, try to get institute from connected institutes
+    if (instituteMap.size === 0) {
+      const connectedInst = await db.query.connectedInstitutes.findFirst({
+        where: eq(connectedInstitutes.examCenterId, examCenter.id),
       });
 
+      if (connectedInst) {
+        for (const entry of timetableEntries) {
+          const key = `${entry.subjectCode}_${entry.scheme}`;
+          if (!instituteMap.has(key)) {
+            instituteMap.set(key, {
+              instituteCode: connectedInst.instituteCode,
+              instituteName: connectedInst.instituteName,
+            });
+          }
+        }
+      }
+    }
+
+    const packingSlip: PackingSlipEntry[] = [];
+
+    // Process EACH timetable entry individually (don't deduplicate)
+    for (const entry of timetableEntries) {
       const absentNumbers = entry.absentNumbers || [];
       const cpsNumbers = entry.cpsStudents || [];
 
-      for (const sheet of Marksheets) {
-        // Extract institute code from filename
-        const instituteCode = sheet.fileName?.split('.')[0].match(/\d+$/)?.[0];
-        if (!instituteCode) continue;
+      // Get institute info for this subject/scheme
+      const key = `${entry.subjectCode}_${entry.scheme}`;
+      const instituteInfo = instituteMap.get(key) || {
+        instituteCode: examCenter.code || '',
+        instituteName: examCenter.name || '',
+      };
 
-        packingSlip.push({
-          instituteCode,
-          date: date.toISOString().split('T')[0],
-          session,
-          timeSlot: entry.timeSlot,
-          scheme: entry.scheme,
-          subjectCode: entry.subjectCode,
-          totalStudents: entry.totalStudents!,
-          sheetNo: sheet.sheetNo || '',
-          subjectName: sheet.subjectName || entry.subjectName,
-          absentNumbers,
-          cpsNumbers,
-        });
-      }
+      // Generate sheet number for each entry
+      const sheetNo = `SHEET-${entry.subjectCode}-${entry.scheme}-${entry.id.substring(0, 8)}`;
+
+      packingSlip.push({
+        instituteCode: instituteInfo.instituteCode,
+        instituteName: instituteInfo.instituteName,
+        date: date.toISOString().split('T')[0],
+        session: session,
+        timeSlot: entry.timeSlot,
+        scheme: entry.scheme,
+        subjectCode: entry.subjectCode,
+        totalStudents: entry.totalStudents || 0,
+        sheetNo: sheetNo,
+        subjectName: entry.subjectName || entry.subjectCode,
+        absentNumbers,
+        cpsNumbers,
+      });
     }
 
     logger.info(MODULE_FN, 'Generated packing slip', {
@@ -984,7 +1046,7 @@ export async function hasAllocations(date?: Date, session?: string) {
 
 const CreateBlockConfigSchema = z.object({
   date: z.date(),
-  session: z.enum(['Morning', 'Afternoon']),
+  session: z.enum(['Morning', 'Afternoon', 'All']),
   blocks: z.array(
     z.object({
       blockName: z.string().min(1),
@@ -1105,22 +1167,6 @@ export async function createBlockConfiguration(data: z.infer<typeof CreateBlockC
 }
 // Add to lib/actions/allocation.ts
 
-const BulkCreateBlockConfigSchema = z.object({
-  date: z.date(),
-  session: z.enum(['Morning', 'Afternoon']),
-  allocations: z.array(
-    z.object({
-      blockName: z.string(),
-      scheme: z.string(),
-      subCode: z.string(),
-      supervisor: z.string(),
-      numberOfCandidates: z.number().int().positive(),
-      startFrom: z.number().int().positive(),
-      timeslot: z.string(),
-    })
-  ),
-});
-
 export async function clearAllocationsForSession(date: Date, session: string) {
   const MODULE_FN = `${MODULE}.clearAllocationsForSession`;
 
@@ -1156,106 +1202,9 @@ export async function clearAllocationsForSession(date: Date, session: string) {
   }
 }
 
-// lib/actions/allocation.ts - Fix return types for checkExistingAllocations and bulkCreateBlockConfigurations
-// lib/actions/allocation.ts - Add detailed logging to checkExistingAllocations
-
-export async function checkExistingAllocations(
-  date: Date,
-  session: string
-): Promise<{
-  success: boolean;
-  data: {
-    hasAllocations: boolean;
-    count: number;
-    allocations: Array<{
-      blockName: string | null;
-      scheme: string;
-      subjectCode: string;
-      supervisorName: string | null;
-      assignedCount: number | null;
-    }>;
-  };
-  error?: string;
-}> {
-  const MODULE_FN = `${MODULE}.checkExistingAllocations`;
-
-  try {
-    console.log('=== SERVER DEBUG: checkExistingAllocations ===');
-    console.log('Date received:', date);
-    console.log('Session received:', session);
-
-    const examCenterId = await getExamCenterId();
-    console.log('Exam Center ID:', examCenterId);
-
-    if (!examCenterId) {
-      console.log('No exam center ID found, returning false');
-      return {
-        success: true,
-        data: { hasAllocations: false, count: 0, allocations: [] },
-      };
-    }
-
-    // First, let's check if any allocations exist at all for this exam center
-    const allAllocations = await db.query.blockAllocations.findMany({
-      where: eq(blockAllocations.examCenterId, examCenterId),
-      limit: 5,
-    });
-    console.log(`Total allocations for exam center: ${allAllocations.length}`);
-    if (allAllocations.length > 0) {
-      console.log('Sample allocation:', {
-        date: allAllocations[0].date,
-        session: allAllocations[0].session,
-        location: allAllocations[0].location,
-      });
-    }
-
-    // Now check specific date/session
-    const allocations = await db.query.blockAllocations.findMany({
-      where: and(
-        eq(blockAllocations.examCenterId, examCenterId),
-        eq(blockAllocations.date, date),
-        eq(blockAllocations.session, session)
-      ),
-    });
-
-    console.log(`Found ${allocations.length} allocations for date ${date} session ${session}`);
-
-    if (allocations.length > 0) {
-      console.log('First allocation sample:', {
-        location: allocations[0].location,
-        scheme: allocations[0].scheme,
-        assignedCount: allocations[0].assignedCount,
-      });
-    }
-
-    return {
-      success: true,
-      data: {
-        hasAllocations: allocations.length > 0,
-        count: allocations.length,
-        allocations: allocations.map(a => ({
-          blockName: a.location,
-          scheme: a.scheme,
-          subjectCode: a.subjectCode,
-          supervisorName: a.supervisorName,
-          assignedCount: a.assignedCount,
-        })),
-      },
-    };
-  } catch (error) {
-    console.error('SERVER ERROR in checkExistingAllocations:', error);
-    logger.error(MODULE_FN, 'Failed to check allocations', { error });
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to check allocations',
-      data: { hasAllocations: false, count: 0, allocations: [] },
-    };
-  }
-}
-
 export async function bulkCreateBlockConfigurations(data: {
   date: Date;
-  session: 'Morning' | 'Afternoon';
+  session: 'Morning' | 'Afternoon' | 'All';
   allocations: Array<{
     blockName: string;
     scheme: string;
@@ -1318,6 +1267,7 @@ export async function bulkCreateBlockConfigurations(data: {
           currentBlockNo++;
         }
 
+        // Get students for this allocation
         const studentsList = await tx.query.students.findMany({
           where: and(
             eq(students.examCenterId, examCenter.id),
@@ -1334,6 +1284,10 @@ export async function bulkCreateBlockConfigurations(data: {
         const firstSeat = seatNumbers.length ? seatNumbers[0] : null;
         const lastSeat = seatNumbers.length ? seatNumbers[seatNumbers.length - 1] : null;
 
+        // Get the connectedInstituteId from the first student
+        // All students in this allocation should have the same institute
+        const connectedInstituteId = studentsList.length > 0 ? studentsList[0].connectedInstituteId : null;
+
         const blockData = await tx.query.blocks.findFirst({
           where: and(eq(blocks.examCenterId, examCenter.id), eq(blocks.location, alloc.blockName)),
         });
@@ -1348,8 +1302,14 @@ export async function bulkCreateBlockConfigurations(data: {
           ),
         });
 
+        // Get subject name
+        const subject = await tx.query.subjects.findFirst({
+          where: and(eq(subjects.code, alloc.subCode), eq(subjects.scheme, alloc.scheme)),
+        });
+
         allocations.push({
           examCenterId: examCenter.id,
+          connectedInstituteId: connectedInstituteId, // <-- ADD THIS
           date: data.date,
           session: data.session,
           timeslot: alloc.timeslot,
@@ -1357,7 +1317,7 @@ export async function bulkCreateBlockConfigurations(data: {
           location: alloc.blockName,
           scheme: alloc.scheme,
           subjectCode: alloc.subCode,
-          subjectName: '',
+          subjectName: subject?.name || '',
           seatNumbers,
           firstSeat,
           lastSeat,
@@ -1369,10 +1329,7 @@ export async function bulkCreateBlockConfigurations(data: {
       }
 
       if (allocations.length > 0) {
-        return await tx
-          .insert(blockAllocations)
-          .values(allocations as any)
-          .returning();
+        return await tx.insert(blockAllocations).values(allocations).returning();
       }
       return [];
     });
@@ -1473,7 +1430,7 @@ export interface RelieverOrderData {
 
 const CreateRelieverOrderSchema = z.object({
   date: z.date(),
-  session: z.enum(['Morning', 'Afternoon']),
+  session: z.enum(['Morning', 'Afternoon', 'All']),
   relieverIds: z.array(z.string()),
   relieverUids: z.array(z.string()),
 });
@@ -1779,6 +1736,8 @@ export async function getQuestionPaperReportV2(date: Date, session?: string) {
 // Get Allocations By Date and Session
 // ============================================
 
+// lib/actions/allocation.ts - Update getAllocationsByDateSession
+
 export async function getAllocationsByDateSession(
   date: Date,
   session: string
@@ -1803,16 +1762,151 @@ export async function getAllocationsByDateSession(
         eq(blockAllocations.date, date),
         eq(blockAllocations.session, session)
       ),
+      with: {
+        connectedInstitute: {
+          columns: {
+            instituteCode: true,
+            instituteName: true,
+          },
+        },
+      },
       orderBy: [asc(blockAllocations.blockNo)],
     });
 
-    logger.debug(MODULE_FN, `Fetched ${allocations.length} allocations for ${date} ${session}`);
-    return { success: true, data: allocations };
+    // Map the results to include institute fields at the top level
+    const transformedAllocations = allocations.map(alloc => {
+      const { connectedInstitute, ...rest } = alloc;
+      return {
+        ...rest,
+        instituteCode: connectedInstitute?.instituteCode ?? '',
+        instituteName: connectedInstitute?.instituteName ?? '',
+      };
+    });
+
+    // Fetch timetable entries for this date/session to get absent numbers
+    const timetableEntries = await db.query.timetable.findMany({
+      where: and(eq(timetable.examCenterId, examCenterId), eq(timetable.date, date), eq(timetable.session, session)),
+    });
+
+    // Create a map of subjectCode+scheme to absentNumbers and cpsStudents
+    const timetableMap = new Map<string, { absentNumbers: number[]; cpsStudents: number[] }>();
+    timetableEntries.forEach(entry => {
+      const key = `${entry.subjectCode}_${entry.scheme}`;
+      timetableMap.set(key, {
+        absentNumbers: entry.absentNumbers || [],
+        cpsStudents: entry.cpsStudents || [],
+      });
+    });
+
+    // Merge absent/cps data into allocations
+    const mergedAllocations = transformedAllocations.map(alloc => {
+      const key = `${alloc.subjectCode}_${alloc.scheme}`;
+      const timetableData = timetableMap.get(key);
+      return {
+        ...alloc,
+        absentNumbers: timetableData?.absentNumbers || [],
+        cpsStudents: timetableData?.cpsStudents || [],
+      };
+    });
+
+    logger.debug(MODULE_FN, `Fetched ${mergedAllocations.length} allocations with timetable data`);
+    return { success: true, data: mergedAllocations };
   } catch (error) {
     logger.error(MODULE_FN, 'Failed to fetch allocations by date/session', { error });
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+// ============================================
+// Check Existing Allocations - Fixed version
+// ============================================
+
+export async function checkExistingAllocations(
+  date: Date,
+  session: string
+): Promise<{
+  success: boolean;
+  data: {
+    hasAllocations: boolean;
+    count: number;
+    allocations: Array<{
+      id: string;
+      blockName: string | null;
+      scheme: string;
+      subjectCode: string;
+      supervisorName: string | null;
+      assignedCount: number | null;
+      instituteCode: string | null;
+      instituteName: string | null;
+    }>;
+  };
+  error?: string;
+}> {
+  const MODULE_FN = `${MODULE}.checkExistingAllocations`;
+
+  try {
+    const examCenterId = await getExamCenterId();
+
+    if (!examCenterId) {
+      return {
+        success: true,
+        data: { hasAllocations: false, count: 0, allocations: [] },
+      };
+    }
+
+    const allocations = await db.query.blockAllocations.findMany({
+      where: and(
+        eq(blockAllocations.examCenterId, examCenterId),
+        eq(blockAllocations.date, date),
+        eq(blockAllocations.session, session)
+      ),
+      with: {
+        connectedInstitute: {
+          columns: {
+            instituteCode: true,
+            instituteName: true,
+          },
+        },
+      },
+      columns: {
+        id: true,
+        location: true,
+        scheme: true,
+        subjectCode: true,
+        supervisorName: true,
+        assignedCount: true,
+      },
+    });
+
+    const mappedAllocations = allocations.map(alloc => ({
+      id: alloc.id,
+      blockName: alloc.location,
+      scheme: alloc.scheme,
+      subjectCode: alloc.subjectCode,
+      supervisorName: alloc.supervisorName,
+      assignedCount: alloc.assignedCount,
+      instituteCode: alloc.connectedInstitute?.instituteCode ?? null,
+      instituteName: alloc.connectedInstitute?.instituteName ?? null,
+    }));
+
+    return {
+      success: true,
+      data: {
+        hasAllocations: allocations.length > 0,
+        count: allocations.length,
+        allocations: mappedAllocations,
+      },
+    };
+  } catch (error) {
+    console.error('SERVER ERROR in checkExistingAllocations:', error);
+    logger.error(MODULE_FN, 'Failed to check allocations', { error });
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to check allocations',
+      data: { hasAllocations: false, count: 0, allocations: [] },
     };
   }
 }

@@ -5,34 +5,54 @@ import { revalidatePath } from 'next/cache';
 
 import { and, eq } from 'drizzle-orm';
 
+import instituteNames from '@/config/institute_names.json';
 import { db } from '@/lib/db';
 import { connectedInstitutes } from '@/lib/db/schema';
 import { getCurrentExamCenter } from '@/lib/session';
 
+export async function getInstituteInfo(instituteCode: string) {
+  if (!instituteCode) {
+    return { success: false, error: 'Institute code is required' };
+  }
+
+  const instituteName = (instituteNames as Record<string, string>)[instituteCode];
+
+  if (!instituteName) {
+    return { success: false, error: `Institute with code ${instituteCode} not found` };
+  }
+
+  return {
+    success: true,
+    data: { CODE: instituteCode, NAME: instituteName },
+  };
+}
+
 export async function getConnectedInstitutes() {
   const examCenter = await getCurrentExamCenter();
-  if (!examCenter?.id) throw new Error('Exam center not found');
+  if (!examCenter?.id) {
+    return { success: true, data: [] };
+  }
 
-  return db.query.connectedInstitutes.findMany({
+  const institutes = await db.query.connectedInstitutes.findMany({
     where: eq(connectedInstitutes.examCenterId, examCenter.id),
-    orderBy: (institutes, { asc }) => [asc(institutes.instituteCode)],
+    orderBy: (inst, { asc }) => [asc(inst.instituteCode)],
   });
+
+  const transformed = institutes.map(inst => ({
+    id: inst.id,
+    CODE: inst.instituteCode,
+    NAME: inst.instituteName,
+  }));
+
+  return { success: true, data: transformed };
 }
 
-export async function getInstituteById(id: string) {
+export async function addConnectedInstitute(data: { instituteCode: string; instituteName: string }) {
   const examCenter = await getCurrentExamCenter();
-  if (!examCenter?.id) throw new Error('Exam center not found');
+  if (!examCenter?.id) {
+    return { success: false, error: 'Exam center not found' };
+  }
 
-  return db.query.connectedInstitutes.findFirst({
-    where: and(eq(connectedInstitutes.id, id), eq(connectedInstitutes.examCenterId, examCenter.id)),
-  });
-}
-
-export async function createInstitute(data: { instituteCode: string; instituteName: string }) {
-  const examCenter = await getCurrentExamCenter();
-  if (!examCenter?.id) throw new Error('Exam center not found');
-
-  // Check for duplicate
   const existing = await db.query.connectedInstitutes.findFirst({
     where: and(
       eq(connectedInstitutes.examCenterId, examCenter.id),
@@ -41,65 +61,56 @@ export async function createInstitute(data: { instituteCode: string; instituteNa
   });
 
   if (existing) {
-    throw new Error(`Institute with code ${data.instituteCode} already exists`);
+    return { success: false, error: `Institute ${data.instituteCode} already connected` };
   }
 
   const [institute] = await db
     .insert(connectedInstitutes)
     .values({
       examCenterId: examCenter.id,
-      ...data,
+      instituteCode: data.instituteCode,
+      instituteName: data.instituteName,
     })
     .returning();
 
-  revalidatePath('/exam-center/exam-setup/institutes');
-  return institute;
+  revalidatePath('/exam-center/settings');
+
+  return {
+    success: true,
+    data: { id: institute.id, CODE: institute.instituteCode, NAME: institute.instituteName },
+  };
 }
 
-export async function updateInstitute(
-  id: string,
-  data: {
-    instituteCode?: string;
-    instituteName?: string;
-    isActive?: boolean;
+export async function removeConnectedInstitute(id: string) {
+  const examCenter = await getCurrentExamCenter();
+  if (!examCenter?.id) {
+    return { success: false, error: 'Exam center not found' };
   }
-) {
-  const examCenter = await getCurrentExamCenter();
-  if (!examCenter?.id) throw new Error('Exam center not found');
-
-  const [institute] = await db
-    .update(connectedInstitutes)
-    .set({ ...data, updatedAt: new Date() })
-    .where(and(eq(connectedInstitutes.id, id), eq(connectedInstitutes.examCenterId, examCenter.id)))
-    .returning();
-
-  revalidatePath('/exam-center/exam-setup/institutes');
-  return institute;
-}
-
-export async function deleteInstitute(id: string) {
-  const examCenter = await getCurrentExamCenter();
-  if (!examCenter?.id) throw new Error('Exam center not found');
 
   await db
     .delete(connectedInstitutes)
     .where(and(eq(connectedInstitutes.id, id), eq(connectedInstitutes.examCenterId, examCenter.id)));
 
-  revalidatePath('/exam-center/exam-setup/institutes');
+  revalidatePath('/exam-center/settings');
+  return { success: true };
 }
 
-export async function bulkCreateInstitutes(institutes: Array<{ instituteCode: string; instituteName: string }>) {
+export async function updateInstituteName(id: string, newName: string) {
   const examCenter = await getCurrentExamCenter();
-  if (!examCenter?.id) throw new Error('Exam center not found');
+  if (!examCenter?.id) {
+    return { success: false, error: 'Exam center not found' };
+  }
 
-  const values = institutes.map(inst => ({
-    examCenterId: examCenter.id,
-    instituteCode: inst.instituteCode,
-    instituteName: inst.instituteName,
-  }));
+  const [updated] = await db
+    .update(connectedInstitutes)
+    .set({ instituteName: newName, updatedAt: new Date() })
+    .where(and(eq(connectedInstitutes.id, id), eq(connectedInstitutes.examCenterId, examCenter.id)))
+    .returning();
 
-  const results = await db.insert(connectedInstitutes).values(values).returning();
+  if (!updated) {
+    return { success: false, error: 'Institute not found' };
+  }
 
-  revalidatePath('/exam-center/exam-setup/institutes');
-  return results;
+  revalidatePath('/exam-center/settings');
+  return { success: true, data: updated };
 }

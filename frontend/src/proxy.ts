@@ -6,7 +6,7 @@ import type { NextRequest } from 'next/server';
 const PUBLIC_ROUTES = ['/login', '/register', '/api/auth', '/', '/pricing', '/api/health'];
 const STATIC_ROUTES = ['/_next', '/favicon.ico', '/api/payments/webhook'];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Allow static assets

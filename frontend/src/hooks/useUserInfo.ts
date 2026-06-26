@@ -30,6 +30,7 @@ export interface UserInfoState {
     distCenterName: string | null;
     season: string | null;
     examYear: number | null;
+    examController?: string | null;
   } | null;
   subscription: {
     tier: string;

@@ -1,0 +1,1 @@
+ALTER TABLE "timetable" ADD COLUMN "cps_resolved" jsonb DEFAULT '[]'::jsonb;

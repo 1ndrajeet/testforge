@@ -12,6 +12,7 @@ import {
   AlertOctagon,
   AlertTriangle,
   BarChart,
+  Blocks,
   BookOpen,
   Building,
   Building2,
@@ -74,7 +75,6 @@ import {
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import modulesConfig from '@/config/modules.json';
@@ -111,6 +111,7 @@ interface Module {
 // Icon Map
 // ============================================
 const iconMap: Record<string, any> = {
+  Blocks: Blocks,
   LayoutDashboard: LayoutDashboard,
   Settings2: Settings2,
   Building2: Building2,
@@ -295,7 +296,7 @@ export function Sidebar() {
         )}
       </AnimatePresence>
 
-      {/* Sidebar Panel */}
+      {/* Sidebar Panel - width auto with max-width */}
       <AnimatePresence>
         {isOpen && (
           <motion.aside
@@ -303,37 +304,38 @@ export function Sidebar() {
             animate={{ x: 0 }}
             exit={{ x: '-100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed top-0 left-0 z-50 flex h-full w-80 flex-col border-r border-neutral-200 bg-white shadow-2xl dark:border-neutral-800 dark:bg-neutral-950"
+            className="fixed top-0 left-0 z-50 flex h-full max-h-screen w-auto max-w-[400px] min-w-[280px] flex-col border-r border-neutral-200 bg-white shadow-2xl dark:border-neutral-800 dark:bg-neutral-950"
             role="navigation"
             aria-label="Main sidebar"
           >
-            {/* Header with close button */}
-            <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">
-              <div className="flex items-center gap-2">
-                <div className="from-primary to-primary flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br">
+            {/* Header with close button - fixed at top */}
+            <div className="flex flex-shrink-0 items-center justify-between border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">
+              <div className="flex min-w-0 items-center gap-2">
+                <div className="from-primary to-primary flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br">
                   <span className="text-xs font-bold text-white">TF</span>
                 </div>
-                <span className="font-semibold text-neutral-900 dark:text-neutral-100">TestForge</span>
-                <Badge variant="outline" className="px-1 text-[9px]">
+                <span className="truncate font-semibold text-neutral-900 dark:text-neutral-100">TestForge</span>
+                <Badge variant="outline" className="flex-shrink-0 px-1 text-[9px]">
                   v{modulesConfig.version}
                 </Badge>
               </div>
               <button
                 onClick={close}
-                className="rounded-md p-1.5 text-neutral-500 transition-colors hover:bg-neutral-100 lg:hidden dark:hover:bg-neutral-800"
+                className="flex-shrink-0 rounded-md p-1.5 text-neutral-500 transition-colors hover:bg-neutral-100 lg:hidden dark:hover:bg-neutral-800"
                 aria-label="Close sidebar"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            {/* Search */}
-            <SidebarSearch onSearch={setSearchQuery} />
+            {/* Search - fixed */}
+            <div className="flex-shrink-0">
+              <SidebarSearch onSearch={setSearchQuery} />
+              <Separator className="flex-shrink-0" />
+            </div>
 
-            <Separator className="flex-shrink-0" />
-
-            {/* Navigation - Scrollable area */}
-            <ScrollArea className="flex-1">
+            {/* Navigation - Scrollable area with flex-1 and overflow-auto */}
+            <div className="min-h-0 flex-1 overflow-auto">
               <nav className="space-y-1 px-3 py-3">
                 {filteredModules.map(module => (
                   <NavItem
@@ -355,7 +357,7 @@ export function Sidebar() {
                   </div>
                 )}
               </nav>
-            </ScrollArea>
+            </div>
           </motion.aside>
         )}
       </AnimatePresence>
@@ -437,17 +439,21 @@ function NavItem({ module, pathname, onNavigate, level, searchQuery }: NavItemPr
                 )}
                 aria-expanded={isExpanded}
               >
-                <div className="flex items-center gap-3">
-                  <Icon className={cn('h-4 w-4', isActive ? 'text-primary' : 'text-neutral-500')} />
-                  <span>{module.name}</span>
-                  {module.premium && <Crown className="h-3.5 w-3.5 text-amber-500" />}
+                <div className="flex min-w-0 items-center gap-3">
+                  <Icon className={cn('h-4 w-4 flex-shrink-0', isActive ? 'text-primary' : 'text-neutral-500')} />
+                  <span className="truncate">{module.name}</span>
+                  {module.premium && <Crown className="h-3.5 w-3.5 flex-shrink-0 text-amber-500" />}
                   {isMsbteReports && (
-                    <Badge className="bg-primary 100 text-primary dark:bg-primary/30 dark:text-primary h-5 border-0 px-1.5 text-[9px]">
+                    <Badge className="bg-primary 100 text-primary dark:bg-primary/30 dark:text-primary h-5 flex-shrink-0 border-0 px-1.5 text-[9px]">
                       {reportCount}
                     </Badge>
                   )}
                 </div>
-                <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                <motion.div
+                  animate={{ rotate: isExpanded ? 180 : 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="flex-shrink-0"
+                >
                   <ChevronDown className="h-4 w-4 text-neutral-400" />
                 </motion.div>
               </button>
@@ -507,11 +513,11 @@ function NavItem({ module, pathname, onNavigate, level, searchQuery }: NavItemPr
           : 'text-neutral-700 dark:text-neutral-300'
       )}
     >
-      <Icon className={cn('h-4 w-4', isLinkActive ? 'text-primary' : 'text-neutral-500')} />
+      <Icon className={cn('h-4 w-4 flex-shrink-0', isLinkActive ? 'text-primary' : 'text-neutral-500')} />
       <span className="flex-1 truncate">
         {module.id?.startsWith('f') ? `${module.name} - ${module.description}` : module.name}
       </span>
-      {module.premium && <Crown className="h-3 w-3 text-amber-500" />}
+      {module.premium && <Crown className="h-3 w-3 flex-shrink-0 text-amber-500" />}
     </Link>
   );
 

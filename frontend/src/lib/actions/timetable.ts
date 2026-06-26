@@ -3,14 +3,13 @@
 
 import { revalidatePath } from 'next/cache';
 
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { db } from '@/lib/db';
 import { blockAllocations, timetable } from '@/lib/db/schema';
 import { logger } from '@/lib/misc/logger';
 import { getExamCenterId, requireExamCenter } from '@/lib/session';
-import { TimetableEntry } from '@/lib/types';
 
 const MODULE = 'timetable';
 
@@ -21,7 +20,7 @@ const MODULE = 'timetable';
 const TimetableEntrySchema = z.object({
   examDay: z.number().int().min(1).max(366).nullable().optional(),
   date: z.date(),
-  session: z.enum(['Morning', 'Afternoon']),
+  session: z.enum(['Morning', 'Afternoon', 'All']),
   timeSlot: z.string().min(1, 'Time slot is required'),
   subjectCode: z.string().min(1, 'Subject code is required'),
   subjectName: z.string().min(1, 'Subject name is required'),
@@ -48,7 +47,7 @@ const MarkAbsentSchema = z.object({
   subjectCode: z.string().min(1),
   scheme: z.string().min(1),
   date: z.date(),
-  session: z.enum(['Morning', 'Afternoon']),
+  session: z.enum(['Morning', 'Afternoon', 'All']),
   absentNumbers: z.array(z.number().int()),
 });
 
@@ -56,7 +55,7 @@ const MarkCopyCaseSchema = z.object({
   subjectCode: z.string().min(1),
   scheme: z.string().min(1),
   date: z.date(),
-  session: z.enum(['Morning', 'Afternoon']),
+  session: z.enum(['Morning', 'Afternoon', 'All']),
   cpsStudents: z.array(z.number().int()),
 });
 
@@ -730,6 +729,102 @@ export async function getTimetableBySubject(subjectCode: string, scheme?: string
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+// lib/actions/timetable.ts - Add this function
+
+// ============================================
+// Resolve Copy Cases
+// ============================================
+
+const ResolveCopyCaseSchema = z.object({
+  subjectCode: z.string().min(1),
+  scheme: z.string().min(1),
+  date: z.date(),
+  session: z.enum(['Morning', 'Afternoon', 'All']),
+  seatNumber: z.number().int().positive(),
+});
+
+export async function resolveCopyCase(data: z.infer<typeof ResolveCopyCaseSchema>) {
+  const MODULE_FN = `${MODULE}.resolveCopyCase`;
+
+  try {
+    const validated = ResolveCopyCaseSchema.parse(data);
+    const examCenter = await requireExamCenter();
+
+    // Find the timetable entry
+    const entry = await db.query.timetable.findFirst({
+      where: and(
+        eq(timetable.examCenterId, examCenter.id),
+        eq(timetable.subjectCode, validated.subjectCode),
+        eq(timetable.scheme, validated.scheme),
+        eq(timetable.date, validated.date),
+        eq(timetable.session, validated.session)
+      ),
+    });
+
+    if (!entry) {
+      logger.warn(MODULE_FN, 'Timetable entry not found', {
+        subjectCode: validated.subjectCode,
+        scheme: validated.scheme,
+        date: validated.date,
+        session: validated.session,
+      });
+      return { success: false, error: 'Timetable entry not found' };
+    }
+
+    // Check if the seat is in cpsStudents
+    const cpsStudents = entry.cpsStudents || [];
+    if (!cpsStudents.includes(validated.seatNumber)) {
+      logger.warn(MODULE_FN, 'Seat number not in copy case list', {
+        seatNumber: validated.seatNumber,
+        cpsStudents,
+      });
+      return { success: false, error: 'This student is not marked as a copy case' };
+    }
+
+    // Check if already resolved
+    const cpsResolved = entry.cpsResolved || [];
+    if (cpsResolved.includes(validated.seatNumber)) {
+      logger.warn(MODULE_FN, 'Copy case already resolved', {
+        seatNumber: validated.seatNumber,
+      });
+      return { success: false, error: 'This copy case has already been resolved' };
+    }
+
+    // Add to resolved list
+    const updatedResolved = [...cpsResolved, validated.seatNumber].sort();
+
+    const [updated] = await db
+      .update(timetable)
+      .set({
+        cpsResolved: updatedResolved,
+        updatedAt: new Date(),
+      })
+      .where(eq(timetable.id, entry.id))
+      .returning();
+
+    logger.info(MODULE_FN, 'Copy case resolved', {
+      id: entry.id,
+      seatNumber: validated.seatNumber,
+      totalResolved: updatedResolved.length,
+    });
+    revalidatePath('/exam-center/exam-setup/timetable');
+    revalidatePath('/msbte-reports/f13');
+
+    return { success: true, data: updated };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      logger.warn(MODULE_FN, 'Validation failed', { issues: error.issues });
+      return { success: false, error: error.issues };
+    }
+
+    logger.error(MODULE_FN, 'Failed to resolve copy case', { error });
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to resolve copy case',
     };
   }
 }

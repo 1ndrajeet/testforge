@@ -141,7 +141,7 @@ export default function ChangeSupervisorPage() {
         } else {
           toast.error('Failed to load allocations');
         }
-      } catch (error) {
+      } catch {
         toast.error('Failed to load allocations');
       } finally {
         setLoading(false);
@@ -150,7 +150,7 @@ export default function ChangeSupervisorPage() {
     [groupAllocationsByBlock]
   );
 
-  const handleSessionSelect = async (session: { date: string; session: 'Morning' | 'Afternoon' }) => {
+  const handleSessionSelect = async (session: { date: string; session: 'Morning' | 'Afternoon' | 'All' }) => {
     setSelectedDate(session.date);
     setSelectedSession(session.session);
     await loadAllocations(session.date, session.session);
@@ -203,7 +203,7 @@ export default function ChangeSupervisorPage() {
       } else {
         toast.error('Failed to change supervisor for any subject');
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to change supervisor');
     } finally {
       setSubmitting(false);

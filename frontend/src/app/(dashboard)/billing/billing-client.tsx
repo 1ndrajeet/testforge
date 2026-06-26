@@ -290,8 +290,6 @@ function CurrentPlanCard({
   onUpgrade: () => void;
   onRefresh: () => void;
 }) {
-  const [loading, setLoading] = useState(false);
-
   const handleSignOut = async () => {
     const { authClient } = await import('@/lib/auth-client');
     await authClient.signOut();
@@ -784,7 +782,7 @@ export function BillingClient({ user, examCenter, subscription, organization, in
   const [activeTab, setActiveTab] = useState('current');
   const [selectedPlanId, setSelectedPlanId] = useState('');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [payments, setPayments] = useState<Payment[]>(initialPayments);
+  const [payments] = useState<Payment[]>(initialPayments);
 
   useEffect(() => {
     const popularPlan = pricingPlans.find((p: Plan) => p.popular);
