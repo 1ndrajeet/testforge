@@ -98,11 +98,7 @@ const renderRelieverTable = (pageData: RelieverPageData) => {
                 return (
                   <tr
                     key={`${reliever.name}-${blockIndex}`}
-                    className={cn(
-                      'border-b border-neutral-200',
-                      blockIndex % 2 === 0 ? 'bg-white' : 'bg-neutral-50',
-                      isLast && 'border-b-2 border-neutral-300'
-                    )}
+                    className={cn('border-b border-neutral-200', isLast && 'border-b-2 border-neutral-300')}
                   >
                     {isFirst && (
                       <td

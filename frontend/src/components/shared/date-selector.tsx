@@ -36,7 +36,7 @@ const SESSION_DETAILS: Record<AllowedSession, { label: string; time: string; val
 };
 
 const QUICK_SELECT = {
-  date: '2024-12-04',
+  date: '2024-12-13',
   session: 'Morning' as const,
   enabled: true,
 };
@@ -64,6 +64,7 @@ export function SessionSelector({
   metadataRenderer,
   actions = [],
   hideSession = false,
+  showAllSession = false,
 }: SessionSelectorProps & { hideSession?: boolean }) {
   const [selectedDate, setSelectedDate] = useState(defaultDate);
   // When hideSession is true, default to 'All', otherwise use defaultSession
@@ -260,10 +261,9 @@ export function SessionSelector({
           </Popover>
         </div>
 
-        {/* Session Selector - Only show if not hidden */}
         {!hideSession && (
           <div className="grid grid-cols-3 gap-2">
-            {SESSION_OPTIONS.map(session => {
+            {SESSION_OPTIONS.filter(session => showAllSession || session !== 'All').map(session => {
               const isSelected = selectedSession === session;
               const details = SESSION_DETAILS[session];
               const isAll = session === 'All';

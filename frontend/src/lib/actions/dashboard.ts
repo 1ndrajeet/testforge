@@ -3,7 +3,7 @@
 
 import { and, eq, sql } from 'drizzle-orm';
 
-import departmentsMap from '@/config/departmentsMap.json';
+import departmentsMap from '@/config/course_codes.json';
 import { db } from '@/lib/db';
 import {
   blockAllocations,

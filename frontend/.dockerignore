@@ -1,0 +1,21 @@
+# frontend/.dockerignore
+node_modules
+.next
+.git
+.env
+.env.local
+.env.*.local
+Dockerfile
+.dockerignore
+README.md
+*.log
+.gitignore
+.eslintcache
+.vercel
+.vscode
+.idea
+coverage
+.nyc_output
+dist
+build
+*.tsbuildinfo

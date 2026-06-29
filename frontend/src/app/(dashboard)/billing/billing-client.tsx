@@ -124,11 +124,13 @@ function PlanIcon({ planId, isPopular }: { planId: string; isPopular?: boolean }
       className={cn(
         'mb-4 flex h-12 w-12 items-center justify-center rounded-xl transition-all',
         isPopular
-          ? 'from-primary to-primary shadow-primary/25 bg-gradient-to-br shadow-lg'
-          : 'group-hover:bg-primary 100 dark:group-hover:bg-primary/30 bg-neutral-100 dark:bg-neutral-800'
+          ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-500/25'
+          : 'bg-neutral-100 group-hover:bg-emerald-50 dark:bg-neutral-800 dark:group-hover:bg-emerald-950/30'
       )}
     >
-      <Icon className={cn('h-6 w-6 transition-all', isPopular ? 'text-white' : 'text-primary dark:text-primary')} />
+      <Icon
+        className={cn('h-6 w-6 transition-all', isPopular ? 'text-white' : 'text-emerald-600 dark:text-emerald-400')}
+      />
     </div>
   );
 }
@@ -139,10 +141,10 @@ function PlanIcon({ planId, isPopular }: { planId: string; isPopular?: boolean }
 
 function FeatureList({ features, className }: { features: string[]; className?: string }) {
   return (
-    <ul className={cn('space-y-2', className)}>
+    <ul className={cn('space-y-2.5', className)}>
       {features.map(feature => (
-        <li key={feature} className="flex items-start gap-2 text-sm">
-          <Check className="text-primary mt-0.5 h-4 w-4 flex-shrink-0" />
+        <li key={feature} className="flex items-start gap-3 text-sm">
+          <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-500" />
           <span className="text-neutral-600 dark:text-neutral-400">{feature}</span>
         </li>
       ))}
@@ -172,100 +174,98 @@ function PricingCard({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -4 }}
       transition={{ duration: 0.2 }}
-      className="relative"
+      className="relative h-full"
     >
       <div
         className={cn(
-          'h-full cursor-pointer rounded-2xl transition-all duration-300',
-          isSelected ? 'shadow-primary/20 ring-primary shadow-xl ring-2' : 'hover:shadow-lg',
-          isPopular && !isSelected && 'ring-primary 200 dark:ring-primary ring-1'
+          'group flex h-full cursor-pointer flex-col rounded-2xl border bg-white p-6 transition-all duration-300 dark:bg-neutral-900',
+          isSelected
+            ? 'border-emerald-500 shadow-xl ring-2 shadow-emerald-500/10 ring-emerald-500'
+            : isPopular
+              ? 'border-emerald-200 shadow-lg hover:shadow-xl dark:border-emerald-800'
+              : 'border-neutral-200 hover:border-emerald-200 hover:shadow-lg dark:border-neutral-800'
         )}
         onClick={() => onSelect(plan.id)}
       >
-        <div
+        {/* Popular Badge */}
+        {isPopular && (
+          <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+            <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-emerald-500 to-emerald-600 px-3 py-1 text-xs font-medium text-white shadow-lg">
+              <Star className="h-3 w-3 fill-current" />
+              Most Popular
+            </span>
+          </div>
+        )}
+
+        {/* Offer Badge */}
+        {plan.offer && (
+          <div className="absolute top-3 right-0">
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500 px-3 py-1 text-xs font-medium text-white shadow-lg">
+              <Gift className="h-3 w-3" />
+              Limited Offer
+            </span>
+          </div>
+        )}
+
+        <PlanIcon planId={plan.id} isPopular={isPopular} />
+
+        <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-100">{plan.title}</h3>
+
+        <div className="mt-4 flex items-baseline gap-1">
+          <span className="text-4xl font-bold text-neutral-900 dark:text-neutral-100">{plan.price}</span>
+          <span className="text-sm text-neutral-500">/{plan.period}</span>
+        </div>
+
+        {plan.originalPrice && (
+          <div className="mt-2 flex items-center gap-2">
+            <span className="text-sm text-neutral-400 line-through">{plan.originalPrice}</span>
+            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400">
+              {plan.savings}
+            </span>
+          </div>
+        )}
+
+        {plan.highlight && (
+          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/20">
+            <p className="text-xs font-medium text-amber-700 dark:text-amber-400">{plan.highlight}</p>
+            {plan.highlightDetail && (
+              <p className="mt-0.5 text-xs text-amber-600 dark:text-amber-500">{plan.highlightDetail}</p>
+            )}
+          </div>
+        )}
+
+        <p className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">{plan.description}</p>
+
+        <div className="mt-6 flex-1">
+          <FeatureList features={plan.features} />
+        </div>
+
+        <Button
+          onClick={e => {
+            e.stopPropagation();
+            onSelect(plan.id);
+          }}
+          disabled={isLoading}
+          variant={isSelected ? 'default' : 'outline'}
           className={cn(
-            'flex h-full flex-col rounded-2xl p-6',
+            'mt-6 w-full transition-all',
             isSelected
-              ? 'to-primary 50/50 dark:to-primary 950/20 bg-gradient-to-br from-white dark:from-neutral-900'
-              : 'bg-white dark:bg-neutral-900'
+              ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/25 hover:from-emerald-600 hover:to-emerald-700'
+              : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-950/30'
           )}
         >
-          {isPopular && (
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-              <span className="from-primary to-primary inline-flex items-center gap-1 rounded-full bg-gradient-to-r px-3 py-1 text-xs font-medium text-white shadow-lg">
-                <Star className="h-3 w-3 fill-current" />
-                Most Popular
-              </span>
-            </div>
+          {isLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : isSelected ? (
+            <>
+              <Check className="mr-2 h-4 w-4" />
+              Selected
+            </>
+          ) : (
+            plan.cta
           )}
-
-          {plan.offer && (
-            <div className="absolute -top-3 right-4">
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500 px-3 py-1 text-xs font-medium text-white shadow-lg">
-                <Gift className="h-3 w-3" />
-                Limited Offer
-              </span>
-            </div>
-          )}
-
-          <PlanIcon planId={plan.id} isPopular={isPopular} />
-
-          <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-100">{plan.title}</h3>
-
-          <div className="mt-4 mb-2">
-            <span className="text-4xl font-bold text-neutral-900 dark:text-neutral-100">{plan.price}</span>
-            <span className="text-sm text-neutral-500">/{plan.period}</span>
-          </div>
-
-          {plan.originalPrice && (
-            <div className="mb-3 flex items-center gap-2">
-              <span className="text-sm text-neutral-400 line-through">{plan.originalPrice}</span>
-              <span className="bg-primary 50 text-primary dark:bg-primary 950/30 rounded-full px-2 py-0.5 text-xs font-medium">
-                {plan.savings}
-              </span>
-            </div>
-          )}
-
-          {plan.highlight && (
-            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-2 dark:border-amber-800 dark:bg-amber-950/20">
-              <p className="text-xs font-medium text-amber-700 dark:text-amber-400">{plan.highlight}</p>
-              {plan.highlightDetail && (
-                <p className="mt-0.5 text-xs text-amber-600 dark:text-amber-500">{plan.highlightDetail}</p>
-              )}
-            </div>
-          )}
-
-          <p className="mb-6 text-sm text-neutral-500 dark:text-neutral-400">{plan.description}</p>
-
-          <FeatureList features={plan.features} className="mb-6 flex-1" />
-
-          <Button
-            onClick={e => {
-              e.stopPropagation();
-              onSelect(plan.id);
-            }}
-            disabled={isLoading}
-            className={cn(
-              'w-full transition-all',
-              isSelected
-                ? 'bg-primary shadow-primary/25 hover:bg-primary text-white shadow-lg'
-                : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700'
-            )}
-          >
-            {isLoading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : isSelected ? (
-              <>
-                <Check className="mr-2 h-4 w-4" />
-                Selected
-              </>
-            ) : (
-              plan.cta
-            )}
-          </Button>
-        </div>
+        </Button>
       </div>
     </motion.div>
   );
@@ -299,10 +299,8 @@ function CurrentPlanCard({
   if (!subscription) {
     return (
       <Card>
-        <CardContent className="p-8">
-          <div className="flex items-center justify-center">
-            <Loader2 className="text-primary h-8 w-8 animate-spin" />
-          </div>
+        <CardContent className="flex items-center justify-center py-16">
+          <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
         </CardContent>
       </Card>
     );
@@ -321,28 +319,44 @@ function CurrentPlanCard({
           icon: Infinity,
           name: 'Lifetime Access',
           color: 'amber',
-          bgGradient: 'from-amber-500 to-amber-600',
+          bgGradient: 'from-amber-500/10 to-amber-600/5',
+          iconBg: 'bg-amber-100 dark:bg-amber-950/30',
+          iconColor: 'text-amber-600',
+          badgeColor: 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400',
+          statusColor: 'text-amber-600',
         };
       case 'premium':
         return {
           icon: Crown,
           name: 'Premium',
           color: 'emerald',
-          bgGradient: 'from-primary to-primary',
+          bgGradient: 'from-emerald-500/10 to-emerald-600/5',
+          iconBg: 'bg-emerald-100 dark:bg-emerald-950/30',
+          iconColor: 'text-emerald-600',
+          badgeColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400',
+          statusColor: 'text-emerald-600',
         };
       case 'trial':
         return {
           icon: Zap,
           name: 'Trial Period',
           color: 'blue',
-          bgGradient: 'from-blue-500 to-blue-600',
+          bgGradient: 'from-blue-500/10 to-blue-600/5',
+          iconBg: 'bg-blue-100 dark:bg-blue-950/30',
+          iconColor: 'text-blue-600',
+          badgeColor: 'bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400',
+          statusColor: 'text-blue-600',
         };
       default:
         return {
           icon: AlertCircle,
           name: 'Inactive',
           color: 'neutral',
-          bgGradient: 'from-neutral-500 to-neutral-600',
+          bgGradient: 'from-neutral-500/10 to-neutral-600/5',
+          iconBg: 'bg-neutral-100 dark:bg-neutral-800',
+          iconColor: 'text-neutral-600',
+          badgeColor: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-400',
+          statusColor: 'text-neutral-600',
         };
     }
   };
@@ -353,50 +367,15 @@ function CurrentPlanCard({
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-      <Card className="overflow-hidden">
-        <div
-          className={cn(
-            'bg-gradient-to-r p-6',
-            tier === 'enterprise'
-              ? 'from-amber-500/10 to-amber-600/5'
-              : tier === 'premium'
-                ? 'from-primary/10 to-primary/5'
-                : tier === 'trial'
-                  ? 'from-blue-500/10 to-blue-600/5'
-                  : 'from-neutral-500/10 to-neutral-600/5'
-          )}
-        >
+      <Card className="overflow-hidden border-0 shadow-lg">
+        <div className={cn('bg-gradient-to-r p-6', planConfig.bgGradient)}>
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div
-                className={cn(
-                  'flex h-12 w-12 items-center justify-center rounded-xl',
-                  tier === 'enterprise'
-                    ? 'bg-amber-100 dark:bg-amber-950/30'
-                    : tier === 'premium'
-                      ? 'bg-primary 100 dark:bg-primary 950/30'
-                      : tier === 'trial'
-                        ? 'bg-blue-100 dark:bg-blue-950/30'
-                        : 'bg-neutral-100 dark:bg-neutral-800'
-                )}
-              >
-                <Icon
-                  className={cn(
-                    'h-6 w-6',
-                    tier === 'enterprise'
-                      ? 'text-amber-600'
-                      : tier === 'premium'
-                        ? 'text-primary'
-                        : tier === 'trial'
-                          ? 'text-blue-600'
-                          : 'text-neutral-600'
-                  )}
-                />
+            <div className="flex items-center gap-4">
+              <div className={cn('flex h-12 w-12 items-center justify-center rounded-xl', planConfig.iconBg)}>
+                <Icon className={cn('h-6 w-6', planConfig.iconColor)} />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-100">
-                  Current Plan: {subscription.planName}
-                </h3>
+                <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-100">{subscription.planName}</h3>
                 <p className="mt-0.5 text-sm text-neutral-500">{organization?.name || 'Your Organization'}</p>
               </div>
             </div>
@@ -410,7 +389,7 @@ function CurrentPlanCard({
                       ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400'
                       : tier === 'inactive'
                         ? 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-400'
-                        : 'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400'
+                        : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
                 )}
               >
                 {isExpired
@@ -421,7 +400,12 @@ function CurrentPlanCard({
                       ? 'No Active Plan'
                       : 'Active'}
               </span>
-              <Button variant="ghost" size="sm" onClick={onRefresh} className="h-8 w-8 p-0">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onRefresh}
+                className="h-8 w-8 p-0 text-neutral-500 hover:text-neutral-700"
+              >
                 <RefreshCw className="h-4 w-4" />
               </Button>
             </div>
@@ -431,11 +415,16 @@ function CurrentPlanCard({
         <CardContent className="space-y-6 p-6">
           <div className="grid gap-4 sm:grid-cols-2">
             {expiresAt && !isExpired && tier !== 'enterprise' && (
-              <div className="flex items-center gap-3 rounded-lg bg-neutral-50 p-3 dark:bg-neutral-900">
-                <Timer className={cn('h-5 w-5', daysRemaining <= 7 ? 'text-orange-500' : 'text-primary')} />
+              <div className="flex items-center gap-3 rounded-lg bg-neutral-50 p-4 dark:bg-neutral-900/50">
+                <Timer className={cn('h-5 w-5', daysRemaining <= 7 ? 'text-orange-500' : 'text-emerald-500')} />
                 <div>
                   <p className="text-xs text-neutral-500">Time Remaining</p>
-                  <p className={cn('font-semibold', daysRemaining <= 7 ? 'text-orange-600' : 'text-neutral-900')}>
+                  <p
+                    className={cn(
+                      'font-semibold',
+                      daysRemaining <= 7 ? 'text-orange-600' : 'text-neutral-900 dark:text-neutral-100'
+                    )}
+                  >
                     {daysRemaining} days left
                   </p>
                   <p className="text-xs text-neutral-400">Expires on {formatDate(expiresAt)}</p>
@@ -444,7 +433,7 @@ function CurrentPlanCard({
             )}
 
             {user && (
-              <div className="flex items-center gap-3 rounded-lg bg-neutral-50 p-3 dark:bg-neutral-900">
+              <div className="flex items-center gap-3 rounded-lg bg-neutral-50 p-4 dark:bg-neutral-900/50">
                 <User className="h-5 w-5 text-neutral-500" />
                 <div>
                   <p className="text-xs text-neutral-500">Account Owner</p>
@@ -455,7 +444,7 @@ function CurrentPlanCard({
             )}
 
             {examCenter && (
-              <div className="flex items-center gap-3 rounded-lg bg-neutral-50 p-3 dark:bg-neutral-900">
+              <div className="flex items-center gap-3 rounded-lg bg-neutral-50 p-4 dark:bg-neutral-900/50">
                 <Building2 className="h-5 w-5 text-neutral-500" />
                 <div>
                   <p className="text-xs text-neutral-500">Exam Center</p>
@@ -467,11 +456,11 @@ function CurrentPlanCard({
           </div>
 
           {tier === 'enterprise' && (
-            <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-gradient-to-r from-amber-50 to-amber-100/50 p-4">
-              <Infinity className="h-5 w-5 flex-shrink-0 text-amber-600" />
+            <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-gradient-to-r from-amber-50 to-amber-100/50 p-4 dark:border-amber-800 dark:from-amber-950/20 dark:to-amber-950/10">
+              <Infinity className="h-5 w-5 flex-shrink-0 text-amber-600 dark:text-amber-400" />
               <div>
-                <p className="text-sm font-medium text-amber-800">Lifetime Access</p>
-                <p className="mt-0.5 text-xs text-amber-700">
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Lifetime Access</p>
+                <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-400">
                   You have lifetime access to TestForge. No renewal needed.
                 </p>
               </div>
@@ -479,41 +468,49 @@ function CurrentPlanCard({
           )}
 
           {isExpired && tier !== 'enterprise' && (
-            <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
-              <AlertCircle className="h-5 w-5 flex-shrink-0 text-red-600" />
+            <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950/20">
+              <AlertCircle className="h-5 w-5 flex-shrink-0 text-red-600 dark:text-red-400" />
               <div>
-                <p className="text-sm font-medium text-red-800">Subscription Expired</p>
-                <p className="mt-0.5 text-xs text-red-700">Please renew to continue using TestForge.</p>
+                <p className="text-sm font-medium text-red-800 dark:text-red-300">Subscription Expired</p>
+                <p className="mt-0.5 text-xs text-red-700 dark:text-red-400">
+                  Please renew to continue using TestForge.
+                </p>
               </div>
             </div>
           )}
 
           {tier === 'inactive' && (
-            <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
-              <AlertCircle className="h-5 w-5 flex-shrink-0 text-amber-600" />
+            <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/20">
+              <AlertCircle className="h-5 w-5 flex-shrink-0 text-amber-600 dark:text-amber-400" />
               <div>
-                <p className="text-sm font-medium text-amber-800">No Active Subscription</p>
-                <p className="mt-0.5 text-xs text-amber-700">Please purchase a plan to continue using TestForge.</p>
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-300">No Active Subscription</p>
+                <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-400">
+                  Please purchase a plan to continue using TestForge.
+                </p>
               </div>
             </div>
           )}
 
           {tier === 'trial' && !isExpired && (
-            <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4">
-              <Sparkles className="h-5 w-5 flex-shrink-0 text-blue-600" />
+            <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950/20">
+              <Sparkles className="h-5 w-5 flex-shrink-0 text-blue-600 dark:text-blue-400" />
               <div>
-                <p className="text-sm font-medium text-blue-800">Trial Period Active</p>
-                <p className="mt-0.5 text-xs text-blue-700">Upgrade to premium to continue after trial ends.</p>
+                <p className="text-sm font-medium text-blue-800 dark:text-blue-300">Trial Period Active</p>
+                <p className="mt-0.5 text-xs text-blue-700 dark:text-blue-400">
+                  Upgrade to premium to continue after trial ends.
+                </p>
               </div>
             </div>
           )}
 
           {tier === 'premium' && !isExpired && (
-            <div className="flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 p-4">
-              <Crown className="h-5 w-5 flex-shrink-0 text-green-600" />
+            <div className="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-800 dark:bg-emerald-950/20">
+              <Crown className="h-5 w-5 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
               <div>
-                <p className="text-sm font-medium text-green-800">Premium Active</p>
-                <p className="mt-0.5 text-xs text-green-700">You have full access to all premium features.</p>
+                <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">Premium Active</p>
+                <p className="mt-0.5 text-xs text-emerald-700 dark:text-emerald-400">
+                  You have full access to all premium features.
+                </p>
               </div>
             </div>
           )}
@@ -524,23 +521,31 @@ function CurrentPlanCard({
               className={cn(
                 'flex-1',
                 !isActivePlan || isExpired
-                  ? 'bg-primary hover:bg-primary'
-                  : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                  ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/25 hover:from-emerald-600 hover:to-emerald-700'
+                  : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700'
               )}
             >
               {tier === 'inactive' ? 'Purchase a Plan' : isExpired ? 'Renew Subscription' : 'Upgrade / Change Plan'}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
-            <Button onClick={handleSignOut} variant="outline" className="border-red-300 text-red-600 hover:bg-red-50">
+            <Button
+              onClick={handleSignOut}
+              variant="outline"
+              className="border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/20"
+            >
               Sign Out
             </Button>
           </div>
 
-          <div className="flex items-center justify-center gap-2 border-t pt-4">
-            <Lock className="h-3 w-3 text-neutral-400" />
-            <span className="text-xs text-neutral-400">Secured by Razorpay</span>
-            <Shield className="ml-2 h-3 w-3 text-neutral-400" />
-            <span className="text-xs text-neutral-400">256-bit SSL Encryption</span>
+          <div className="flex items-center justify-center gap-4 border-t border-neutral-200 pt-4 dark:border-neutral-800">
+            <div className="flex items-center gap-1.5">
+              <Lock className="h-3.5 w-3.5 text-neutral-400" />
+              <span className="text-xs text-neutral-400">Secured by Razorpay</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Shield className="h-3.5 w-3.5 text-neutral-400" />
+              <span className="text-xs text-neutral-400">256-bit SSL</span>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -574,8 +579,8 @@ function PaymentHistory({ payments, refreshTrigger }: { payments: Payment[]; ref
 
   if (loading) {
     return (
-      <div className="flex justify-center py-12">
-        <Loader2 className="text-primary h-8 w-8 animate-spin" />
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
       </div>
     );
   }
@@ -585,10 +590,10 @@ function PaymentHistory({ payments, refreshTrigger }: { payments: Payment[]; ref
   if (paidPayments.length === 0) {
     return (
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="py-16 text-center">
-        <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-neutral-100">
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-neutral-100 dark:bg-neutral-800">
           <History className="h-8 w-8 text-neutral-400" />
         </div>
-        <h3 className="text-lg font-medium text-neutral-900">No transactions yet</h3>
+        <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100">No transactions yet</h3>
         <p className="mt-1 text-sm text-neutral-500">Your payment history will appear here</p>
       </motion.div>
     );
@@ -602,23 +607,25 @@ function PaymentHistory({ payments, refreshTrigger }: { payments: Payment[]; ref
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: index * 0.05 }}
-          className="hover:border-primary 200 flex flex-col items-start justify-between rounded-xl border bg-white p-4 transition-all sm:flex-row sm:items-center dark:bg-neutral-900"
+          className="flex flex-col items-start justify-between rounded-xl border border-neutral-200 bg-white p-4 transition-all hover:border-emerald-200 hover:shadow-md sm:flex-row sm:items-center dark:border-neutral-800 dark:bg-neutral-900"
         >
           <div className="mb-3 flex items-center gap-4 sm:mb-0">
-            <div className="bg-primary 100 flex h-10 w-10 items-center justify-center rounded-full">
-              <CreditCard className="text-primary h-5 w-5" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-950/30">
+              <CreditCard className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
-              <p className="font-medium text-neutral-900">{payment.planName}</p>
+              <p className="font-medium text-neutral-900 dark:text-neutral-100">{payment.planName}</p>
               <p className="mt-0.5 text-xs text-neutral-400">{formatDate(payment.createdAt)}</p>
               {payment.endDate && (
-                <p className="text-primary mt-0.5 text-xs">Valid until {formatDate(payment.endDate)}</p>
+                <p className="mt-0.5 text-xs text-emerald-600 dark:text-emerald-400">
+                  Valid until {formatDate(payment.endDate)}
+                </p>
               )}
             </div>
           </div>
           <div className="w-full text-right sm:w-auto">
-            <p className="text-xl font-bold text-neutral-900">{formatCurrency(payment.amount)}</p>
-            <p className="text-primary text-xs font-medium capitalize">Paid</p>
+            <p className="text-xl font-bold text-neutral-900 dark:text-neutral-100">{formatCurrency(payment.amount)}</p>
+            <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">Paid</p>
           </div>
         </motion.div>
       ))}
@@ -725,38 +732,42 @@ function PricingPlansSection({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {pricingPlans.map((plan: Plan) => (
-          <div key={plan.id} className="flex flex-col">
-            <PricingCard
-              plan={plan}
-              onSelect={onSelectPlan}
-              isLoading={loading === plan.id}
-              selectedId={selectedPlanId}
-            />
-            {selectedPlanId === plan.id && (
-              <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mt-4">
-                <Button
-                  onClick={() => handlePayment(plan)}
-                  disabled={loading === plan.id}
-                  className="from-primary to-primary shadow-primary/25 hover:from-primary hover:to-primary h-12 w-full bg-gradient-to-r text-base text-white shadow-lg"
-                >
-                  {loading === plan.id ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <>
-                      Subscribe Now <ArrowRight className="ml-2 h-4 w-4" />
-                    </>
-                  )}
-                </Button>
-              </motion.div>
-            )}
-          </div>
+          <PricingCard
+            key={plan.id}
+            plan={plan}
+            onSelect={onSelectPlan}
+            isLoading={loading === plan.id}
+            selectedId={selectedPlanId}
+          />
         ))}
       </div>
 
-      <div className="flex flex-wrap items-center justify-center gap-6 pt-8">
+      {selectedPlanId && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex justify-center">
+          <Button
+            onClick={() => {
+              const plan = pricingPlans.find((p: Plan) => p.id === selectedPlanId);
+              if (plan) handlePayment(plan);
+            }}
+            disabled={loading !== null}
+            className="h-12 min-w-[200px] bg-gradient-to-r from-emerald-500 to-emerald-600 text-base text-white shadow-lg shadow-emerald-500/25 hover:from-emerald-600 hover:to-emerald-700"
+          >
+            {loading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <>
+                Subscribe Now
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </>
+            )}
+          </Button>
+        </motion.div>
+      )}
+
+      <div className="flex flex-wrap items-center justify-center gap-6 pt-4">
         <div className="flex items-center gap-2">
           <Lock className="h-4 w-4 text-neutral-400" />
           <span className="text-xs text-neutral-500">Secure Payment</span>
@@ -806,25 +817,32 @@ export function BillingClient({ user, examCenter, subscription, organization, in
         <div className="container mx-auto max-w-7xl px-4 py-8">
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
             <div className="mb-2 flex items-center gap-3">
-              <div className="from-primary to-primary shadow-primary/25 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br shadow-lg">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-500/25">
                 <DollarSign className="h-5 w-5 text-white" />
               </div>
               <h1 className="text-3xl font-bold text-neutral-900 dark:text-neutral-100">Billing & Subscription</h1>
             </div>
-            <p className="ml-13 text-neutral-500">
-              Manage your plan, view payment history, and update billing information
-            </p>
+            <p className="text-neutral-500">Manage your plan, view payment history, and update billing information</p>
           </motion.div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
             <TabsList className="grid w-full max-w-md grid-cols-3 rounded-xl bg-neutral-100 p-1 dark:bg-neutral-800">
-              <TabsTrigger value="current" className="rounded-lg data-[state=active]:bg-white">
+              <TabsTrigger
+                value="current"
+                className="rounded-lg text-sm font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm dark:data-[state=active]:bg-neutral-900"
+              >
                 Current Plan
               </TabsTrigger>
-              <TabsTrigger value="plans" className="rounded-lg data-[state=active]:bg-white">
+              <TabsTrigger
+                value="plans"
+                className="rounded-lg text-sm font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm dark:data-[state=active]:bg-neutral-900"
+              >
                 Plans
               </TabsTrigger>
-              <TabsTrigger value="history" className="rounded-lg data-[state=active]:bg-white">
+              <TabsTrigger
+                value="history"
+                className="rounded-lg text-sm font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm dark:data-[state=active]:bg-neutral-900"
+              >
                 History
               </TabsTrigger>
             </TabsList>

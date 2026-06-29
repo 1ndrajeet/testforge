@@ -99,7 +99,7 @@
             "children": [
                 {
                     "id": "allocate",
-                    "name": "Block Allocation",
+                    "name": "Allocate Students",
                     "description": "Allocate students to examination blocks",
                     "route": "/block-allocation/allocate",
                     "icon": "Map"
@@ -107,16 +107,23 @@
                 {
                     "id": "change-supervisor",
                     "name": "Change Supervisor",
-                    "description": "Quick supervisor replacement",
+                    "description": "Quick supervisor replacement for blocks",
                     "route": "/block-allocation/change-supervisor",
                     "icon": "RefreshCw"
                 },
                 {
                     "id": "clear-allocation",
                     "name": "Clear Allocation",
-                    "description": "Reset block allocations",
+                    "description": "Reset block allocations for a session",
                     "route": "/block-allocation/clear-allocation",
                     "icon": "Trash2"
+                },
+                {
+                    "id": "supervision-order",
+                    "name": "Supervision & Reliever Orders",
+                    "description": "Generate and manage supervision and reliever orders for examination sessions",
+                    "route": "/block-allocation/supervision-order",
+                    "icon": "Users2"
                 }
             ]
         },
@@ -170,7 +177,7 @@
                 {
                     "id": "f2",
                     "name": "Format 2",
-                    "description": "QP Receipt (Controller→DC)",
+                    "description": "QP Receipt (Controller to DC)",
                     "route": "/msbte-reports/f2",
                     "icon": "FileDown",
                     "tooltip": "Format 2 - QP Receipt"
@@ -178,7 +185,7 @@
                 {
                     "id": "f3",
                     "name": "Format 3",
-                    "description": "QP Receipt (EC→Controller)",
+                    "description": "QP Receipt (EC to Controller)",
                     "route": "/msbte-reports/f3",
                     "icon": "FileUp",
                     "tooltip": "Format 3 - QP Handover"
@@ -368,7 +375,7 @@
                 },
                 {
                     "id": "supervision",
-                    "name": "Supervision Report",
+                    "name": "Daily Supervision Report",
                     "description": "Supervisor-wise duty schedule",
                     "route": "/testforge-reports/supervision",
                     "icon": "CalendarCheck"
@@ -395,25 +402,11 @@
                     "icon": "Calculator"
                 },
                 {
-                    "id": "oic-supervision",
-                    "name": "OIC Supervision Summary",
-                    "description": "Officer-in-charge report",
-                    "route": "/testforge-reports/oic-supervision",
-                    "icon": "FileBadge"
-                },
-                {
                     "id": "daily-summary",
                     "name": "Daily Exam Summary",
                     "description": "Day-wise exam statistics",
                     "route": "/testforge-reports/daily-summary",
                     "icon": "Calendar"
-                },
-                {
-                    "id": "session-summary",
-                    "name": "Session Summary",
-                    "description": "Session-wise student distribution",
-                    "route": "/testforge-reports/session-summary",
-                    "icon": "BarChart"
                 },
                 {
                     "id": "staff-duty",
@@ -428,38 +421,42 @@
             "id": "automation",
             "name": "Automation",
             "icon": "Zap",
-            "description": "Premium bulk operations",
+            "description": "Generate and send office orders, supervision reports, and bulk communications",
             "route": "/automation",
             "premium": true,
             "order": 7,
             "children": [
                 {
-                    "id": "supervision-bulk",
+                    "id": "supervision-order",
                     "name": "Supervision Orders",
-                    "description": "Generate and email supervision orders in bulk",
-                    "route": "/automation/supervision",
-                    "icon": "MailCheck"
+                    "description": "Generate office orders for block supervisors with allotment details",
+                    "route": "/automation/supervision-order",
+                    "icon": "UserCheck",
+                    "tooltip": "Generate supervision office orders for block supervisors"
                 },
                 {
-                    "id": "reliever-bulk",
+                    "id": "reliever-order",
                     "name": "Reliever Orders",
-                    "description": "Generate and email reliever orders",
-                    "route": "/automation/reliever",
-                    "icon": "MailPlus"
+                    "description": "Generate office orders for block relievers with allotment details",
+                    "route": "/automation/reliever-order",
+                    "icon": "Users2",
+                    "tooltip": "Generate reliever office orders for block relievers"
                 },
                 {
-                    "id": "control-room-orders",
-                    "name": "Control Room Orders",
-                    "description": "Generate control room team orders",
-                    "route": "/automation/control-room",
-                    "icon": "Mail"
+                    "id": "chief-order",
+                    "name": "Chief Officer Order",
+                    "description": "Generate office orders for chief officers and control room staff",
+                    "route": "/automation/chief-order",
+                    "icon": "Users",
+                    "tooltip": "Generate office orders for chief officers and control room staff"
                 },
                 {
-                    "id": "oic-orders",
-                    "name": "OIC Orders",
-                    "description": "Generate officer-in-charge orders",
-                    "route": "/automation/oic",
-                    "icon": "MailOpen"
+                    "id": "office-order-mail",
+                    "name": "Office Order Mail",
+                    "description": "Generate and email office orders to supervisors, relievers, and officers",
+                    "route": "/automation/office-order-mail",
+                    "icon": "MailOpen",
+                    "tooltip": "Generate and send office orders via email with exclusion controls"
                 }
             ]
         },
@@ -477,13 +474,6 @@
                     "description": "Account information",
                     "route": "/settings/profile",
                     "icon": "UserCircle"
-                },
-                {
-                    "id": "organization",
-                    "name": "Organization",
-                    "description": "Manage organization",
-                    "route": "/settings/organization",
-                    "icon": "Building"
                 },
                 {
                     "id": "preferences",

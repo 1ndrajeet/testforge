@@ -48,7 +48,7 @@ const CreateAllocationSchema = z.object({
 });
 
 const UpdateAllocationSchema = z.object({
-  id: z.string().min(1), // ← Accept any non-empty string
+  id: z.string().min(1),
   supervisorUid: z.string().optional().nullable(),
   supervisorName: z.string().optional().nullable(),
   seatNumbers: z.array(z.number()).optional(),
@@ -1084,7 +1084,7 @@ export async function createBlockConfiguration(data: z.infer<typeof CreateBlockC
         );
 
       const allocations = [];
-      let currentBlockNo = 0;
+      let currentBlockNo = 1;
       const blockNumberMap: Record<string, number> = {};
 
       for (const block of validated.blocks) {

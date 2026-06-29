@@ -551,3 +551,219 @@ export async function processInventoryData(
     };
   }
 }
+
+// lib/actions/inventory.ts - Add these functions
+
+// ============================================
+// Get All Inventory Records (without date filter)
+// ============================================
+
+// lib/actions/inventory.ts - Fixed getAllInventoryRecords
+
+export async function getAllInventoryRecords(): Promise<{
+  success: boolean;
+  data: QPInventoryRecord[];
+  stats?: QPInventoryStats;
+  error?: string;
+}> {
+  const MODULE_FN = `${MODULE}.getAllInventoryRecords`;
+
+  try {
+    const examCenterId = await getExamCenterId();
+
+    if (!examCenterId) {
+      logger.debug(MODULE_FN, 'No exam center found');
+      return {
+        success: true,
+        data: [],
+        stats: {
+          totalSubjects: 0,
+          totalExpectedStudents: 0,
+          totalExpectedPackets: 0,
+          totalReceivedPackets: 0,
+          totalReceivedQps: 0,
+          totalPacketsDiscrepancy: 0,
+          totalQpsDiscrepancy: 0,
+          completionRate: 0,
+        },
+      };
+    }
+
+    const records = await db.query.qpInventory.findMany({
+      where: eq(qpInventory.examCenterId, examCenterId),
+      orderBy: [qpInventory.day, qpInventory.session, qpInventory.subjectCode],
+    });
+
+    if (records.length === 0) {
+      return {
+        success: true,
+        data: [],
+        stats: {
+          totalSubjects: 0,
+          totalExpectedStudents: 0,
+          totalExpectedPackets: 0,
+          totalReceivedPackets: 0,
+          totalReceivedQps: 0,
+          totalPacketsDiscrepancy: 0,
+          totalQpsDiscrepancy: 0,
+          completionRate: 0,
+        },
+      };
+    }
+
+    return await processInventoryRecords(records);
+  } catch (error) {
+    logger.error(MODULE_FN, 'Failed to fetch all inventory records', { error });
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      data: [], // Always return data array
+      stats: {
+        totalSubjects: 0,
+        totalExpectedStudents: 0,
+        totalExpectedPackets: 0,
+        totalReceivedPackets: 0,
+        totalReceivedQps: 0,
+        totalPacketsDiscrepancy: 0,
+        totalQpsDiscrepancy: 0,
+        completionRate: 0,
+      },
+    };
+  }
+}
+
+// ============================================
+// Get Inventory Summary (Day-wise totals)
+// ============================================
+
+export async function getInventorySummary(): Promise<{
+  success: boolean;
+  data: Array<{
+    day: number;
+    totalExpected: number;
+    totalReceived: number;
+    totalStudents: number;
+    subjects: number;
+    completionRate: number;
+  }>;
+  error?: string;
+}> {
+  const MODULE_FN = `${MODULE}.getInventorySummary`;
+
+  try {
+    const examCenterId = await getExamCenterId();
+
+    if (!examCenterId) {
+      logger.debug(MODULE_FN, 'No exam center found');
+      return { success: true, data: [] };
+    }
+
+    const results = await db
+      .select({
+        day: qpInventory.day,
+        totalExpected: sql<number>`COALESCE(sum(${qpInventory.expectedPackets}), 0)`,
+        totalReceived: sql<number>`COALESCE(sum(${qpInventory.receivedPackets}), 0)`,
+        totalStudents: sql<number>`COALESCE(sum(${qpInventory.expectedStudents}), 0)`,
+        subjects: sql<number>`count(*)`,
+      })
+      .from(qpInventory)
+      .where(eq(qpInventory.examCenterId, examCenterId))
+      .groupBy(qpInventory.day)
+      .orderBy(qpInventory.day);
+
+    const data = results.map(r => ({
+      day: r.day || 0,
+      totalExpected: Number(r.totalExpected) || 0,
+      totalReceived: Number(r.totalReceived) || 0,
+      totalStudents: Number(r.totalStudents) || 0,
+      subjects: Number(r.subjects) || 0,
+      completionRate:
+        Number(r.totalExpected) > 0 ? Math.round((Number(r.totalReceived) / Number(r.totalExpected)) * 100) : 0,
+    }));
+
+    logger.debug(MODULE_FN, `Fetched inventory summary for ${data.length} days`);
+    return { success: true, data };
+  } catch (error) {
+    logger.error(MODULE_FN, 'Failed to fetch inventory summary', { error });
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      data: [],
+    };
+  }
+}
+
+// ============================================
+// Check if Inventory Data Exists
+// ============================================
+
+export async function hasInventoryData(): Promise<{
+  success: boolean;
+  data: boolean;
+  error?: string;
+}> {
+  const MODULE_FN = `${MODULE}.hasInventoryData`;
+
+  try {
+    const examCenterId = await getExamCenterId();
+
+    if (!examCenterId) {
+      logger.debug(MODULE_FN, 'No exam center found');
+      return { success: true, data: false };
+    }
+
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(qpInventory)
+      .where(eq(qpInventory.examCenterId, examCenterId));
+
+    const hasData = Number(result[0]?.count || 0) > 0;
+    logger.debug(MODULE_FN, `Has inventory data: ${hasData}`);
+    return { success: true, data: hasData };
+  } catch (error) {
+    logger.error(MODULE_FN, 'Failed to check inventory existence', { error });
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      data: false,
+    };
+  }
+}
+
+// ============================================
+// Delete All Inventory Data
+// ============================================
+
+export async function deleteAllInventoryData(): Promise<{
+  success: boolean;
+  data: number;
+  error?: string;
+}> {
+  const MODULE_FN = `${MODULE}.deleteAllInventoryData`;
+
+  try {
+    const examCenterId = await getExamCenterId();
+
+    if (!examCenterId) {
+      logger.warn(MODULE_FN, 'No exam center found');
+      return { success: false, error: 'Exam center not found', data: 0 };
+    }
+
+    const deleted = await db.delete(qpInventory).where(eq(qpInventory.examCenterId, examCenterId)).returning();
+
+    logger.warn(MODULE_FN, 'Deleted all inventory data', {
+      examCenterId,
+      count: deleted.length,
+    });
+    revalidatePath('/exam-center/exam-setup/inventory');
+
+    return { success: true, data: deleted.length };
+  } catch (error) {
+    logger.error(MODULE_FN, 'Failed to delete inventory data', { error });
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      data: 0,
+    };
+  }
+}

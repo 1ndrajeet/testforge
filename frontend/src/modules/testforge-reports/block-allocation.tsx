@@ -191,11 +191,7 @@ const renderAllotmentSummary = (pageData: AllotmentSummaryPageData) => {
                 return (
                   <tr
                     key={`${blockNo}-${rowIndex}`}
-                    className={cn(
-                      'border-b border-neutral-200',
-                      rowIndex % 2 === 0 ? 'bg-white' : 'bg-neutral-50',
-                      isLast && 'border-b-2 border-neutral-300'
-                    )}
+                    className={cn('border-b border-neutral-200', isLast && 'border-b-2 border-neutral-300')}
                   >
                     {isFirst && (
                       <td

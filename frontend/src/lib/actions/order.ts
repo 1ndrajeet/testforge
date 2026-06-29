@@ -11,27 +11,51 @@ import { getCurrentExamCenter } from '@/lib/session';
 
 export async function getOrders(params?: { staffId?: string; orderType?: string; date?: Date }) {
   const examCenter = await getCurrentExamCenter();
-  if (!examCenter?.id) throw new Error('Exam center not found');
-
-  const conditions = [eq(orders.examCenterId, examCenter.id)];
-
-  if (params?.staffId) {
-    conditions.push(eq(orders.staffId, params.staffId));
-  }
-  if (params?.orderType) {
-    conditions.push(eq(orders.orderType, params.orderType));
-  }
-  if (params?.date) {
-    conditions.push(eq(orders.date, params.date));
+  if (!examCenter?.id) {
+    // Return empty array instead of throwing error
+    return [];
   }
 
-  return db.query.orders.findMany({
-    where: and(...conditions),
-    orderBy: (orders, { desc }) => [desc(orders.createdAt)],
-    with: {
-      staff: true,
-    },
-  });
+  try {
+    const conditions = [eq(orders.examCenterId, examCenter.id)];
+
+    if (params?.staffId) {
+      conditions.push(eq(orders.staffId, params.staffId));
+    }
+    if (params?.orderType) {
+      conditions.push(eq(orders.orderType, params.orderType));
+    }
+    if (params?.date) {
+      conditions.push(eq(orders.date, params.date));
+    }
+
+    // Use findMany without relations to avoid the issue
+    const result = await db.query.orders.findMany({
+      where: and(...conditions),
+      orderBy: (orders, { desc }) => [desc(orders.createdAt)],
+    });
+
+    // Manually fetch staff data if needed
+    if (result.length > 0) {
+      const staffIds = [...new Set(result.map(o => o.staffId))];
+      const staffData = await db.query.staff.findMany({
+        where: (staff, { inArray }) => inArray(staff.id, staffIds),
+      });
+
+      const staffMap = new Map(staffData.map(s => [s.id, s]));
+
+      // Attach staff to orders
+      return result.map(order => ({
+        ...order,
+        staff: staffMap.get(order.staffId) || null,
+      }));
+    }
+
+    return result;
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+    return [];
+  }
 }
 
 export async function getOrderById(id: string) {

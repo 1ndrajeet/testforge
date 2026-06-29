@@ -256,14 +256,14 @@ const QPInventoryTable = ({ records, isLoading, onUpdate, readOnly = false }: QP
                           variant="default"
                           className="bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
                         >
-                          ✓ Complete
+                          Complete
                         </Badge>
                       ) : isDiscrepancy ? (
                         <Badge
                           variant="destructive"
                           className="bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
                         >
-                          ⚠ Mismatch
+                          Warning Mismatch
                         </Badge>
                       ) : (
                         <Badge
@@ -349,7 +349,7 @@ function ConfirmDialog({ open, onOpenChange, onConfirm, discrepancies, isSubmitt
                 <div key={idx} className="flex items-center justify-between text-sm">
                   <span className="font-mono">{d.subjectCode}</span>
                   <span className="text-amber-600 dark:text-amber-400">
-                    Expected: {d.expected} → Received: {d.received}
+                    Expected: {d.expected}, Received: {d.received}
                   </span>
                 </div>
               ))}
@@ -634,7 +634,7 @@ export default function QPAccountingPage() {
                     variant="default"
                     className="bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
                   >
-                    ✓ All Matched
+                    All Matched
                   </Badge>
                 )}
               </div>

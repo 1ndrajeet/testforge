@@ -110,6 +110,10 @@ LIGHT THEME
   --brand-600: oklch(0.56 0.19 155);
   --brand-700: oklch(0.48 0.18 155);
 
+  --gradient-primary: linear-gradient(135deg, oklch(0.59 0.14 160), oklch(0.72 0.16 158));
+  --shadow-elegant: 0 10px 40px -12px color-mix(in oklab, oklch(0.59 0.14 160) 25%, transparent);
+  --shadow-soft: 0 1px 3px rgb(0 0 0 / 0.04), 0 8px 24px -8px rgb(0 0 0 / 0.06);
+
   /* Semantic */
   --background: white;
   --foreground: var(--neutral-900);
@@ -202,8 +206,23 @@ BASE
     line-height: 1.5;
   }
 }
+
 @keyframes shimmer {
   100% {
     transform: translateX(100%);
   }
+}
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.7s ease-out both;
 }

@@ -9,7 +9,8 @@ import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Bell, Building2, DollarSign, LogOut, Menu, Moon, Settings, Sun, User, X } from 'lucide-react';
 
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+// ADD AvatarImage
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -36,19 +37,28 @@ interface HeaderProps {
   } | null;
 }
 
-const Logo = memo(() => (
-  <Link href="/exam-center/dashboard" className="group flex items-center gap-2">
-    <div className="relative">
-      <div className="bg-primary/20 absolute inset-0 rounded-lg opacity-0 blur-lg transition-opacity duration-500 group-hover:opacity-100" />
-      <div className="from-primary to-primary/70 shadow-primary/25 relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br shadow-md transition-transform duration-200 group-hover:scale-105">
-        <span className="font-mono text-sm font-bold text-white">TF</span>
+function Logo() {
+  return (
+    <Link href="/exam-center/dashboard" className="flex items-center gap-3">
+      <div className="border-border bg-background grid h-9 w-9 place-items-center rounded-xl border shadow-sm">
+        <svg
+          viewBox="0 0 24 24"
+          className="h-5 w-5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M5 6h8M9 6v12" />
+          <path d="M15 6v12M15 6h4M15 11h3" />
+        </svg>
       </div>
-    </div>
-    <span className="bg-gradient-to-r from-neutral-900 to-neutral-600 bg-clip-text text-xl font-bold text-transparent dark:from-white dark:to-neutral-400">
-      TestForge
-    </span>
-  </Link>
-));
+
+      <span className="font-display text-[18px] font-semibold tracking-[-0.04em]">TestForge</span>
+    </Link>
+  );
+}
 Logo.displayName = 'Logo';
 
 const NotificationBell = memo(() => {
@@ -168,7 +178,7 @@ function UserMenu({ user, subscription }: { user: HeaderProps['user']; subscript
     if (subscription.tier === 'enterprise') return { text: 'Lifetime', color: 'bg-amber-100 text-amber-700' };
     if (daysLeft <= 0) return { text: 'Expired', color: 'bg-red-100 text-red-700' };
     if (subscription.tier === 'trial') return { text: `${daysLeft} days left`, color: 'bg-blue-100 text-blue-700' };
-    return { text: `${daysLeft} days left`, color: 'bg-primary 100 text-primary' };
+    return { text: `${daysLeft} days left`, color: 'bg-emerald-100 text-emerald-700' };
   };
 
   const status = getStatus();
@@ -178,7 +188,8 @@ function UserMenu({ user, subscription }: { user: HeaderProps['user']; subscript
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full p-0">
           <Avatar className="h-8 w-8">
-            <AvatarFallback className="from-primary to-primary bg-gradient-to-br text-white">
+            <AvatarImage src={user?.image || ''} /> {/* ADD THIS */}
+            <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white">
               {getInitials()}
             </AvatarFallback>
           </Avatar>
@@ -189,7 +200,8 @@ function UserMenu({ user, subscription }: { user: HeaderProps['user']; subscript
           <div className="border-b p-3">
             <div className="flex items-center gap-3">
               <Avatar className="h-10 w-10">
-                <AvatarFallback className="from-primary to-primary bg-gradient-to-br text-white">
+                <AvatarImage src={user?.image || ''} /> {/* ADD THIS */}
+                <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white">
                   {getInitials()}
                 </AvatarFallback>
               </Avatar>
@@ -210,13 +222,13 @@ function UserMenu({ user, subscription }: { user: HeaderProps['user']; subscript
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link href="/settings/profile">
+          <Link href="/exam-center/settings/profile">
             <User className="mr-2 h-4 w-4" />
             Profile
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
-          <Link href="/settings/organization">
+          <Link href="/exam-center/settings/organization">
             <Building2 className="mr-2 h-4 w-4" />
             Organization
           </Link>
@@ -228,7 +240,7 @@ function UserMenu({ user, subscription }: { user: HeaderProps['user']; subscript
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
-          <Link href="/settings/preferences">
+          <Link href="/exam-center/settings/preferences">
             <Settings className="mr-2 h-4 w-4" />
             Preferences
           </Link>

@@ -1,0 +1,71 @@
+# docker-compose.yml
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: testforge-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: testforge
+      POSTGRES_PASSWORD: tfg_G8xR7vN2mK4pY9qW6dC1sH5uJ3aL8e
+      POSTGRES_DB: testforge
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testforge -d testforge"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - testforge-network
+
+  backend:
+    image: testforge-v12_backend
+    container_name: testforge-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://testforge:tfg_G8xR7vN2mK4pY9qW6dC1sH5uJ3aL8e@postgres:5432/testforge
+      BETTER_AUTH_SECRET: ad85656193e23d2e5b8f21fa99064d1499d7d75200d63efae64b3f3b39ee2df4
+      BETTER_AUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      NODE_ENV: production
+      NEXT_PUBLIC_BACKEND_URL: http://backend:8000
+      NEXT_PUBLIC_HOSTED_URL: testforge.tech
+      LOG_LEVEL: INFO
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - testforge-network
+
+  frontend:
+    image: testforge-v12_frontend
+    container_name: testforge-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://testforge:tfg_G8xR7vN2mK4pY9qW6dC1sH5uJ3aL8e@postgres:5432/testforge
+      BETTER_AUTH_SECRET: ad85656193e23d2e5b8f21fa99064d1499d7d75200d63efae64b3f3b39ee2df4
+      BETTER_AUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      NODE_ENV: production
+      NEXT_PUBLIC_BACKEND_URL: http://backend:8000
+      NEXT_PUBLIC_HOSTED_URL: testforge.tech
+      NEXT_PUBLIC_RAZORPAY_KEY_ID: rzp_test_RDvC9jQ6pk6HZy
+      RAZORPAY_KEY_ID: rzp_test_RDvC9jQ6pk6HZy
+      RAZORPAY_KEY_SECRET: B0UXGmgDS26Et4ph661H3KcX
+      LOG_LEVEL: INFO
+    depends_on:
+      - backend
+    networks:
+      - testforge-network
+
+networks:
+  testforge-network:
+    driver: bridge

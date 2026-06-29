@@ -33,6 +33,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useUserInfo } from '@/hooks/useUserInfo';
 import { bulkCreateBlockConfigurations, checkExistingAllocations } from '@/lib/actions/allocation';
 import { getBlocks } from '@/lib/actions/block';
+import { getOrders } from '@/lib/actions/order';
 import { getSupervisors } from '@/lib/actions/staff';
 import { getTimetable, getUniqueDates, getUniqueSessions } from '@/lib/actions/timetable';
 import {
@@ -355,6 +356,10 @@ function TimetableTable({
 // Assignment Form Component
 // ============================================================================
 
+// ============================================================================
+// Assignment Form Component - Updated with Hashmap Lookup
+// ============================================================================
+
 interface AssignmentFormProps {
   blocks: Block[];
   supervisors: StaffMember[];
@@ -375,6 +380,10 @@ interface AssignmentFormProps {
   allocatedSupervisors?: Set<string>;
   localAllocations: LocalAllocation[];
   existingAllocationsByBlockScheme?: Set<string>;
+  filterBySupervision: boolean;
+  onFilterBySupervisionChange: (value: boolean) => void;
+  hasSupervisionOrders: boolean;
+  supervisionOrderSupervisors: Set<string>;
 }
 
 function AssignmentForm({
@@ -396,6 +405,10 @@ function AssignmentForm({
   schemeRemainingStudents,
   localAllocations,
   existingAllocationsByBlockScheme,
+  filterBySupervision,
+  onFilterBySupervisionChange,
+  supervisionOrderSupervisors,
+  hasSupervisionOrders,
 }: AssignmentFormProps) {
   const selectedTimetableEntry = timetable.find(t => t.scheme === selectedScheme);
   const selectedBlockData = blocks.find(b => b.location === selectedBlock);
@@ -406,21 +419,29 @@ function AssignmentForm({
   const maxCandidates = Math.min(schemeRemaining, blockRemaining);
   const schemeDepartment = selectedScheme?.split('-')[0];
 
-  // Get block allocations map for quick lookup
-  const blockAllocationMap = useMemo(() => {
-    const map = new Map<string, LocalAllocation>();
+  // ============================================================
+  // HASHMAP: Block -> Supervisor Lookup
+  // ============================================================
+  // Create a map of blockName -> supervisor UID for quick lookup
+  const blockSupervisorMap = useMemo(() => {
+    const map = new Map<string, string>();
     localAllocations.forEach(alloc => {
-      if (!map.has(alloc.blockName)) {
-        map.set(alloc.blockName, alloc);
+      if (alloc.supervisor) {
+        map.set(alloc.blockName, alloc.supervisor);
       }
     });
     return map;
   }, [localAllocations]);
 
-  // Check if current block has any allocation
-  const currentBlockAllocation = blockAllocationMap.get(selectedBlock);
-  const currentBlockSupervisor = currentBlockAllocation?.supervisor || null;
-  const isBlockLocked = !!currentBlockAllocation;
+  // Get the supervisor for the currently selected block (if any)
+  const lockedSupervisor = useMemo(() => {
+    return blockSupervisorMap.get(selectedBlock) || null;
+  }, [blockSupervisorMap, selectedBlock]);
+
+  // Check if current block has any allocation (is locked)
+  const isBlockLocked = useMemo(() => {
+    return localAllocations.some(alloc => alloc.blockName === selectedBlock);
+  }, [localAllocations, selectedBlock]);
 
   // Get set of supervisors already assigned to blocks (excluding current block)
   const assignedSupervisorsSet = useMemo(() => {
@@ -445,35 +466,50 @@ function AssignmentForm({
       if (!schemeDepartment) return false;
 
       // Must be from different department
-      if (sup.department === schemeDepartment) return false;
 
       // If block is locked, only allow the current block's supervisor
-      if (isBlockLocked) {
-        return sup.uid === currentBlockSupervisor;
+      if (isBlockLocked && lockedSupervisor) {
+        return sup.uid === lockedSupervisor;
       }
-
+      if (!filterBySupervision && sup.department === schemeDepartment) {
+        return false;
+      }
       // Exclude supervisors already assigned to other blocks
       if (assignedSupervisorsSet.has(sup.uid)) {
         return false;
       }
 
+      // If filtering by supervision orders, only show supervisors with orders
+      if (filterBySupervision && supervisionOrderSupervisors.size > 0) {
+        return supervisionOrderSupervisors.has(sup.uid);
+      }
+
       return true;
     });
-  }, [supervisors, schemeDepartment, isBlockLocked, currentBlockSupervisor, assignedSupervisorsSet]);
+  }, [
+    supervisors,
+    schemeDepartment,
+    isBlockLocked,
+    lockedSupervisor,
+    assignedSupervisorsSet,
+    filterBySupervision,
+    supervisionOrderSupervisors,
+  ]);
 
-  // Reset supervisor when block changes and block is not locked
+  // ============================================================
+  // HASHMAP LOOKUP: When block changes, check if supervisor exists
+  // ============================================================
   useEffect(() => {
-    if (!isBlockLocked) {
+    if (isBlockLocked && lockedSupervisor) {
+      // Block has a supervisor - lock it
+      if (selectedSupervisor !== lockedSupervisor) {
+        onSupervisorChange(lockedSupervisor);
+      }
+    } else if (!isBlockLocked && selectedSupervisor) {
+      // Block has no supervisor - clear it
       onSupervisorChange('');
     }
-  }, [selectedBlock, isBlockLocked]);
-
-  // Set supervisor to locked supervisor when block is locked
-  useEffect(() => {
-    if (isBlockLocked && currentBlockSupervisor) {
-      onSupervisorChange(currentBlockSupervisor);
-    }
-  }, [selectedBlock, isBlockLocked, currentBlockSupervisor]);
+  }, [isBlockLocked, lockedSupervisor, onSupervisorChange]);
 
   // Check if scheme already assigned to this block
   const isSchemeAlreadyInBlock = useMemo(() => {
@@ -490,7 +526,7 @@ function AssignmentForm({
 
   const showSupervisorAllocatedWarning = selectedSupervisor && assignedSupervisorsSet.has(selectedSupervisor);
 
-  const showNoSupervisorsWarning = selectedScheme && filteredSupervisors.length === 0 && !isBlockLocked;
+  const showNoSupervisorsWarning = selectedScheme && !isBlockLocked && filteredSupervisors.length === 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -535,7 +571,31 @@ function AssignmentForm({
 
   return (
     <div className="space-y-2">
-      <SectionHeader title="Assignment" />
+      <div className="flex items-center justify-between">
+        <SectionHeader title="Assignment" />
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-neutral-500">Supervision Orders</label>
+          <button
+            onClick={() => onFilterBySupervisionChange(!filterBySupervision)}
+            className={cn(
+              'relative inline-flex h-5 w-9 items-center rounded-full transition-colors',
+              filterBySupervision ? 'bg-primary' : 'bg-neutral-300 dark:bg-neutral-700'
+            )}
+          >
+            <span
+              className={cn(
+                'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
+                filterBySupervision ? 'translate-x-[18px]' : 'translate-x-[2px]'
+              )}
+            />
+          </button>
+          {filterBySupervision && hasSupervisionOrders && (
+            <Badge variant="outline" className="h-4 text-[10px]">
+              {supervisionOrderSupervisors.size} active
+            </Badge>
+          )}
+        </div>
+      </div>
       <div className="rounded-md border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-950">
         <form onSubmit={handleSubmit} className="space-y-3">
           <FormSelect
@@ -585,6 +645,13 @@ function AssignmentForm({
               </SelectContent>
             </Select>
 
+            {/* Show locked supervisor info */}
+            {isBlockLocked && lockedSupervisor && (
+              <p className="text-[10px] text-amber-600">
+                Supervisor locked for this block ({lockedSupervisor}). Remove all allocations for this block to change.
+              </p>
+            )}
+
             {showDepartmentWarning && (
               <p className="text-[10px] text-red-500">
                 Supervisor is from the same department as scheme ({schemeDepartment})
@@ -598,13 +665,6 @@ function AssignmentForm({
             {showNoSupervisorsWarning && (
               <p className="text-[10px] text-amber-600">
                 No available supervisors. Try selecting a different scheme or block.
-              </p>
-            )}
-
-            {isBlockLocked && currentBlockSupervisor && (
-              <p className="text-[10px] text-amber-600">
-                Supervisor locked for this block ({currentBlockSupervisor}). Remove all allocations for this block to
-                change.
               </p>
             )}
 
@@ -982,6 +1042,8 @@ export default function BlockAllocationPage() {
   const [blocksLoading, setBlocksLoading] = useState(true);
   const [supervisorsLoading, setSupervisorsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [filterBySupervision, setFilterBySupervision] = useState(false);
+  const [supervisionOrderSupervisors, setSupervisionOrderSupervisors] = useState<Set<string>>(new Set());
 
   // Form state
   const [selectedScheme, setSelectedScheme] = useState('');
@@ -1057,6 +1119,39 @@ export default function BlockAllocationPage() {
     setExistingAllocationsByBlockScheme(newExistingPairs);
   }, [localAllocations, blocks, timetable]);
 
+  // Fetch supervision orders when toggle is ON
+  useEffect(() => {
+    const fetchSupervisionOrders = async () => {
+      if (!filterBySupervision || !selectedDate || !selectedSession) {
+        setSupervisionOrderSupervisors(new Set());
+        return;
+      }
+
+      try {
+        const result = await getOrders({
+          orderType: 'supervision',
+          date: new Date(selectedDate),
+        });
+
+        if (result && result.length > 0) {
+          const supervisorSet = new Set<string>();
+          result.forEach((order: any) => {
+            if (order.session === selectedSession && order.staff?.uid) {
+              supervisorSet.add(order.staff.uid);
+            }
+          });
+          setSupervisionOrderSupervisors(supervisorSet);
+        } else {
+          setSupervisionOrderSupervisors(new Set());
+        }
+      } catch (error) {
+        console.error('Error fetching supervision orders:', error);
+        setSupervisionOrderSupervisors(new Set());
+      }
+    };
+
+    fetchSupervisionOrders();
+  }, [filterBySupervision, selectedDate, selectedSession]);
   const loadSessionData = async (date: string, session: string, fromLocal: boolean = false) => {
     setIsLoadingSession(true);
     try {
@@ -1473,6 +1568,9 @@ export default function BlockAllocationPage() {
           timetable={timetable}
           selectedScheme={selectedScheme}
           selectedBlock={selectedBlock}
+          filterBySupervision={filterBySupervision}
+          onFilterBySupervisionChange={setFilterBySupervision}
+          hasSupervisionOrders={supervisionOrderSupervisors.size > 0}
           selectedSupervisor={selectedSupervisor}
           candidateCount={candidateCount}
           onSchemeChange={setSelectedScheme}
@@ -1480,6 +1578,7 @@ export default function BlockAllocationPage() {
           localAllocations={localAllocations}
           onSupervisorChange={setSelectedSupervisor}
           onCandidateCountChange={setCandidateCount}
+          supervisionOrderSupervisors={supervisionOrderSupervisors}
           onSubmit={handleAssign}
           isLoading={isLoadingSession}
           isSubmitting={isSubmitting}

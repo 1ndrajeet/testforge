@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { format } from 'date-fns';
-import { Calendar, ChevronLeft, ChevronRight, Download, RefreshCw, Upload } from 'lucide-react';
+import { ArrowDown, ArrowUp, Calendar, ChevronLeft, ChevronRight, Download, RefreshCw, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { MSBTEContextBar } from '@/components/layout/msbte-context-bar';
@@ -76,7 +76,7 @@ const DataTable = ({
 }) => {
   const getSortIcon = (column: string) => {
     if (sortColumn !== column) return null;
-    return sortDirection === 'asc' ? '↑' : '↓';
+    return sortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
   };
 
   if (entries.length === 0) {

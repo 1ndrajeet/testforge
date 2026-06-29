@@ -847,7 +847,7 @@ const BlockCard = ({
               </Badge>
               <h3 className="truncate font-semibold text-neutral-900 dark:text-neutral-100">{block.name}</h3>
             </div>
-            <p className="mt-0.5 text-xs text-neutral-500">📍 {block.location}</p>
+            <p className="mt-0.5 text-xs text-neutral-500"> {block.location}</p>
           </div>
           <div className="flex flex-shrink-0 items-center gap-1">
             <TooltipProvider>

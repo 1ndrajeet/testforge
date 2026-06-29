@@ -6,8 +6,11 @@ import { revalidatePath } from 'next/cache';
 import { and, eq, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
-import { connectedInstitutes, students } from '@/lib/db/schema';
-import { getCurrentExamCenter } from '@/lib/session';
+import { connectedInstitutes, students, subjects } from '@/lib/db/schema';
+import { logger } from '@/lib/misc/logger';
+import { getCurrentExamCenter, getExamCenterId } from '@/lib/session';
+
+const MODULE = 'student';
 
 export async function getStudents(params?: {
   instituteId?: string;
@@ -222,3 +225,204 @@ export async function getStudentBySubject(subjectCode: string) {
     orderBy: (students, { asc }) => [asc(students.seatNumber)],
   });
 }
+
+// ============================================
+// Seating Chart Specific Functions
+// ============================================
+
+export interface StudentSeatingData {
+  id: string;
+  seatNumber: number;
+  enrollmentNumber: string | null;
+  name: string | null;
+  scheme: string | null;
+  instituteCode: string;
+  instituteName: string;
+  subjects: string[];
+  subCodes: string[];
+}
+
+export interface SeatingChartStats {
+  totalStudents: number;
+  totalInstitutes: number;
+  totalSchemes: number;
+}
+
+export async function getStudentSeatingData(params?: {
+  instituteCode?: string;
+  scheme?: string;
+  seatNumber?: number;
+  limit?: number;
+  offset?: number;
+}): Promise<{
+  success: boolean;
+  data: StudentSeatingData[];
+  error?: string;
+}> {
+  const examCenter = await getCurrentExamCenter();
+  if (!examCenter?.id) throw new Error('Exam center not found');
+
+  const conditions = [eq(students.examCenterId, examCenter.id), eq(students.isDeleted, false)];
+
+  if (params?.instituteCode) {
+    conditions.push(eq(connectedInstitutes.instituteCode, params.instituteCode));
+  }
+  if (params?.scheme) {
+    conditions.push(eq(students.scheme, params.scheme));
+  }
+  if (params?.seatNumber) {
+    conditions.push(eq(students.seatNumber, params.seatNumber));
+  }
+
+  const results = await db
+    .select({
+      id: students.id,
+      seatNumber: students.seatNumber,
+      enrollmentNumber: students.enrollmentNumber,
+      name: students.name,
+      scheme: students.scheme,
+      instituteCode: connectedInstitutes.instituteCode,
+      instituteName: connectedInstitutes.instituteName,
+      subjects: students.subjects,
+      subCodes: students.subCodes,
+    })
+    .from(students)
+    .leftJoin(connectedInstitutes, eq(students.connectedInstituteId, connectedInstitutes.id))
+    .where(and(...conditions))
+    .orderBy(students.seatNumber)
+    .limit(params?.limit || 100)
+    .offset(params?.offset || 0);
+
+  return { success: true, data: results as StudentSeatingData[] };
+}
+
+export async function getSeatingChartStats(): Promise<{
+  success: boolean;
+  data: SeatingChartStats;
+  error?: string;
+}> {
+  const examCenter = await getCurrentExamCenter();
+  if (!examCenter?.id) throw new Error('Exam center not found');
+
+  const [studentCount, instituteCount, schemeCount] = await Promise.all([
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(students)
+      .where(and(eq(students.examCenterId, examCenter.id), eq(students.isDeleted, false))),
+    db
+      .select({ count: sql<number>`count(distinct ${students.connectedInstituteId})` })
+      .from(students)
+      .where(and(eq(students.examCenterId, examCenter.id), eq(students.isDeleted, false))),
+    db
+      .select({ count: sql<number>`count(distinct ${students.scheme})` })
+      .from(students)
+      .where(and(eq(students.examCenterId, examCenter.id), eq(students.isDeleted, false))),
+  ]);
+
+  return {
+    success: true,
+    data: {
+      totalStudents: Number(studentCount[0]?.count || 0),
+      totalInstitutes: Number(instituteCount[0]?.count || 0),
+      totalSchemes: Number(schemeCount[0]?.count || 0),
+    },
+  };
+}
+
+export async function getUniqueInstitutesForSeating(): Promise<{
+  success: boolean;
+  data: Array<{ code: string; name: string; count: number }>;
+  error?: string;
+}> {
+  const examCenter = await getCurrentExamCenter();
+  if (!examCenter?.id) throw new Error('Exam center not found');
+
+  const results = await db
+    .select({
+      code: connectedInstitutes.instituteCode,
+      name: connectedInstitutes.instituteName,
+      count: sql<number>`count(${students.id})`,
+    })
+    .from(connectedInstitutes)
+    .leftJoin(students, eq(students.connectedInstituteId, connectedInstitutes.id))
+    .where(and(eq(connectedInstitutes.examCenterId, examCenter.id), eq(students.isDeleted, false)))
+    .groupBy(connectedInstitutes.id)
+    .orderBy(connectedInstitutes.instituteCode);
+
+  return { success: true, data: results };
+}
+
+export async function hasSeatingData(): Promise<
+  | {
+      success: true;
+      data: boolean;
+    }
+  | {
+      success: false;
+      error: string;
+    }
+> {
+  const examCenter = await getCurrentExamCenter();
+  if (!examCenter?.id) throw new Error('Exam center not found');
+
+  const result = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(students)
+    .where(and(eq(students.examCenterId, examCenter.id), eq(students.isDeleted, false)));
+
+  return { success: true, data: Number(result[0]?.count || 0) > 0 };
+}
+
+// lib/actions/student.ts - Replace getUniqueSchemesForSeating with:
+
+export async function getUniqueSchemesForSeating(): Promise<{
+  success: boolean;
+  data: Array<{ scheme: string; subjects: Array<{ code: string; name: string }> }>;
+  error?: string;
+}> {
+  const MODULE_FN = `${MODULE}.getUniqueSchemesForSeating`;
+
+  try {
+    const examCenterId = await getExamCenterId();
+    if (!examCenterId) {
+      logger.debug(MODULE_FN, 'No exam center found');
+      return { success: true, data: [] };
+    }
+
+    // Get distinct schemes from students
+    const schemeResults = await db
+      .selectDistinct({ scheme: students.scheme })
+      .from(students)
+      .where(and(eq(students.examCenterId, examCenterId), eq(students.isDeleted, false)))
+      .orderBy(students.scheme);
+
+    const schemes = schemeResults.map(r => r.scheme).filter(Boolean) as string[];
+
+    // Get ALL subjects (across ALL schemes) - this is the key fix
+    const allSubjects = await db.query.subjects.findMany({
+      where: eq(subjects.isDeleted, false),
+      columns: { code: true, name: true, scheme: true },
+    });
+
+    // Build result: scheme-specific subjects + __ALL__ entry
+    const result = schemes.map(scheme => ({
+      scheme,
+      subjects: allSubjects.filter(s => s.scheme === scheme).map(s => ({ code: s.code, name: s.name })),
+    }));
+
+    // Add __ALL__ entry with ALL subjects mapped by code
+    result.push({
+      scheme: '__ALL__',
+      subjects: allSubjects.map(s => ({ code: s.code, name: s.name })),
+    });
+
+    logger.debug(MODULE_FN, `Fetched ${result.length} schemes with ${allSubjects.length} total subjects`);
+    return { success: true, data: result };
+  } catch (error) {
+    logger.error(MODULE_FN, 'Failed to fetch schemes with subjects', { error });
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error', data: [] };
+  }
+}
+
+// Alias for backward compatibility
+export const getUniqueSchemes = getUniqueSchemesForSeating;

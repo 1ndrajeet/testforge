@@ -201,7 +201,7 @@ export default function Format3Report() {
           defaultSession="Morning"
           isLoading={loading}
           error={error}
-          title="Format 3 - QP Receipt (EC→Controller)"
+          title="Format 3 - QP Receipt (EC to Controller)"
           description={availableDates.length ? 'Select a date' : 'No inventory data'}
           compact={false}
         />

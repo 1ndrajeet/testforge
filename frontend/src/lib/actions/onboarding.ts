@@ -342,7 +342,7 @@ export async function downgradeSubscription(planId: string) {
       })
       .where(eq(organizations.id, orgId));
 
-    revalidatePath('/settings/subscription');
+    revalidatePath('/exam-center/settings/subscription');
     return { success: true };
   } catch (error) {
     console.error('Failed to downgrade subscription:', error);

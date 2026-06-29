@@ -9,7 +9,7 @@ const crypto = require('crypto');
 // ============================================
 
 const CONFIG = {
-  USER_ID: 'SVrnOYNA1V1V8Q7MkJGr1HkT15OhJ9mr',
+  USER_ID: '8pGTiU17RLMMV6ZiGAqLwyvJrlYw81cZ',
   USER_NAME: 'MMCOE',
   USER_EMAIL: 'rit@testforge.tech',
   USER_PASSWORD: 'rit@bludhaven',

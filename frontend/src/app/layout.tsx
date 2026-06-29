@@ -33,7 +33,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
-      className={cn('h-full antialiased', geist.variable, geistMono.variable, montserrat.variable, 'font-sans')}
+      className={cn(
+        'h-full antialiased',
+        geist.variable,
+        geistMono.variable,
+        montserrat.variable,
+        'scroll-smooth font-sans'
+      )}
     >
       <body className="flex min-h-full flex-col">
         <AuthProvider>

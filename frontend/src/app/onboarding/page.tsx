@@ -1,6 +1,6 @@
-// ─────────────────────────────────────────────────────────────────────────────
+//
 // page.tsx  —  Enterprise onboarding for MSBTE exam coordinators
-// ─────────────────────────────────────────────────────────────────────────────
+//
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
@@ -30,7 +30,7 @@ import { authClient } from '@/lib/auth-client';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/stores/appStore';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+//  Types
 
 export interface Plan {
   id: string;
@@ -55,7 +55,7 @@ export interface SetupSummaryData {
 
 export type StepId = 'organization' | 'exam_center' | 'subscription' | 'review' | 'complete';
 
-// ─── Storage helpers ──────────────────────────────────────────────────────────
+//  Storage helpers
 
 const STORAGE_KEYS = {
   EXAM_CENTER: 'onboarding_ec_data',
@@ -88,7 +88,7 @@ export function clearOnboardingStorage() {
 
 export { STORAGE_KEYS };
 
-// ─── Razorpay helpers ─────────────────────────────────────────────────────────
+//  Razorpay helpers
 
 declare global {
   interface Window {
@@ -114,7 +114,7 @@ export function openRazorpay(options: Record<string, unknown>, onDismiss: () => 
   rzp.open();
 }
 
-// ─── Step navigation config ───────────────────────────────────────────────────
+//  Step navigation config
 
 export const STEPS: { id: StepId; label: string }[] = [
   { id: 'organization', label: 'Organization' },
@@ -132,7 +132,7 @@ export const STEP_INDEX: Record<StepId, number> = {
   complete: 4,
 };
 
-// ─── SidebarProgress ─────────────────────────────────────────────────────────
+//  SidebarProgress
 
 function SidebarProgress({ currentStep }: { currentStep: StepId }) {
   const current = STEP_INDEX[currentStep];
@@ -182,7 +182,7 @@ function SidebarProgress({ currentStep }: { currentStep: StepId }) {
   );
 }
 
-// ─── SetupSummary ─────────────────────────────────────────────────────────────
+//  SetupSummary
 
 function SetupSummary({ data }: { data: SetupSummaryData }) {
   const rows = [
@@ -219,7 +219,7 @@ function SetupSummary({ data }: { data: SetupSummaryData }) {
   );
 }
 
-// ─── OnboardingShell ──────────────────────────────────────────────────────────
+//  OnboardingShell
 
 export function OnboardingShell({
   currentStep,
@@ -237,7 +237,7 @@ export function OnboardingShell({
 
   return (
     <div className="flex min-h-screen bg-neutral-50 dark:bg-neutral-950">
-      {/* ── Sidebar ── */}
+      {/*  Sidebar  */}
       <aside className="sticky top-0 hidden h-screen w-80 shrink-0 flex-col border-r border-neutral-200 bg-white px-8 py-10 lg:flex dark:border-neutral-800 dark:bg-neutral-950">
         {/* Branding */}
         <div className="mb-10">
@@ -287,7 +287,7 @@ export function OnboardingShell({
         </div>
       </aside>
 
-      {/* ── Content area ── */}
+      {/*  Content area  */}
       <main className="flex-1 overflow-y-auto">
         {/* Mobile brand bar */}
         <div className="flex items-center justify-between border-b border-neutral-200 bg-white px-6 py-4 lg:hidden dark:border-neutral-800 dark:bg-neutral-950">
@@ -313,7 +313,7 @@ export function OnboardingShell({
   );
 }
 
-// ─── StepHeader ───────────────────────────────────────────────────────────────
+//  StepHeader
 
 export function StepHeader({ label, title, description }: { label?: string; title: string; description?: string }) {
   return (
@@ -331,7 +331,7 @@ export function StepHeader({ label, title, description }: { label?: string; titl
   );
 }
 
-// ─── FormSection ─────────────────────────────────────────────────────────────
+//  FormSection
 
 export function FormSection({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
@@ -344,7 +344,7 @@ export function FormSection({ title, children }: { title?: string; children: Rea
   );
 }
 
-// ─── FormField ────────────────────────────────────────────────────────────────
+//  FormField
 
 export function FormField({
   label,
@@ -379,7 +379,7 @@ export function FormField({
   );
 }
 
-// ─── ActionBar ────────────────────────────────────────────────────────────────
+//  ActionBar
 
 export function ActionBar({
   onBack,
@@ -425,7 +425,7 @@ export function ActionBar({
   );
 }
 
-// ─── SlugInput ────────────────────────────────────────────────────────────────
+//  SlugInput
 
 type SlugState = 'idle' | 'checking' | 'available' | 'taken';
 
@@ -470,7 +470,7 @@ export function SlugInput({
     </div>
   );
 }
-// ─── Step index → StepId map ──────────────────────────────────────────────────
+//  Step index to StepId map
 
 const STATUS_TO_STEP: Record<string, StepId> = {
   needs_organization: 'organization',
@@ -478,7 +478,7 @@ const STATUS_TO_STEP: Record<string, StepId> = {
   needs_subscription: 'subscription',
 };
 
-// ─── EC defaults ─────────────────────────────────────────────────────────────
+//  EC defaults
 
 const EC_DEFAULTS = {
   id: '',
@@ -495,9 +495,9 @@ const EC_DEFAULTS = {
 
 const YEARS = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() + i);
 
-// ─────────────────────────────────────────────────────────────────────────────
+//
 // Step: Organization
-// ─────────────────────────────────────────────────────────────────────────────
+//
 
 function OrganizationStep({
   prefill,
@@ -603,9 +603,9 @@ function OrganizationStep({
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+//
 // Step: Exam Center
-// ─────────────────────────────────────────────────────────────────────────────
+//
 
 function ExamCenterStep({
   prefill,
@@ -779,9 +779,9 @@ function ExamCenterStep({
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+//
 // Step: Subscription
-// ─────────────────────────────────────────────────────────────────────────────
+//
 
 function SubscriptionStep({
   plans,
@@ -919,16 +919,16 @@ function SubscriptionStep({
           className="bg-primary hover:bg-primary h-11 px-8 font-medium text-white"
         >
           Review order
-          <span className="ml-2">→</span>
+          <ArrowRight className="ml-2 h-4 w-4" />
         </Button>
       </div>
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+//
 // Step: Payment Review
-// ─────────────────────────────────────────────────────────────────────────────
+//
 
 interface ReviewStepProps {
   summary: SetupSummaryData;
@@ -1127,7 +1127,7 @@ function ReviewStep({
           ) : (
             <>
               Pay {plan.price}
-              <span className="ml-2">→</span>
+              <ArrowRight className="ml-2 h-4 w-4" />
             </>
           )}
         </Button>
@@ -1137,9 +1137,9 @@ function ReviewStep({
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+//
 // Step: Complete
-// ─────────────────────────────────────────────────────────────────────────────
+//
 
 function CompleteStep({ onComplete }: { onComplete: () => void }) {
   useEffect(() => {
@@ -1202,9 +1202,9 @@ function CompleteStep({ onComplete }: { onComplete: () => void }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+//
 // Root page — orchestrates all steps + shell
-// ─────────────────────────────────────────────────────────────────────────────
+//
 
 export default function OnboardingPage() {
   const [currentStep, setCurrentStep] = useState<StepId>('organization');
@@ -1225,7 +1225,7 @@ export default function OnboardingPage() {
   const router = useRouter();
   const { user } = useUserInfo();
 
-  // ── Fetch DB status on mount, hydrate step + summary ──────────────────────
+  //  Fetch DB status on mount, hydrate step + summary
 
   useEffect(() => {
     getOnboardingStatus().then(result => {
@@ -1265,7 +1265,7 @@ export default function OnboardingPage() {
     });
   }, [router]);
 
-  // ── Razorpay helpers ──────────────────────────────────────────────────────
+  //  Razorpay helpers
 
   const verifyPayment = async (
     response: {
@@ -1373,14 +1373,14 @@ export default function OnboardingPage() {
     }
   };
 
-  // ── Step helpers ──────────────────────────────────────────────────────────
+  //  Step helpers
 
   const go = (step: StepId) => setCurrentStep(step);
 
   const plans: Plan[] = dbStatus?.plans ?? pricingPlans;
   const selectedPlan = plans.find(p => p.id === selectedPlanId);
 
-  // ── Loading screen ────────────────────────────────────────────────────────
+  //  Loading screen
 
   if (pageLoading) {
     return (
@@ -1390,7 +1390,7 @@ export default function OnboardingPage() {
     );
   }
 
-  // ── DB-sourced prefill data ───────────────────────────────────────────────
+  //  DB-sourced prefill data
   const dbData = dbStatus?.data as any;
 
   return (

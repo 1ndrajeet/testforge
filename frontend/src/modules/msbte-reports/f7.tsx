@@ -11,7 +11,7 @@ import { MultiPageReport, ReportPageData } from '@/components/layout/msbte-repor
 import { SessionSelector } from '@/components/shared/date-selector';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
-import departmentMap from '@/config/departmentsMap.json';
+import departmentMap from '@/config/course_codes.json';
 import { useUserInfo } from '@/hooks/useUserInfo';
 import { getPackingSlip } from '@/lib/actions/allocation';
 import { getTimetableEntries } from '@/lib/actions/timetable';

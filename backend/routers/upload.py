@@ -1,5 +1,6 @@
 # backend/routers/upload.py
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends
+from fastapi.responses import FileResponse
 import os
 import logging
 from datetime import datetime
@@ -142,6 +143,67 @@ async def get_upload_status(
             "uploaded_at": record["created_at"].isoformat() if record["created_at"] else None
         },
         message="Upload status retrieved"
+    )
+
+
+@router.get("/download")
+async def download_file(
+    file_name: str,
+    file_type: str,
+    exam_center_id: str = Depends(get_exam_center_id)
+):
+    """
+    Download an uploaded file by its stored filename.
+    
+    Args:
+        file_name: The stored filename to download
+        file_type: The type of file (timetable, seatingchart, etc.)
+        exam_center_id: The exam center ID (auto-injected)
+    
+    Returns:
+        FileResponse: The requested file as a download
+    """
+    if file_type not in ALLOWED_FILE_TYPES:
+        raise HTTPException(400, f"Invalid file_type. Allowed: {', '.join(ALLOWED_FILE_TYPES)}")
+    
+    # Verify the file belongs to this exam center
+    result = db.execute_query("""
+        SELECT original_filename, stored_filename, file_type
+        FROM uploads
+        WHERE exam_center_id = :exam_center_id 
+            AND file_type = :file_type 
+            AND stored_filename = :file_name
+    """, {
+        "exam_center_id": exam_center_id,
+        "file_type": file_type,
+        "file_name": file_name
+    })
+    
+    if not result:
+        raise HTTPException(404, "File not found or access denied")
+    
+    record = result[0]
+    file_path = os.path.join(settings.UPLOAD_DIR, file_name)
+    
+    if not os.path.exists(file_path):
+        raise HTTPException(404, "File not found on server")
+    
+    # Determine MIME type
+    ext = os.path.splitext(file_name)[1].lower()
+    media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if ext in ['.xlsx'] else \
+                 "application/vnd.ms-excel" if ext in ['.xls'] else \
+                 "text/html" if ext in ['.html', '.htm'] else \
+                 "application/octet-stream"
+    
+    logger.info(f"Downloading file: {file_name} for exam center {exam_center_id}")
+    
+    return FileResponse(
+        path=file_path,
+        filename=record['original_filename'],
+        media_type=media_type,
+        headers={
+            "Content-Disposition": f"attachment; filename={record['original_filename']}"
+        }
     )
 
 

@@ -637,7 +637,7 @@ export interface SessionSelectorProps {
   // Core props
   onSessionSelect: (session: SessionInfo) => void | Promise<void>;
   onCancel?: () => void;
-
+  showAllSession?: boolean;
   // Data props
   availableDates?: Date[];
   availableSessions?: string[];

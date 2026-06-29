@@ -191,7 +191,7 @@ export default function Format2Report() {
           defaultSession="Morning"
           isLoading={loading}
           error={error}
-          title="Format 2 - QP Receipt (Controller→DC)"
+          title="Format 2 - QP Receipt (Controller to DC)"
           description={availableDates.length ? 'Select a date' : 'No inventory data'}
           compact={false}
         />

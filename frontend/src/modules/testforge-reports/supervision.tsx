@@ -45,7 +45,7 @@ interface SupervisionPageData extends ReportPageData {
 // ============================================================
 
 const renderSupervisionTable = (pageData: SupervisionPageData) => {
-  const { rows } = pageData;
+  const { rows, totalBlocks, totalSupervisors, totalStudents } = pageData;
 
   // Group by supervisor
   const supervisorMap = new Map<string, SupervisionRow[]>();
@@ -63,34 +63,22 @@ const renderSupervisionTable = (pageData: SupervisionPageData) => {
     return nameA.localeCompare(nameB);
   });
 
-  // Calculate grand totals
-  const grandTotalBlocks = rows.length;
-  const grandTotalStudents = rows.reduce((sum, r) => sum + r.students, 0);
-
   return (
     <div className="flex h-full flex-col">
       <div className="flex-1 overflow-hidden">
-        <table className="w-full border-collapse text-xs">
+        <table className="w-full border-collapse border border-black text-xs">
           <thead>
-            <tr className="bg-neutral-100">
-              <th className="w-[18%] border border-neutral-300 px-3 py-2 text-left font-semibold text-neutral-700">
-                Supervisor
+            <tr className="bg-neutral-100 print:bg-neutral-100">
+              <th className="w-[16%] border border-black px-3 py-2 text-left font-bold text-neutral-700">Supervisor</th>
+              <th className="w-[10%] border border-black px-3 py-2 text-center font-bold text-neutral-700">
+                Block No.
               </th>
-              <th className="w-[15%] border border-neutral-300 px-3 py-2 text-left font-semibold text-neutral-700">
-                Block / Location
-              </th>
-              <th className="w-[12%] border border-neutral-300 px-3 py-2 text-left font-semibold text-neutral-700">
-                Scheme
-              </th>
-              <th className="w-[18%] border border-neutral-300 px-3 py-2 text-left font-semibold text-neutral-700">
-                Subject
-              </th>
-              <th className="w-[10%] border border-neutral-300 px-3 py-2 text-center font-semibold text-neutral-700">
-                Students
-              </th>
-              <th className="w-[27%] border border-neutral-300 px-3 py-2 text-left font-semibold text-neutral-700">
-                Timeslot
-              </th>
+              <th className="w-[14%] border border-black px-3 py-2 text-left font-bold text-neutral-700">Location</th>
+              <th className="w-[10%] border border-black px-3 py-2 text-left font-bold text-neutral-700">Scheme</th>
+              <th className="w-[16%] border border-black px-3 py-2 text-left font-bold text-neutral-700">Subject</th>
+              <th className="w-[8%] border border-black px-3 py-2 text-center font-bold text-neutral-700">Students</th>
+              <th className="w-[14%] border border-black px-3 py-2 text-left font-bold text-neutral-700">Timeslot</th>
+              <th className="w-[12%] border border-black px-3 py-2 text-left font-bold text-neutral-700">Remarks</th>
             </tr>
           </thead>
           <tbody>
@@ -106,60 +94,73 @@ const renderSupervisionTable = (pageData: SupervisionPageData) => {
                 return (
                   <tr
                     key={`${supervisorKey}-${rowIndex}`}
-                    className={cn('border-b border-neutral-200', isLast && 'border-b-2 border-neutral-300')}
+                    className={cn(
+                      'border-b border-black',
+                      rowIndex % 2 === 0 ? 'bg-white' : 'bg-neutral-50/50',
+                      isLast && 'border-b border-black'
+                    )}
                   >
                     {isFirst && (
                       <td
                         rowSpan={rowCount}
-                        className="border border-neutral-300 bg-neutral-50/80 px-3 py-2 align-middle font-medium"
+                        className="border border-black bg-neutral-50/80 px-3 py-2 align-middle font-medium"
                       >
                         <div className="font-semibold text-neutral-800">{supervisorName}</div>
+                        <div className="text-[9px] text-neutral-500">{row.supervisorUid}</div>
+                        {rowCount > 1 && (
+                          <div className="mt-0.5 text-[9px] text-neutral-500">{supervisorTotal} students</div>
+                        )}
                       </td>
                     )}
                     {isFirst && (
-                      <td rowSpan={rowCount} className="border border-neutral-300 px-3 py-2">
-                        <div className="flex flex-col items-center">
-                          <span className="font-mono text-xs font-medium">Block {row.location}</span>
-                          {rowCount > 1 && (
-                            <div className="mt-0.5 text-[10px] text-neutral-500">{supervisorTotal} students</div>
-                          )}
-                        </div>
+                      <td rowSpan={rowCount} className="border border-black px-3 py-2 text-center align-middle">
+                        <span className="text-lg font-bold text-neutral-900">{row.blockNo}</span>
                       </td>
                     )}
-                    <td className="border border-neutral-300 px-3 py-2 font-mono text-xs">{row.scheme}</td>
-                    <td className="border border-neutral-300 px-3 py-2">
-                      <div className="flex items-center gap-1">
+                    {isFirst && (
+                      <td rowSpan={rowCount} className="border border-black px-3 py-2 align-middle text-sm">
+                        {row.location}
+                      </td>
+                    )}
+                    <td className="border border-black px-3 py-2 font-mono text-xs">{row.scheme}</td>
+                    <td className="border border-black px-3 py-2">
+                      <div className="flex flex-col">
                         <span className="font-mono text-xs font-medium">{row.subjectCode}</span>
-                        <span className="text-neutral-400">-</span>
-                        <span className="max-w-[80px] truncate text-xs text-neutral-700">{row.subjectName}</span>
+                        <span className="text-[10px] text-neutral-600">{row.subjectName}</span>
                       </div>
                     </td>
-                    <td className="border border-neutral-300 px-3 py-2 text-center font-bold text-neutral-800">
+                    <td className="border border-black px-3 py-2 text-center font-bold text-neutral-800">
                       {row.students}
                     </td>
-                    <td className="border border-neutral-300 px-3 py-2 text-xs text-neutral-600">{row.timeslot}</td>
+                    <td className="border border-black px-3 py-2 text-xs">{row.timeslot}</td>
+                    <td className="border border-black px-3 py-2"></td>
                   </tr>
                 );
               });
             })}
           </tbody>
           <tfoot>
-            <tr className="border-t-2 border-neutral-400 bg-neutral-100">
-              <td colSpan={3} className="border border-neutral-300 px-3 py-2 text-right font-bold text-neutral-800">
+            <tr className="border-t border-black bg-neutral-200 font-bold print:bg-neutral-200">
+              <td colSpan={3} className="border border-black px-3 py-2 text-right text-sm">
                 GRAND TOTAL
               </td>
-              <td className="border border-neutral-300 px-3 py-2 text-center font-mono text-xs text-neutral-600">
-                {grandTotalBlocks} Blocks
-              </td>
-              <td className="border border-neutral-300 px-3 py-2 text-center font-bold text-neutral-900">
-                {grandTotalStudents}
-              </td>
-              <td className="border border-neutral-300 px-3 py-2 text-center font-mono text-xs text-neutral-600">
-                {groupedRows.length} Supervisors
+              <td className="border border-black px-3 py-2 text-center text-sm">{totalSupervisors}</td>
+              <td className="border border-black px-3 py-2 text-center text-sm">{totalBlocks} Blocks</td>
+              <td className="border border-black px-3 py-2 text-center text-sm text-neutral-900">{totalStudents}</td>
+              <td className="border border-black px-3 py-2 text-center text-sm" colSpan={2}>
+                &nbsp;
               </td>
             </tr>
           </tfoot>
         </table>
+      </div>
+
+      {/* Footer Info - For display at exam center */}
+      <div className="mt-2 border-t border-black pt-2 text-[10px]">
+        <div className="flex justify-between">
+          <span className="font-medium">Display at Examination Center</span>
+          <span>Page {pageData.metadata?.Page || 1}</span>
+        </div>
       </div>
     </div>
   );
@@ -271,8 +272,8 @@ export default function SupervisionReport() {
     const uniqueSupervisors = new Set(rows.map(r => r.supervisorUid || r.supervisorName));
     const totalSupervisors = uniqueSupervisors.size;
 
-    // If rows fit on one page
-    if (rows.length <= 30) {
+    // If rows fit on one page (max 25 for readability at exam center)
+    if (rows.length <= 25) {
       return [
         {
           id: 'supervision-all',
@@ -283,16 +284,14 @@ export default function SupervisionReport() {
           totalSupervisors,
           totalStudents,
           metadata: {
-            Blocks: String(totalBlocks),
-            Supervisors: String(totalSupervisors),
-            Students: String(totalStudents),
+            Page: '1',
           },
         },
       ];
     }
 
     // Split into multiple pages
-    const MAX_ROWS_PER_PAGE = 30;
+    const MAX_ROWS_PER_PAGE = 25;
     const pages: SupervisionPageData[] = [];
     let startIdx = 0;
 
@@ -344,16 +343,18 @@ export default function SupervisionReport() {
         <div className="space-y-4">
           <SessionSelector
             availableDates={dates}
-            availableSessions={['Morning', 'Afternoon', 'All']}
+            availableSessions={['Morning', 'Afternoon']}
             onSessionSelect={handleSessionSelect}
             defaultDate={selectedDate}
             defaultSession="Morning"
             isLoading={loading}
             error={error}
-            title="Supervision Report"
-            description="Select date & session to view supervisor-wise duty schedule"
+            title="Select Examination Session"
+            description="Choose a date and session to generate supervision report"
             compact
+            showAllSession={false}
           />
+
           {!dates.length && !error && (
             <Alert variant="default" className="border-amber-200 bg-amber-50">
               <AlertCircle className="h-4 w-4 text-amber-600" />
@@ -371,7 +372,7 @@ export default function SupervisionReport() {
       <MultiPageReport
         pages={pages}
         header={{
-          title: 'Supervision Report',
+          title: 'SUPERVISION DUTY SCHEDULE',
           description: 'Supervisor-wise duty schedule for examination blocks',
           examCenter: {
             name: examCenter?.name || 'Examination Center',
@@ -382,9 +383,9 @@ export default function SupervisionReport() {
             date: selectedDate ? new Date(selectedDate) : new Date(),
           },
           headerFields: {
-            Blocks: String(pages[0]?.totalBlocks || 0),
-            Supervisors: String(pages[0]?.totalSupervisors || 0),
-            Students: String(pages[0]?.totalStudents || 0),
+            'Total Blocks': String(pages[0]?.totalBlocks || 0),
+            'Total Supervisors': String(pages[0]?.totalSupervisors || 0),
+            'Total Students': String(pages[0]?.totalStudents || 0),
           },
         }}
         footer={{

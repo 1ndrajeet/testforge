@@ -293,6 +293,7 @@ ReportHeader.displayName = 'ReportHeader';
 export const ReportFooter = ({
   showTimestamp = true,
   showTestForgeCredit = true,
+  alignment = 'right',
   additionalInfo,
   className,
   showSupervisorSignature = false,
@@ -311,56 +312,39 @@ export const ReportFooter = ({
   });
 
   return (
-    <footer className={cn('relative mt-6 border-t border-neutral-300 pt-4 text-xs', className)}>
+    <div
+      className={cn(
+        'report-footer mt-2 border-t border-black pt-2 text-xs',
+        alignment === 'left' && 'text-left',
+        alignment === 'right' && 'text-right',
+        alignment === 'center' && 'text-center',
+        className
+      )}
+    >
       {/* Signature Section */}
       {(showSupervisorSignature || showOfficerSignature || showSealingSupervisor) && (
-        <div className="mb-8 flex items-end justify-between gap-8">
+        <div className="my-2 flex justify-between">
           {showSupervisorSignature && (
-            <div className="min-w-[180px] text-center">
-              <div className="h-10" />
-              <div className="border-t border-neutral-500 pt-1">
-                <p className="font-medium">Supervisor</p>
-                {supervisorName && <p className="mt-0.5 text-[11px] text-neutral-600">{supervisorName}</p>}
-              </div>
+            <div className="">
+              <p className="font-semibold">Signature of Supervisor</p>
+              <p className="mt-0.5">({supervisorName || '________________________'})</p>
             </div>
           )}
-
           {showSealingSupervisor && (
-            <div className="min-w-[180px] text-center">
-              <div className="h-10" />
-              <div className="border-t border-neutral-500 pt-1">
-                <p className="font-medium">Sealing Supervisor</p>
-                {sealingSupervisor && <p className="mt-0.5 text-[11px] text-neutral-600">{sealingSupervisor}</p>}
-              </div>
+            <div>
+              <p className="font-semibold">Signature of Sealing Supervisor</p>
+              <p className="mt-0.5">({sealingSupervisor || '________________________'})</p>
             </div>
           )}
-
           {showOfficerSignature && (
-            <div className="min-w-[180px] text-center">
-              <div className="h-10" />
-              <div className="border-t border-neutral-500 pt-1">
-                <p className="font-medium">Officer In-Charge</p>
-                {officerName && <p className="mt-0.5 text-[11px] text-neutral-600">{officerName}</p>}
-              </div>
+            <div className="text-right">
+              <p className="font-semibold">Signature of Officer-In-charge</p>
+              <p className="mt-0.5">({officerName || '________________________'})</p>
             </div>
           )}
         </div>
       )}
-
-      {/* Optional Footer Note */}
-      {additionalInfo && <div className="text-[11px] text-neutral-500">{additionalInfo}</div>}
-
-      {/* Print Metadata */}
-      {(showTimestamp || showTestForgeCredit) && (
-        <div className="pointer-events-none absolute right-0 bottom-1 flex items-center gap-3 text-[9px] text-neutral-400 select-none print:flex">
-          {showTimestamp && <span>Generated {timestamp}</span>}
-
-          {showTimestamp && showTestForgeCredit && <span>•</span>}
-
-          {showTestForgeCredit && <span>Powered by TestForge®</span>}
-        </div>
-      )}
-    </footer>
+    </div>
   );
 };
 
@@ -504,7 +488,7 @@ export const MultiPageReport = forwardRef<HTMLDivElement, MultiPageReportProps>(
         {/* Report Content */}
         <div ref={combinedRef}>
           {pages.map((pageData, pageIndex) => (
-            <div key={pageIndex}>
+            <div key={pageData.id}>
               {Array.from({ length: numberOfCopies }).map((_, copyIndex) => (
                 <ReportPage
                   key={`${pageData.id}-${copyIndex}`}
