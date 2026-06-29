@@ -32,6 +32,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<any>;
   signUp: (email: string, password: string, name: string) => Promise<any>;
   signOut: () => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -40,11 +41,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const syncSession = (data: unknown) => {
+    if (data && typeof data === 'object' && 'user' in data && 'session' in data) {
+      setSession(data as Session);
+      return;
+    }
+
+    setSession(null);
+  };
+
   useEffect(() => {
     const loadSession = async () => {
       try {
         const { data } = await authClient.getSession();
-        setSession(data as Session | null);
+        syncSession(data);
       } catch (error) {
         console.error('Failed to load session:', error);
       } finally {
@@ -52,6 +62,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
     loadSession();
+
+    // Listen for auth changes (useful for social auth redirects)
+    authClient.$store.listen('session', newSession => {
+      syncSession(newSession);
+    });
   }, []);
 
   const signIn = async (email: string, password: string) => {
@@ -61,10 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     if (result.data) {
       const sessionData = await authClient.getSession();
-
-      if (sessionData.data) {
-        setSession(sessionData.data as Session);
-      }
+      syncSession(sessionData.data);
     }
     return result;
   };
@@ -77,12 +89,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     if (result.data) {
       const sessionData = await authClient.getSession();
-
-      if (sessionData.data) {
-        setSession(sessionData.data as Session);
-      }
+      syncSession(sessionData.data);
     }
     return result;
+  };
+
+  const signInWithGoogle = async () => {
+    await authClient.signIn.social({
+      provider: 'google',
+      callbackURL: window.location.origin + '/auth/callback',
+    });
   };
 
   const signOut = async () => {
@@ -91,7 +107,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, isLoading, signIn, signUp, signOut }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={{ session, isLoading, signIn, signUp, signOut, signInWithGoogle }}>
+      {children}
+    </AuthContext.Provider>
   );
 }
 

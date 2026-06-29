@@ -12,7 +12,7 @@ docker ps
 docker logs -f testforge-postgres
 
 # Connect to Database
-docker exec -it testforge-postgres psql -U testforge -d testforge -c '\dt'
+docker exec -it testforge-postgres psql -U testforge -d testforge -c '\dt '
 
 # Stop Database
 docker-compose down

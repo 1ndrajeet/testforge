@@ -510,6 +510,8 @@ export async function deleteStaff(id: string) {
   }
 }
 
+// lib/actions/staff.ts - Fix bulkCreateStaff to handle duplicates gracefully
+
 export async function bulkCreateStaff(data: z.infer<typeof BulkCreateStaffSchema>) {
   const MODULE_FN = `${MODULE}.bulkCreateStaff`;
 
@@ -521,26 +523,74 @@ export async function bulkCreateStaff(data: z.infer<typeof BulkCreateStaffSchema
       return { success: false, error: 'No staff members to import' };
     }
 
+    // Get existing staff UIDs for this exam center
+    const existingStaff = await db.query.staff.findMany({
+      where: and(eq(staff.examCenterId, examCenter.id), eq(staff.isDeleted, false)),
+      columns: { uid: true },
+    });
+
+    const existingUids = new Set(existingStaff.map(s => s.uid));
+
+    // Filter out duplicates
+    const newStaff = validated.staff.filter(member => !existingUids.has(member.uid));
+    const skippedCount = validated.staff.length - newStaff.length;
+
+    if (newStaff.length === 0) {
+      logger.info(MODULE_FN, 'No new staff members to import - all already exist', {
+        examCenterId: examCenter.id,
+        total: validated.staff.length,
+      });
+      return {
+        success: true,
+        data: [],
+        message: `All ${validated.staff.length} staff members already exist. No new records added.`,
+        skipped: skippedCount,
+      };
+    }
+
     // Start transaction
     const result = await db.transaction(async tx => {
-      // If overwrite is true, soft delete existing staff
+      // If overwrite is true, soft delete existing staff (but we already filtered)
       if (validated.overwrite) {
-        await tx
-          .update(staff)
-          .set({ isDeleted: true, updatedAt: new Date() })
-          .where(eq(staff.examCenterId, examCenter.id));
-        logger.info(MODULE_FN, 'Soft deleted existing staff', {
-          examCenterId: examCenter.id,
-        });
+        // Actually, if overwrite is true, we should update existing ones
+        // Let's handle this differently
+        if (validated.overwrite) {
+          // Soft delete all existing staff
+          await tx
+            .update(staff)
+            .set({ isDeleted: true, updatedAt: new Date() })
+            .where(eq(staff.examCenterId, examCenter.id));
+          logger.info(MODULE_FN, 'Soft deleted existing staff', {
+            examCenterId: examCenter.id,
+          });
+
+          // Now all staff (including what were duplicates) should be inserted as new
+          // But since we already have newStaff filtered, we need to include all
+          const allStaff = validated.staff.map(member => ({
+            examCenterId: examCenter.id,
+            ...member,
+          }));
+
+          // Insert in batches
+          const BATCH_SIZE = 100;
+          const insertedStaff = [];
+
+          for (let i = 0; i < allStaff.length; i += BATCH_SIZE) {
+            const batch = allStaff.slice(i, i + BATCH_SIZE);
+            const inserted = await tx.insert(staff).values(batch).returning();
+            insertedStaff.push(...inserted);
+          }
+
+          return insertedStaff;
+        }
       }
 
-      // Prepare values
-      const values = validated.staff.map(member => ({
+      // Insert only new staff in batches
+      const values = newStaff.map(member => ({
         examCenterId: examCenter.id,
         ...member,
       }));
 
-      // Insert in batches
       const BATCH_SIZE = 100;
       const insertedStaff = [];
 
@@ -556,15 +606,34 @@ export async function bulkCreateStaff(data: z.infer<typeof BulkCreateStaffSchema
     logger.info(MODULE_FN, `Bulk created ${result.length} staff members`, {
       examCenterId: examCenter.id,
       count: result.length,
+      skipped: skippedCount,
       overwrite: validated.overwrite,
     });
     revalidatePath('/exam-center/configuration/staff');
 
-    return { success: true, data: result };
+    return {
+      success: true,
+      data: result,
+      skipped: skippedCount,
+      message:
+        skippedCount > 0
+          ? `Imported ${result.length} staff members (${skippedCount} skipped due to duplicates)`
+          : `Successfully imported ${result.length} staff members`,
+    };
   } catch (error) {
     if (error instanceof z.ZodError) {
       logger.warn(MODULE_FN, 'Validation failed', { issue: error.issues });
       return { success: false, error: error.issues };
+    }
+
+    // Check for duplicate key error specifically
+    if (error && typeof error === 'object' && 'code' in error && error.code === '23505') {
+      logger.warn(MODULE_FN, 'Duplicate key error during bulk import', { error });
+      return {
+        success: false,
+        error: 'One or more staff members with duplicate UIDs were found. Please remove duplicates and try again.',
+        duplicateError: true,
+      };
     }
 
     logger.error(MODULE_FN, 'Failed to bulk create staff', { error });

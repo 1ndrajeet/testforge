@@ -7,6 +7,8 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 import logging
 from urllib.parse import urlparse
+# backend/config.py
+import os
 
 load_dotenv()
 
@@ -24,7 +26,8 @@ class Settings:
     # Upload
     UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", "uploads")
     MAX_UPLOAD_SIZE: int = int(os.getenv("MAX_UPLOAD_SIZE", 10485760))
-    
+
+    APP_URL = os.getenv("NEXT_PUBLIC_APP_URL", "http://localhost:3000")    
     # Security
     SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-here")
     CORS_ORIGINS: list = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")

@@ -1,9 +1,30 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { format } from 'date-fns';
-import { ChevronLeft, Loader2, RefreshCw, Save, Search, UserX } from 'lucide-react';
+import {
+  AlertCircle,
+  AlertTriangle,
+  Building,
+  Calculator,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  Grid2X2CheckIcon,
+  LayoutDashboard,
+  Loader2,
+  RefreshCw,
+  Save,
+  Search,
+  Settings2,
+  Snowflake,
+  SnowflakeIcon,
+  Star,
+  UserX,
+  X,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
@@ -19,111 +40,176 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+
+// ============================================================================
+// Types
+// ============================================================================
+
+interface SchemeData {
+  id: string;
+  code: string;
+  name: string;
+  scheme: string;
+  total: number;
+  seats: number[];
+  savedAbsent: number[];
+  blockNo: string;
+  blockLocation: string;
+}
+
+interface BlockData {
+  blockNo: string;
+  location: string;
+  schemes: SchemeData[];
+}
 
 // ============================================================================
 // Mock Data
 // ============================================================================
 
-const MOCK_SCHEMES = [
+const MOCK_BLOCKS: BlockData[] = [
   {
-    id: 'scheme-1',
-    scheme: 'CO-1-1',
-    subjectCode: 'CSE101',
-    subjectName: 'Data Structures',
-    totalStudents: 42,
-    seatNumbers: Array.from({ length: 42 }, (_, i) => i + 1),
-    absentNumbers: [5, 12, 23, 34, 41],
     blockNo: '1',
-    blockLocation: 'Room 101',
+    location: 'Room 101',
+    schemes: [
+      {
+        id: 's1',
+        code: 'CSE101',
+        name: 'Data Structures',
+        scheme: 'CO-1-1',
+        total: 42,
+        seats: Array.from({ length: 42 }, (_, i) => i + 1),
+        savedAbsent: [5, 12, 23, 34, 41],
+        blockNo: '1',
+        blockLocation: 'Room 101',
+      },
+      {
+        id: 's2',
+        code: 'CSE102',
+        name: 'Algorithms',
+        scheme: 'CO-1-2',
+        total: 38,
+        seats: Array.from({ length: 38 }, (_, i) => i + 1),
+        savedAbsent: [8, 19, 27],
+        blockNo: '1',
+        blockLocation: 'Room 101',
+      },
+    ],
   },
   {
-    id: 'scheme-2',
-    scheme: 'CO-1-2',
-    subjectCode: 'CSE102',
-    subjectName: 'Algorithms',
-    totalStudents: 38,
-    seatNumbers: Array.from({ length: 38 }, (_, i) => i + 1),
-    absentNumbers: [8, 19, 27],
-    blockNo: '1',
-    blockLocation: 'Room 101',
-  },
-  {
-    id: 'scheme-3',
-    scheme: 'CO-2-1',
-    subjectCode: 'CSE201',
-    subjectName: 'Database Systems',
-    totalStudents: 45,
-    seatNumbers: Array.from({ length: 45 }, (_, i) => i + 1),
-    absentNumbers: [3, 14, 22, 36, 42],
     blockNo: '2',
-    blockLocation: 'Room 201',
+    location: 'Room 201',
+    schemes: [
+      {
+        id: 's3',
+        code: 'CSE201',
+        name: 'Database Systems',
+        scheme: 'CO-2-1',
+        total: 45,
+        seats: Array.from({ length: 45 }, (_, i) => i + 1),
+        savedAbsent: [3, 14, 22, 36, 42],
+        blockNo: '2',
+        blockLocation: 'Room 201',
+      },
+      {
+        id: 's4',
+        code: 'CSE202',
+        name: 'Operating Systems',
+        scheme: 'CO-2-2',
+        total: 40,
+        seats: Array.from({ length: 40 }, (_, i) => i + 1),
+        savedAbsent: [7, 18, 29],
+        blockNo: '2',
+        blockLocation: 'Room 201',
+      },
+    ],
   },
   {
-    id: 'scheme-4',
-    scheme: 'CO-2-2',
-    subjectCode: 'CSE202',
-    subjectName: 'Operating Systems',
-    totalStudents: 40,
-    seatNumbers: Array.from({ length: 40 }, (_, i) => i + 1),
-    absentNumbers: [7, 18, 29],
-    blockNo: '2',
-    blockLocation: 'Room 201',
-  },
-  {
-    id: 'scheme-5',
-    scheme: 'ME-1-1',
-    subjectCode: 'MEC101',
-    subjectName: 'Thermodynamics',
-    totalStudents: 35,
-    seatNumbers: Array.from({ length: 35 }, (_, i) => i + 1),
-    absentNumbers: [4, 15, 26, 33],
     blockNo: '3',
-    blockLocation: 'Room 301',
+    location: 'Room 301',
+    schemes: [
+      {
+        id: 's5',
+        code: 'MEC101',
+        name: 'Thermodynamics',
+        scheme: 'ME-1-1',
+        total: 35,
+        seats: Array.from({ length: 35 }, (_, i) => i + 1),
+        savedAbsent: [4, 15, 26, 33],
+        blockNo: '3',
+        blockLocation: 'Room 301',
+      },
+    ],
   },
 ];
 
-const MOCK_BLOCKS = [
-  { blockNo: '1', location: 'Room 101', schemes: MOCK_SCHEMES.filter(s => s.blockNo === '1') },
-  { blockNo: '2', location: 'Room 201', schemes: MOCK_SCHEMES.filter(s => s.blockNo === '2') },
-  { blockNo: '3', location: 'Room 301', schemes: MOCK_SCHEMES.filter(s => s.blockNo === '3') },
-];
+// ============================================================================
+// Skeleton Components
+// ============================================================================
+
+const StatsSkeleton = () => (
+  <div className="grid grid-cols-4 gap-3">
+    {Array.from({ length: 4 }).map((_, i) => (
+      <Skeleton key={i} className="h-[72px] w-full rounded-lg" />
+    ))}
+  </div>
+);
+
+const BlockNavSkeleton = () => (
+  <div className="space-y-2">
+    {Array.from({ length: 3 }).map((_, i) => (
+      <Skeleton key={i} className="h-8 w-full rounded-md" />
+    ))}
+  </div>
+);
+
+const SeatGridSkeleton = () => (
+  <div className="grid grid-cols-10 gap-1.5">
+    {Array.from({ length: 30 }).map((_, i) => (
+      <Skeleton key={i} className="aspect-square w-full rounded-md" />
+    ))}
+  </div>
+);
 
 // ============================================================================
 // Stats Cards
 // ============================================================================
 
-const CompactStats = ({
-  stats,
-}: {
-  stats: { totalStudents: number; totalMarked: number; totalRemaining: number; markedPercentage: number } | null;
-}) => {
+interface StatsData {
+  total: number;
+  absent: number;
+  present: number;
+  rate: number;
+}
+
+const CompactStats = ({ stats, loading }: { stats: StatsData | null; loading?: boolean }) => {
+  if (loading) return <StatsSkeleton />;
   if (!stats) return null;
 
+  const items = [
+    { value: stats.total, label: 'Total', color: 'bg-emerald-500' },
+    { value: stats.absent, label: 'Absent', color: 'bg-rose-500' },
+    { value: stats.present, label: 'Present', color: 'bg-emerald-500' },
+    { value: stats.rate, label: 'Rate', suffix: '%', color: 'bg-emerald-500' },
+  ];
+
   return (
-    <div className="mb-4 grid grid-cols-4 gap-3">
-      <div className="rounded-lg border border-neutral-200 bg-white p-2 dark:border-neutral-800 dark:bg-neutral-950">
-        <p className="text-xl font-semibold text-neutral-900 dark:text-neutral-50">
-          {stats.totalStudents.toLocaleString()}
-        </p>
-        <p className="text-[10px] text-neutral-500">Total</p>
-      </div>
-      <div className="rounded-lg border border-neutral-200 bg-white p-2 dark:border-neutral-800 dark:bg-neutral-950">
-        <p className="text-xl font-semibold text-rose-600 dark:text-rose-400">{stats.totalMarked.toLocaleString()}</p>
-        <p className="text-[10px] text-neutral-500">Absent</p>
-      </div>
-      <div className="rounded-lg border border-neutral-200 bg-white p-2 dark:border-neutral-800 dark:bg-neutral-950">
-        <p className="text-xl font-semibold text-emerald-600 dark:text-emerald-400">
-          {stats.totalRemaining.toLocaleString()}
-        </p>
-        <p className="text-[10px] text-neutral-500">Remaining</p>
-      </div>
-      <div className="rounded-lg border border-neutral-200 bg-white p-2 dark:border-neutral-800 dark:bg-neutral-950">
-        <p className="text-xl font-semibold text-neutral-900 dark:text-neutral-50">
-          {stats.markedPercentage.toFixed(0)}%
-        </p>
-        <p className="text-[10px] text-neutral-500">Rate</p>
-      </div>
+    <div className="grid grid-cols-4 gap-3">
+      {items.map(item => (
+        <div
+          key={item.label}
+          className="relative overflow-hidden rounded-lg border border-neutral-200/60 bg-white p-3 shadow-sm transition-shadow hover:shadow-md dark:border-neutral-800/60 dark:bg-neutral-950"
+        >
+          <div className={cn('absolute top-0 right-0 left-0 h-0.5 rounded-t-lg', item.color)} />
+          <p className={cn('mt-1 text-2xl font-semibold tracking-tight', item.label === 'Absent' && 'text-rose-600')}>
+            {item.value}
+            {item.suffix || ''}
+          </p>
+          <p className="mt-0.5 text-[10px] font-medium tracking-wider text-neutral-400 uppercase">{item.label}</p>
+        </div>
+      ))}
     </div>
   );
 };
@@ -132,87 +218,94 @@ const CompactStats = ({
 // Block Navigation
 // ============================================================================
 
-function BlockNav({
-  blocks,
-  selectedBlockNo,
-  selectedSchemeId,
-  onSelectBlock,
-  onSelectScheme,
-}: {
-  blocks: typeof MOCK_BLOCKS;
-  selectedBlockNo: string | null;
+interface BlockNavProps {
+  blocks: BlockData[];
+  expandedBlock: string | null;
   selectedSchemeId: string | null;
-  onSelectBlock: (blockNo: string | null) => void;
+  onToggleBlock: (blockNo: string) => void;
   onSelectScheme: (schemeId: string) => void;
-}) {
-  const getAbsentCount = (scheme: (typeof MOCK_SCHEMES)[0]) => scheme.absentNumbers.length;
+  loading?: boolean;
+}
+
+function BlockNav({ blocks, expandedBlock, selectedSchemeId, onToggleBlock, onSelectScheme, loading }: BlockNavProps) {
+  if (loading) return <BlockNavSkeleton />;
 
   return (
     <div className="space-y-0.5">
       {blocks.map(block => {
-        const isBlockExpanded = selectedBlockNo === block.blockNo;
-        const totalAbsent = block.schemes.reduce((sum, s) => sum + getAbsentCount(s), 0);
-        const totalStudents = block.schemes.reduce((sum, s) => sum + s.totalStudents, 0);
+        const isExpanded = expandedBlock === block.blockNo;
+        const totalAbsent = block.schemes.reduce((sum, s) => sum + s.savedAbsent.length, 0);
+        const totalStudents = block.schemes.reduce((sum, s) => sum + s.total, 0);
 
         return (
           <div key={block.blockNo}>
             <button
-              onClick={() => onSelectBlock(isBlockExpanded ? null : block.blockNo)}
+              onClick={() => onToggleBlock(block.blockNo)}
               className={cn(
-                'flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-sm transition-colors',
-                isBlockExpanded ? 'bg-neutral-100 dark:bg-neutral-800' : 'hover:bg-neutral-50 dark:hover:bg-neutral-900'
+                'flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left text-sm transition-all duration-200',
+                isExpanded
+                  ? 'bg-emerald-50/80 text-emerald-700 shadow-sm dark:bg-emerald-950/30'
+                  : 'hover:bg-neutral-100/70 dark:hover:bg-neutral-800/70'
               )}
             >
               <div className="flex items-center gap-2">
-                <ChevronLeft className={cn('h-3 w-3 transition-transform', isBlockExpanded && '-rotate-90')} />
-                <span className="font-mono text-sm">Block {block.blockNo}</span>
+                <span className="font-mono text-sm font-medium">Block {block.blockNo}</span>
                 <span className="text-xs text-neutral-400">{block.location}</span>
               </div>
               {totalAbsent > 0 && (
-                <Badge variant="destructive" className="h-5 px-1.5 text-[10px]">
+                <Badge variant="destructive" className="h-5 px-1.5 text-[10px] font-medium">
                   {totalAbsent}/{totalStudents}
                 </Badge>
               )}
+              <ChevronRight
+                className={cn(
+                  'h-3.5 w-3.5 text-neutral-400 transition-transform duration-300',
+                  isExpanded && 'rotate-90'
+                )}
+              />
             </button>
 
-            {isBlockExpanded && (
-              <div className="ml-6 space-y-0.5 border-l border-neutral-200 pl-2 dark:border-neutral-800">
+            {isExpanded && (
+              <div className="ml-4 space-y-0.5 border-l-2 border-emerald-200/60 pl-1 dark:border-emerald-800/30">
                 {block.schemes.map(scheme => {
                   const isSelected = selectedSchemeId === scheme.id;
-                  const absentCount = getAbsentCount(scheme);
-                  const percent = scheme.totalStudents > 0 ? (absentCount / scheme.totalStudents) * 100 : 0;
+                  const absentCount = scheme.savedAbsent.length;
+                  const percent = scheme.total > 0 ? (absentCount / scheme.total) * 100 : 0;
 
                   return (
                     <button
                       key={scheme.id}
                       onClick={() => onSelectScheme(scheme.id)}
                       className={cn(
-                        'w-full rounded-md px-2 py-1.5 text-left text-sm transition-colors',
+                        'relative my-1 w-full rounded-md px-2.5 py-2 text-left text-sm transition-all duration-200',
                         isSelected
-                          ? 'bg-neutral-100 dark:bg-neutral-800'
-                          : 'hover:bg-neutral-50 dark:hover:bg-neutral-900'
+                          ? 'bg-emerald-100/60 text-emerald-800 shadow-sm dark:bg-emerald-900/30'
+                          : 'hover:bg-neutral-100/60 dark:hover:bg-neutral-800/60'
                       )}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
-                            <code className="rounded bg-neutral-100 px-1 py-0.5 font-mono text-xs dark:bg-neutral-800">
-                              {scheme.subjectCode}
+                            <code className="rounded bg-white/70 px-1.5 py-0.5 font-mono text-xs dark:bg-neutral-800/70">
+                              {scheme.code}
                             </code>
-                            <span className="truncate text-xs">{scheme.subjectName}</span>
+                            <span className="truncate text-xs font-medium">{scheme.name}</span>
                           </div>
                           <div className="mt-0.5 text-[10px] text-neutral-400">{scheme.scheme}</div>
                         </div>
                         {absentCount > 0 && (
                           <div className="shrink-0 text-right">
-                            <span className="text-xs font-medium text-rose-600">{absentCount}</span>
-                            <span className="text-[10px] text-neutral-400">/{scheme.totalStudents}</span>
+                            <span className="text-xs font-semibold text-rose-600">{absentCount}</span>
+                            <span className="text-[10px] text-neutral-400">/{scheme.total}</span>
                           </div>
                         )}
                       </div>
                       {percent > 0 && (
-                        <div className="mt-1 h-0.5 w-full overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800">
-                          <div className="h-full rounded-full bg-rose-500" style={{ width: `${percent}%` }} />
+                        <div className="mt-1.5 h-0.5 w-full overflow-hidden rounded-full bg-neutral-200/70 dark:bg-neutral-700/70">
+                          <div
+                            className="h-full rounded-full bg-rose-500 transition-all duration-700"
+                            style={{ width: `${percent}%` }}
+                          />
                         </div>
                       )}
                     </button>
@@ -228,51 +321,110 @@ function BlockNav({
 }
 
 // ============================================================================
-// Seat Grid - Visual Only (No Checks, Just Colors)
+// Subject Header
 // ============================================================================
 
-function SeatGrid({
-  seatNumbers,
-  absentSeats,
-  markedSeats,
-  onSeatToggle,
-}: {
-  seatNumbers: number[];
-  absentSeats: number[];
+interface SubjectHeaderProps {
+  scheme: SchemeData | null;
+  markedCount: number;
+}
+
+function SubjectHeader({ scheme, markedCount }: SubjectHeaderProps) {
+  if (!scheme) return null;
+
+  const pct = scheme.total > 0 ? Math.round((markedCount / scheme.total) * 100) : 0;
+
+  return (
+    <div className="flex items-start justify-between gap-3 rounded-lg border border-neutral-200/60 bg-neutral-50/50 p-3 dark:border-neutral-800/60 dark:bg-neutral-900/30">
+      <div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <code className="rounded-lg bg-white px-2 py-0.5 font-mono text-sm font-semibold shadow-sm dark:bg-neutral-800">
+            {scheme.code}
+          </code>
+          <span className="text-sm font-semibold">{scheme.name}</span>
+          <Badge variant="outline" className="border-neutral-300 font-mono text-[10px] dark:border-neutral-700">
+            {scheme.scheme}
+          </Badge>
+        </div>
+        <div className="mt-1 text-xs text-neutral-400">
+          Block {scheme.blockNo} · {scheme.blockLocation} · {scheme.total} students
+        </div>
+      </div>
+      <div className="shrink-0 text-right">
+        <div className="text-sm font-semibold text-rose-600">{markedCount} absent</div>
+        <div className="text-[10px] text-neutral-400">{pct}%</div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// Seat Grid
+// ============================================================================
+
+interface SeatGridProps {
+  scheme: SchemeData | null;
   markedSeats: number[];
-  onSeatToggle: (seatNo: number) => void;
-}) {
+  onToggleSeat: (seatNo: number) => void;
+  loading?: boolean;
+}
+
+function SeatGrid({ scheme, markedSeats, onToggleSeat, loading }: SeatGridProps) {
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredSeats = useMemo(() => {
-    if (!searchTerm) return seatNumbers;
-    return seatNumbers.filter(seat => seat.toString().includes(searchTerm));
-  }, [seatNumbers, searchTerm]);
+    if (!scheme) return [];
+    if (!searchTerm) return scheme.seats;
+    return scheme.seats.filter(seat => seat.toString().includes(searchTerm));
+  }, [scheme, searchTerm]);
 
-  const handleBulkMark = () => {
-    const eligibleSeats = seatNumbers.filter(seat => !absentSeats.includes(seat) && !markedSeats.includes(seat));
-    if (eligibleSeats.length === 0) {
-      toast.warning('No eligible students to mark absent');
+  const handleMarkAll = () => {
+    if (!scheme) return;
+    const eligible = scheme.seats.filter(n => !markedSeats.includes(n));
+    if (eligible.length === 0) {
+      toast.warning('No seats to mark');
       return;
     }
-    eligibleSeats.forEach(seat => {
-      if (!markedSeats.includes(seat)) onSeatToggle(seat);
-    });
-    toast.success(`Marked ${eligibleSeats.length} student${eligibleSeats.length !== 1 ? 's' : ''}`);
+    eligible.forEach(n => onToggleSeat(n));
+    toast.success(`Marked ${eligible.length} students absent`);
   };
 
   const handleClearAll = () => {
-    const toClear = [...markedSeats];
-    toClear.forEach(seat => {
-      if (markedSeats.includes(seat)) onSeatToggle(seat);
-    });
-    toast.success(`Cleared ${toClear.length} student${toClear.length !== 1 ? 's' : ''}`);
+    if (!scheme) return;
+
+    // Get seats that were newly marked (not saved)
+    const newlyMarked = markedSeats.filter(seat => !scheme.savedAbsent.includes(seat));
+
+    if (newlyMarked.length === 0) {
+      toast.warning('No newly marked seats to clear');
+      return;
+    }
+
+    // Remove only newly marked seats
+    newlyMarked.forEach(seat => onToggleSeat(seat));
+    toast.success(`Cleared ${newlyMarked.length} newly marked seats`);
   };
 
-  if (seatNumbers.length === 0) {
+  if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center rounded-lg border border-dashed border-neutral-200 dark:border-neutral-800">
-        <p className="text-sm text-neutral-500">No seat numbers available</p>
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <Skeleton className="h-8 w-36" />
+          <div className="flex gap-1">
+            <Skeleton className="h-7 w-16" />
+            <Skeleton className="h-7 w-16" />
+            <Skeleton className="h-7 w-24" />
+          </div>
+        </div>
+        <SeatGridSkeleton />
+      </div>
+    );
+  }
+
+  if (!scheme) {
+    return (
+      <div className="flex h-64 items-center justify-center rounded-lg border-2 border-dashed border-neutral-200 dark:border-neutral-800">
+        <p className="text-sm text-neutral-400">Select a subject from the left panel</p>
       </div>
     );
   }
@@ -284,50 +436,60 @@ function SeatGrid({
           <Search className="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" />
           <Input
             type="text"
-            placeholder="Search seat..."
+            placeholder="Search seat…"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            className="h-8 w-48 pl-8 text-sm"
+            className="h-8 w-36 border-neutral-200/80 pl-8 text-sm transition-all focus:border-emerald-300 focus:ring-emerald-300/30"
           />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute top-1/2 right-2.5 -translate-y-1/2 text-neutral-400 transition-colors hover:text-neutral-600"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
-        <div className="flex gap-1">
-          <Button variant="outline" size="sm" onClick={handleBulkMark} className="h-7 px-2 text-xs">
+        <div className="flex gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleMarkAll}
+            className="h-7 border-neutral-200 px-3 text-xs transition-all hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+          >
+            <Check className="mr-1 h-3 w-3" />
             Mark All
           </Button>
-          <Button variant="outline" size="sm" onClick={handleClearAll} className="h-7 px-2 text-xs">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleClearAll}
+            className="h-7 border-neutral-200 px-3 text-xs transition-all hover:border-neutral-400 hover:bg-neutral-50"
+          >
+            <X className="mr-1 h-3 w-3" />
             Clear All
           </Button>
         </div>
       </div>
 
-      <div className="max-h-[450px] overflow-y-auto rounded-lg border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-950">
-        <div className="grid grid-cols-6 gap-1 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12">
-          {filteredSeats.map(seatNo => {
-            const isAbsent = absentSeats.includes(seatNo);
+      <div className="max-h-[300px] overflow-y-auto rounded-lg border border-neutral-200/60 bg-white/70 p-3 backdrop-blur-sm dark:border-neutral-800/60 dark:bg-neutral-950/70">
+        <div className="grid grid-cols-10 gap-1.5">
+          {filteredSeats.map((seatNo, idx) => {
             const isMarked = markedSeats.includes(seatNo);
 
-            let className =
-              'relative aspect-square w-full rounded-md border text-sm font-mono transition-all cursor-pointer';
-
-            if (isAbsent) {
-              className = cn(
-                className,
-                'border-rose-500 bg-rose-100 text-rose-700 dark:border-rose-700 dark:bg-rose-950/30 dark:text-rose-400'
-              );
-            } else if (isMarked) {
-              className = cn(
-                className,
-                'border-rose-400 bg-rose-50 text-rose-600 hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950/20 dark:text-rose-400'
-              );
-            } else {
-              className = cn(
-                className,
-                'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400'
-              );
-            }
-
             return (
-              <button key={seatNo} onClick={() => !isAbsent && onSeatToggle(seatNo)} className={className}>
+              <button
+                key={seatNo}
+                onClick={() => onToggleSeat(seatNo)}
+                style={{ animationDelay: `${Math.min(idx * 8, 200)}ms` }}
+                className={cn(
+                  'relative aspect-square w-full cursor-pointer rounded-md border font-mono text-xs font-medium transition-all duration-150',
+                  isMarked
+                    ? 'border-rose-400 bg-rose-50 text-rose-700 shadow-[0_0_0_1px_rgba(244,63,94,0.2)] hover:bg-rose-100/80'
+                    : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:scale-[1.04] hover:bg-emerald-100/80 hover:shadow-md',
+                  !isMarked && 'hover:scale-[1.04] hover:shadow-md'
+                )}
+              >
                 {seatNo}
               </button>
             );
@@ -336,18 +498,18 @@ function SeatGrid({
       </div>
 
       <div className="flex items-center justify-between text-xs">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5">
-            <div className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+            <div className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-sm" />
             <span className="text-neutral-500">Present</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="h-2.5 w-2.5 rounded-full bg-rose-500" />
+            <div className="h-2.5 w-2.5 rounded-full bg-rose-500 shadow-sm" />
             <span className="text-neutral-500">Absent</span>
           </div>
         </div>
-        <p className="text-neutral-400">
-          {markedSeats.length} of {seatNumbers.length} marked absent
+        <p className="font-medium text-neutral-400">
+          <span className="font-semibold text-rose-600">{markedSeats.length}</span> of {scheme.total} marked absent
         </p>
       </div>
     </div>
@@ -358,53 +520,59 @@ function SeatGrid({
 // Confirmation Dialog
 // ============================================================================
 
-function ConfirmDialog({
-  open,
-  onOpenChange,
-  onConfirm,
-  scheme,
-  count,
-  isSubmitting,
-}: {
+interface ConfirmDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
-  scheme: (typeof MOCK_SCHEMES)[0] | null;
+  scheme: SchemeData | null;
   count: number;
   isSubmitting: boolean;
-}) {
+}
+
+function ConfirmDialog({ open, onOpenChange, onConfirm, scheme, count, isSubmitting }: ConfirmDialogProps) {
   if (!scheme) return null;
 
-  const percentage = scheme.totalStudents > 0 ? (count / scheme.totalStudents) * 100 : 0;
+  const pct = scheme.total > 0 ? Math.round((count / scheme.total) * 100) : 0;
+  const isHigh = pct > 30;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-sm border-0 bg-white/90 shadow-2xl backdrop-blur-xl dark:bg-neutral-950/90">
         <DialogHeader>
-          <DialogTitle className="text-base">Confirm Absent Marking</DialogTitle>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            {isHigh ? (
+              <AlertCircle className="h-4 w-4 text-amber-500" />
+            ) : (
+              <Check className="h-4 w-4 text-emerald-500" />
+            )}
+            Confirm Absent Marking
+          </DialogTitle>
           <DialogDescription className="text-xs">
-            {scheme.subjectCode} - {scheme.subjectName}
+            {scheme.code} — {scheme.name}
           </DialogDescription>
         </DialogHeader>
 
         <div className="py-2">
-          <div className="rounded-md bg-neutral-50 p-3 dark:bg-neutral-900">
-            <div className="flex justify-between text-sm">
-              <span className="text-neutral-500">Total:</span>
-              <span className="font-medium">{scheme.totalStudents}</span>
+          <div className="rounded-xl bg-neutral-50/80 p-4 backdrop-blur-sm dark:bg-neutral-900/80">
+            <div className="flex justify-between border-b border-neutral-200/60 py-1.5 text-sm dark:border-neutral-800/60">
+              <span className="text-neutral-500">Total Students</span>
+              <span className="font-semibold">{scheme.total}</span>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-neutral-500">Marking absent:</span>
-              <span className="font-medium text-rose-600">{count}</span>
+            <div className="flex justify-between border-b border-neutral-200/60 py-1.5 text-sm dark:border-neutral-800/60">
+              <span className="text-neutral-500">Marking Absent</span>
+              <span className="font-semibold text-rose-600">{count}</span>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-neutral-500">Remaining:</span>
-              <span className="font-medium text-emerald-600">{scheme.totalStudents - count}</span>
+            <div className="flex justify-between py-1.5 text-sm">
+              <span className="text-neutral-500">Remaining</span>
+              <span className="font-semibold text-emerald-600">{scheme.total - count}</span>
             </div>
           </div>
 
-          {percentage > 30 && (
-            <p className="mt-2 text-xs text-amber-600">High absentee rate ({percentage.toFixed(0)}%)</p>
+          {isHigh && (
+            <p className="mt-3 flex items-center gap-1.5 text-xs text-amber-600">
+              <AlertCircle className="h-3 w-3" />
+              High absentee rate ({pct}%) — please verify
+            </p>
           )}
         </div>
 
@@ -412,8 +580,14 @@ function ConfirmDialog({
           <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button size="sm" onClick={onConfirm} disabled={isSubmitting} variant="destructive">
-            {isSubmitting && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+          <Button
+            size="sm"
+            onClick={onConfirm}
+            disabled={isSubmitting}
+            variant="destructive"
+            className="shadow-lg shadow-rose-500/20 transition-shadow hover:shadow-rose-500/30"
+          >
+            {isSubmitting && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
             Confirm {count} absent
           </Button>
         </DialogFooter>
@@ -423,199 +597,277 @@ function ConfirmDialog({
 }
 
 // ============================================================================
-// Main DashboardMockup Component
+// Sidebar Navigation
 // ============================================================================
 
-export default function DashboardMockup() {
+const SIDEBAR_ITEMS = [
+  { icon: LayoutDashboard, label: 'Dashboard' },
+  { icon: Settings2, label: 'Exam setup' },
+  { icon: Grid2X2CheckIcon, label: 'Block allocation' },
+  { separator: true },
+  { icon: Calculator, label: 'QP accounting' },
+  { icon: UserX, label: 'Absent students', active: true, badge: true },
+  { icon: AlertTriangle, label: 'Copy case' },
+  { separator: true },
+  { icon: FileText, label: 'MSBTE formats' },
+  { icon: Star, label: 'TestForge reports' },
+];
+
+function Sidebar() {
+  return (
+    <div className="flex flex-col gap-0.5 border-r border-neutral-200/60 bg-neutral-50/50 p-3 dark:border-neutral-800/60 dark:bg-neutral-900/30">
+      <div className="mb-3 flex items-center gap-2 px-2">
+        <div className="flex h-6 w-6 items-center justify-center rounded-md bg-emerald-600">
+          <span className="text-[10px] font-semibold text-white">TF</span>
+        </div>
+        <span className="text-sm font-semibold">TestForge</span>
+      </div>
+
+      {SIDEBAR_ITEMS.map((item, idx) => {
+        if (item.separator) {
+          return (
+            <div key={`sep-${idx}`} className="my-2 px-2">
+              <span className="text-[9px] font-semibold tracking-wider text-neutral-400 uppercase">
+                {idx === 3 ? 'Exam Day' : 'Reports'}
+              </span>
+            </div>
+          );
+        }
+
+        const Icon = item.icon;
+
+        return (
+          <button
+            key={item.label}
+            className={cn(
+              'flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-xs font-medium transition-all duration-200',
+              item.active
+                ? 'bg-emerald-50 text-emerald-700 shadow-sm dark:bg-emerald-950/30'
+                : 'text-neutral-500 hover:bg-neutral-100/70 hover:text-neutral-800 dark:hover:bg-neutral-800/50'
+            )}
+          >
+            {Icon ? <Icon className="h-4 w-4" /> : <span className="inline-block h-4 w-4" />}
+            <span>{item.label}</span>
+            {item.badge && (
+              <span className="ml-auto rounded-full bg-rose-500 px-1.5 py-0.5 text-[9px] font-semibold text-white">
+                20
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ============================================================================
+// Main Component
+// ============================================================================
+
+export default function ExamDayAbsentMockup() {
   // State
-  const [schemes] = useState(MOCK_SCHEMES);
-  const [blocks] = useState(MOCK_BLOCKS);
-  const [selectedBlockNo, setSelectedBlockNo] = useState<string | null>('1');
-  const [selectedSchemeId, setSelectedSchemeId] = useState<string | null>('scheme-1');
+  const [blocks, setBlocks] = useState<BlockData[]>(MOCK_BLOCKS);
+  const [expandedBlock, setExpandedBlock] = useState<string>('1');
+  const [selectedSchemeId, setSelectedSchemeId] = useState<string>('s1');
   const [markedSeats, setMarkedSeats] = useState<number[]>([]);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const selectedScheme = schemes.find(s => s.id === selectedSchemeId) || null;
+  // Derived
+  const selectedScheme = useMemo(() => {
+    for (const block of blocks) {
+      for (const scheme of block.schemes) {
+        if (scheme.id === selectedSchemeId) return scheme;
+      }
+    }
+    return null;
+  }, [blocks, selectedSchemeId]);
 
-  // Calculate stats
   const stats = useMemo(() => {
-    let totalStudents = 0;
-    let totalMarked = 0;
-    for (const scheme of schemes) {
-      totalStudents += scheme.totalStudents;
-      totalMarked += scheme.absentNumbers.length;
+    let total = 0,
+      absent = 0;
+    for (const block of blocks) {
+      for (const scheme of block.schemes) {
+        total += scheme.total;
+        absent += scheme.savedAbsent.length;
+      }
     }
     return {
-      totalStudents,
-      totalMarked,
-      totalRemaining: totalStudents - totalMarked,
-      markedPercentage: totalStudents > 0 ? (totalMarked / totalStudents) * 100 : 0,
+      total,
+      absent,
+      present: total - absent,
+      rate: total > 0 ? Math.round((absent / total) * 100) : 0,
     };
-  }, [schemes]);
+  }, [blocks]);
+
+  // Initialize marked seats from selected scheme
+  useEffect(() => {
+    if (selectedScheme) {
+      setMarkedSeats([...selectedScheme.savedAbsent]);
+    }
+  }, [selectedScheme]);
+
+  // Simulate loading
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 700);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Handlers
-  const handleSelectScheme = (schemeId: string) => {
-    const scheme = schemes.find(s => s.id === schemeId);
-    if (scheme) {
-      setSelectedSchemeId(schemeId);
-      setMarkedSeats([...scheme.absentNumbers]);
-    }
+  const handleToggleBlock = (blockNo: string) => {
+    setExpandedBlock(expandedBlock === blockNo ? '' : blockNo);
   };
 
-  const handleSeatToggle = (seatNo: number) => {
+  const handleSelectScheme = (schemeId: string) => {
+    setSelectedSchemeId(schemeId);
+  };
+
+  const handleToggleSeat = (seatNo: number) => {
     setMarkedSeats(prev => (prev.includes(seatNo) ? prev.filter(s => s !== seatNo) : [...prev, seatNo]));
   };
 
   const handleSave = () => {
     if (!selectedScheme) return;
     setSaving(true);
+
     setTimeout(() => {
-      const schemeIndex = schemes.findIndex(s => s.id === selectedScheme.id);
-      if (schemeIndex !== -1) {
-        schemes[schemeIndex].absentNumbers = [...markedSeats];
-      }
+      // Update the saved absent in the scheme
+      const updatedBlocks = blocks.map(block => ({
+        ...block,
+        schemes: block.schemes.map(scheme =>
+          scheme.id === selectedScheme.id ? { ...scheme, savedAbsent: [...markedSeats] } : scheme
+        ),
+      }));
+      setBlocks(updatedBlocks);
+
       toast.success(`${markedSeats.length} student${markedSeats.length !== 1 ? 's' : ''} marked absent`);
       setDialogOpen(false);
       setSaving(false);
-    }, 1000);
+    }, 900);
   };
 
   const handleRefresh = () => {
-    toast.success('Data refreshed');
+    setLoading(true);
+    toast.info('Refreshing data…');
+    setTimeout(() => {
+      setLoading(false);
+      toast.success('Data refreshed');
+    }, 700);
   };
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-3 shadow-lg sm:p-4">
-      {/* Browser chrome */}
-      <div className="flex items-center gap-1.5 px-2 py-1.5">
-        <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
-        <span className="h-2.5 w-2.5 rounded-full bg-yellow-300" />
-        <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
-        <span className="ml-3 text-xs text-gray-500">
-          {process.env.NEXT_PUBLIC_HOSTED_URL}/exam-center/exam-day/absent
+    <div className="relative overflow-hidden rounded-2xl border border-neutral-200/60 bg-white/80 shadow-md backdrop-blur-sm dark:border-neutral-800/60 dark:bg-neutral-950/80">
+      {/* Browser Chrome */}
+      <div className="flex items-center gap-1.5 border-b border-neutral-200/60 px-4 py-2.5 dark:border-neutral-800/60">
+        <span className="h-2.5 w-2.5 rounded-full bg-rose-400 shadow-sm" />
+        <span className="h-2.5 w-2.5 rounded-full bg-amber-400 shadow-sm" />
+        <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-sm" />
+        <span className="ml-3 font-mono text-xs text-neutral-400">
+          {process.env.NEXT_PUBLIC_APP_URL}/exam-center/exam-day/absent
         </span>
       </div>
 
-      {/* Dashboard grid */}
-      <div className="grid gap-3 rounded-xl bg-gray-50 p-3 sm:p-4 md:grid-cols-12">
-        {/* Sidebar */}
-        <div className="space-y-2 md:col-span-2">
-          {['Overview', 'Absent', 'Blocks', 'Staff', 'Reports', 'Inventory'].map((s, i) => (
-            <div
-              key={s}
-              className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs ${
-                i === 1 ? 'bg-emerald-600 text-white' : 'text-gray-500'
-              }`}
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
-              {s}
-            </div>
-          ))}
-        </div>
+      {/* App Layout */}
+      <div className="grid min-h-[660px] grid-cols-[200px_1fr]">
+        <Sidebar />
 
-        {/* Main content */}
-        <div className="space-y-3 md:col-span-10">
-          {/* Stats cards */}
-          <div className="grid gap-3 sm:grid-cols-3">
-            {[
-              { l: 'Students allocated', v: '1,284' },
-              { l: 'Formats ready', v: '22 / 22' },
-              { l: 'Staff assigned', v: '84' },
-            ].map(s => (
-              <div key={s.l} className="rounded-xl border border-gray-200 bg-white p-3">
-                <div className="text-[10px] tracking-wider text-gray-500 uppercase">{s.l}</div>
-                <div className="mt-1 text-xl font-bold">{s.v}</div>
+        {/* Main Content */}
+        <div className="flex flex-col gap-4 p-5">
+          {/* Page Header */}
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-md border border-emerald-100 bg-emerald-50 dark:border-emerald-800/50 dark:bg-emerald-950/30">
+                <UserX className="h-4 w-4 text-emerald-600" />
               </div>
-            ))}
+              <div>
+                <h1 className="text-lg font-semibold tracking-tight">Absent Students</h1>
+                <div className="flex items-center gap-2 text-xs text-neutral-400">
+                  <span>{format(new Date(), 'dd MMM yyyy')}</span>
+                  <span>·</span>
+                  <span>Morning session</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefresh}
+                disabled={loading}
+                className="h-7 gap-1.5 border-neutral-200 text-xs hover:border-neutral-300"
+              >
+                <RefreshCw className={cn('h-3 w-3', loading && 'animate-spin')} />
+                Refresh
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1 border-neutral-200 text-xs hover:border-neutral-300"
+              >
+                <ChevronLeft className="h-3 w-3" />
+                Change session
+              </Button>
+            </div>
           </div>
 
-          {/* Absent Students Section */}
-          <div className="rounded-xl border border-gray-200 bg-white p-4">
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <UserX className="h-4 w-4 text-rose-600" />
-                <div className="text-sm font-semibold">Absent Students</div>
-                <Badge variant="outline" className="text-[10px]">
-                  {format(new Date(), 'dd MMM yyyy')} · Morning
-                </Badge>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={handleRefresh} className="h-7 gap-1 text-xs">
-                  <RefreshCw className="h-3 w-3" />
-                  Refresh
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => setDialogOpen(true)}
-                  disabled={markedSeats.length === 0 || saving}
-                  className="h-7 gap-1 bg-rose-600 text-xs hover:bg-rose-700"
-                >
-                  {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                  Save {markedSeats.length > 0 && `(${markedSeats.length})`}
-                </Button>
-              </div>
+          {/* Context Bar */}
+          <div className="flex items-center gap-2 rounded-md border border-neutral-200/60 bg-neutral-50/50 px-3 py-1.5 text-xs dark:border-neutral-800/60 dark:bg-neutral-900/30">
+            <span className="flex items-center gap-1.5 rounded-full bg-cyan-50 px-2 py-0.5 text-cyan-700 dark:bg-cyan-950/30 dark:text-cyan-400">
+              <SnowflakeIcon className="h-3 w-3" />
+              Winter 2026
+            </span>
+            <span className="text-neutral-300">·</span>
+            <span className="flex items-center gap-1.5 rounded-full bg-neutral-100 px-2 py-0.5 dark:bg-neutral-800">
+              <Building className="h-3 w-3" />
+              MMCOE Exam Center
+            </span>
+            <span className="text-neutral-300">·</span>
+            <span className="text-neutral-500">3 blocks allocated</span>
+          </div>
+
+          {/* Stats - Real-time */}
+          <CompactStats stats={stats} loading={loading} />
+
+          {/* Content Grid */}
+          <div className="grid flex-1 grid-cols-[260px_1fr] gap-4">
+            {/* Block Navigation */}
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-semibold tracking-wider text-neutral-400 uppercase">
+                Blocks & Subjects
+              </Label>
+              <ScrollArea className="h-[340px] rounded-md border border-neutral-200/60 bg-white/50 p-1.5 dark:border-neutral-800/60 dark:bg-neutral-900/20">
+                <BlockNav
+                  blocks={blocks}
+                  expandedBlock={expandedBlock}
+                  selectedSchemeId={selectedSchemeId}
+                  onToggleBlock={handleToggleBlock}
+                  onSelectScheme={handleSelectScheme}
+                  loading={loading}
+                />
+              </ScrollArea>
             </div>
 
-            <CompactStats stats={stats} />
+            {/* Seat Panel */}
+            <div className="flex flex-col gap-3">
+              <SubjectHeader scheme={selectedScheme} markedCount={markedSeats.length} />
 
-            <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
-              {/* Left: Blocks navigation */}
-              <div className="space-y-2">
-                <Label className="text-xs font-medium text-neutral-500">BLOCKS & SUBJECTS</Label>
-                <ScrollArea className="h-[320px] rounded-md border border-neutral-200 p-2 dark:border-neutral-800">
-                  <BlockNav
-                    blocks={blocks}
-                    selectedBlockNo={selectedBlockNo}
-                    selectedSchemeId={selectedSchemeId}
-                    onSelectBlock={setSelectedBlockNo}
-                    onSelectScheme={handleSelectScheme}
-                  />
-                </ScrollArea>
-              </div>
+              <SeatGrid
+                scheme={selectedScheme}
+                markedSeats={markedSeats}
+                onToggleSeat={handleToggleSeat}
+                loading={loading}
+              />
 
-              {/* Right: Seat grid */}
-              <div className="space-y-3">
-                {selectedScheme && (
-                  <>
-                    <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-900">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <code className="rounded bg-white px-1.5 py-0.5 font-mono text-sm dark:bg-neutral-800">
-                              {selectedScheme.subjectCode}
-                            </code>
-                            <span className="font-medium">{selectedScheme.subjectName}</span>
-                            <Badge variant="outline" className="font-mono text-[10px]">
-                              {selectedScheme.scheme}
-                            </Badge>
-                          </div>
-                          <div className="mt-1 text-xs text-neutral-500">
-                            Block {selectedScheme.blockNo} • {selectedScheme.blockLocation} •{' '}
-                            {selectedScheme.totalStudents} students
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <div className="text-right">
-                            <div className="text-sm font-medium text-rose-600">{markedSeats.length} absent</div>
-                            <div className="text-[10px] text-neutral-500">
-                              {selectedScheme.totalStudents > 0
-                                ? `${((markedSeats.length / selectedScheme.totalStudents) * 100).toFixed(0)}%`
-                                : '0%'}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <SeatGrid
-                      seatNumbers={selectedScheme.seatNumbers}
-                      absentSeats={selectedScheme.absentNumbers}
-                      markedSeats={markedSeats}
-                      onSeatToggle={handleSeatToggle}
-                    />
-                  </>
-                )}
+              <div className="flex justify-end">
+                <Button
+                  onClick={() => setDialogOpen(true)}
+                  disabled={markedSeats.length === 0 || saving}
+                  className="h-8 gap-1.5 bg-gradient-to-r from-emerald-500 to-emerald-600 text-xs text-white shadow-md shadow-emerald-500/25 transition-all hover:scale-[1.02] hover:shadow-emerald-500/40 active:scale-[0.98]"
+                >
+                  {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                  Save Absent List
+                </Button>
               </div>
             </div>
           </div>

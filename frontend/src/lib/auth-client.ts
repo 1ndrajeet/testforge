@@ -1,4 +1,4 @@
-// src/lib/auth-client.ts
+// lib/auth-client.ts
 import { createAuthClient } from 'better-auth/react';
 
 export const authClient = createAuthClient({
@@ -6,3 +6,5 @@ export const authClient = createAuthClient({
 });
 
 export const { signIn, signUp, signOut, useSession, getSession } = authClient;
+
+export const socialSignIn = authClient.signIn.social;

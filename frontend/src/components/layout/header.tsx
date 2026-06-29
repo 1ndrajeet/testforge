@@ -37,30 +37,6 @@ interface HeaderProps {
   } | null;
 }
 
-function Logo() {
-  return (
-    <Link href="/exam-center/dashboard" className="flex items-center gap-3">
-      <div className="border-border bg-background grid h-9 w-9 place-items-center rounded-xl border shadow-sm">
-        <svg
-          viewBox="0 0 24 24"
-          className="h-5 w-5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M5 6h8M9 6v12" />
-          <path d="M15 6v12M15 6h4M15 11h3" />
-        </svg>
-      </div>
-
-      <span className="font-display text-[18px] font-semibold tracking-[-0.04em]">TestForge</span>
-    </Link>
-  );
-}
-Logo.displayName = 'Logo';
-
 const NotificationBell = memo(() => {
   const [hasNotifications] = useState(true);
   return (
@@ -253,6 +229,25 @@ function UserMenu({ user, subscription }: { user: HeaderProps['user']; subscript
     </DropdownMenu>
   );
 }
+export function Logo({ theme = 'light', compact = true }: { theme?: string; compact?: boolean }) {
+  const isDark = theme === 'dark';
+
+  return (
+    <a href="#top" className="group flex items-center gap-2" aria-label="TestForge home">
+      <span
+        className={`grid h-8 w-8 place-items-center rounded-lg font-bold text-white transition-transform duration-300 group-hover:scale-105 ${isDark ? 'bg-emerald-500 shadow-lg shadow-emerald-500/25' : 'bg-emerald-600'}`}
+      >
+        TF
+      </span>
+      <span className="flex flex-col leading-tight">
+        <span className={`font-semibold text-neutral-900 dark:text-white ${!compact ? 'text-sm' : 'text-lg'}`}>
+          TestForge
+        </span>
+        {!compact && <span className={`text-xs text-neutral-500 dark:text-neutral-400`}>by Acharya Technologies</span>}
+      </span>
+    </a>
+  );
+}
 
 export function Header({ user, subscription }: HeaderProps) {
   return (
@@ -260,9 +255,6 @@ export function Header({ user, subscription }: HeaderProps) {
       <div className="flex items-center gap-3">
         <HamburgerButton />
         <Logo />
-        <Badge variant="outline" className="hidden lg:inline-flex">
-          v{modulesConfig.version}
-        </Badge>
       </div>
       <div className="flex items-center gap-1">
         <ThemeToggle />

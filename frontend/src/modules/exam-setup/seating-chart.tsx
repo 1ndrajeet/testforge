@@ -8,7 +8,8 @@ import { toast } from 'sonner';
 
 import { MSBTEContextBar } from '@/components/layout/msbte-context-bar';
 import { PageEmpty, PageHeader, PageToolbar } from '@/components/layout/page-layout';
-import { UniversalFileUploader } from '@/components/shared/file-uploader';
+import { UniversalFileUploaderWrapper } from '@/components/shared/file-uploader';
+// ✅ IMPORT THE WRAPPER
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -533,7 +534,7 @@ export default function SeatingChartPage() {
     );
   }
 
-  // Upload screen
+  // Upload screen - USE THE WRAPPER WITH INSTITUTE SELECTION
   if (!hasData || showUpload) {
     return (
       <div className="space-y-6">
@@ -551,9 +552,11 @@ export default function SeatingChartPage() {
         </div>
         <MSBTEContextBar season={examCenter?.season as 'Summer' | 'Winter'} year={examCenter?.examYear!} />
         <div className="rounded-lg border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-950">
-          <UniversalFileUploader
-            fileType="seatingchart"
+          {/* ✅ USE THE WRAPPER - NOT THE DIRECT UPLOADER */}
+          <UniversalFileUploaderWrapper
             ecCode={examCenter?.code || ''}
+            allowedTypes={['seatingchart']}
+            defaultType="seatingchart"
             onSuccess={handleUploadSuccess}
             onProcessingComplete={handleUploadSuccess}
           />

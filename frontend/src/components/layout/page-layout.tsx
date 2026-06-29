@@ -72,6 +72,7 @@ interface PageToolbarProps {
   searchPlaceholder?: string;
   actions?: ActionOption[];
   className?: string;
+  disableSearch?: boolean;
 }
 
 export function PageToolbar({
@@ -82,6 +83,7 @@ export function PageToolbar({
   searchPlaceholder = 'Search...',
   actions = [],
   className,
+  disableSearch = false,
 }: PageToolbarProps) {
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const hasFilters = filters.length > 0;
@@ -123,6 +125,7 @@ export function PageToolbar({
               <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-neutral-400" />
               <Input
                 type="text"
+                disabled={disableSearch}
                 value={searchValue}
                 onChange={e => onSearchChange(e.target.value)}
                 placeholder={searchPlaceholder}

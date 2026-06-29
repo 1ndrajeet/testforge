@@ -677,3 +677,51 @@ export interface SessionSelectorProps {
     disabled?: boolean;
   }>;
 }
+
+// lib/types/email.ts
+export interface EmailLogEntry {
+  id: string;
+  orgId: string;
+  examCenterId: string;
+  userId: string;
+  recipientEmail: string;
+  recipientName: string | null;
+  subject: string;
+  orderType: 'supervision' | 'reliever' | 'chief';
+  orderKey: string | null;
+  status: 'sent' | 'failed';
+  errorMessage: string | null;
+  sentAt: Date;
+  createdAt: Date;
+}
+
+export interface DailyUsageStats {
+  examCenterId: string;
+  examCenterCode: string;
+  examCenterName: string;
+  sent: number;
+  failed: number;
+  total: number;
+  limit: number;
+  remaining: number;
+  percentage: number;
+  isOverLimit: boolean;
+}
+
+export interface GlobalUsageStats {
+  totalSent: number;
+  totalFailed: number;
+  total: number;
+  limit: number;
+  remaining: number;
+  percentage: number;
+  isOverLimit: boolean;
+  centers: DailyUsageStats[];
+}
+
+export interface MonthlyUsageStats {
+  total: number;
+  limit: number;
+  remaining: number;
+  percentage: number;
+}

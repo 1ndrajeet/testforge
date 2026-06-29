@@ -147,6 +147,8 @@ EXCEL_SCHEMAS = {
     },
 }
 
+# backend/utils.py - Fix validate_excel_file
+
 def validate_excel_file(content: bytes, file_type: str) -> Tuple[bool, None, str]:
     """
     Validate Excel file.
@@ -163,38 +165,109 @@ def validate_excel_file(content: bytes, file_type: str) -> Tuple[bool, None, str
             return False, None, f"Unknown file type: {file_type}"
         
         # Read only headers (first few rows)
-        df = pd.read_excel(BytesIO(content), nrows=5, header=None, dtype=str).fillna('')
+        df = pd.read_excel(BytesIO(content), nrows=10, header=None, dtype=str).fillna('')
         
         if df.empty:
             return False, None, "Excel file is empty"
         
-        # Find header row (first row with any of the expected columns)
         required_columns = list(schema.keys())
         header_row_idx = None
         headers = []
         
-        for idx, row in df.iterrows():
-            row_headers = [str(cell).strip().upper() if pd.notna(cell) else '' for cell in row.values]
-            found_columns = [col for col in required_columns if col in row_headers]
-            if len(found_columns) >= len(required_columns) * 0.5:  # At least 50% match
-                header_row_idx = idx
-                headers = row_headers
-                break
+        # Special handling for seating chart - validate by position
+        if file_type == "seatingchart":
+            # Look for a row with "SEAT" or "ENROLLMENT" or "NAME" or "SCHEME" in any column
+            for idx, row in df.iterrows():
+                row_headers = [str(cell).strip().upper() if pd.notna(cell) else '' for cell in row.values]
+                
+                # Check if this row looks like a header
+                is_header = False
+                for h in row_headers:
+                    h_clean = h.replace(' ', '').replace('.', '').replace('/', '')
+                    if 'SEAT' in h_clean or 'SEATNUMBER' in h_clean:
+                        is_header = True
+                        break
+                    if 'ENROLLMENT' in h_clean or 'ENROLLMENTNUMBER' in h_clean:
+                        is_header = True
+                        break
+                    if 'NAME' in h_clean or 'STUDENTNAME' in h_clean:
+                        is_header = True
+                        break
+                    if 'SCHEME' in h_clean:
+                        is_header = True
+                        break
+                
+                if is_header:
+                    header_row_idx = idx
+                    headers = row_headers
+                    break
+            
+            # If no header found, look for first row with a numeric value in column 0 or 1
+            if header_row_idx is None:
+                for idx, row in df.iterrows():
+                    col0 = str(row[0]).strip() if len(row) > 0 else ''
+                    col1 = str(row[1]).strip() if len(row) > 1 else ''
+                    if (col0 and col0.isdigit()) or (col1 and col1.isdigit()):
+                        # This is data, header is above
+                        if idx > 0:
+                            header_row_idx = idx - 1
+                            headers = [str(cell).strip().upper() if pd.notna(cell) else '' for cell in df.iloc[header_row_idx].values]
+                        else:
+                            header_row_idx = 0
+                            headers = [str(cell).strip().upper() if pd.notna(cell) else '' for cell in df.iloc[0].values]
+                        break
+            
+            # If still no header, use first row
+            if header_row_idx is None:
+                header_row_idx = 0
+                headers = [str(cell).strip().upper() if pd.notna(cell) else '' for cell in df.iloc[0].values]
+            
+            # Check if we have data (at least one row with numeric seat number)
+            has_data = False
+            for idx in range(header_row_idx + 1, min(header_row_idx + 10, len(df))):
+                row = df.iloc[idx]
+                col0 = str(row[0]).strip() if len(row) > 0 else ''
+                col1 = str(row[1]).strip() if len(row) > 1 else ''
+                if (col0 and col0.isdigit()) or (col1 and col1.isdigit()):
+                    has_data = True
+                    break
+            
+            if not has_data:
+                return False, None, "No valid seating chart data found. File should have Seat Number, Enrollment Number, Name, Scheme columns with data rows."
+            
+            # For seating chart, we don't need strict header matching
+            # Just make sure we have at least 4 columns
+            if len(headers) < 4:
+                return False, None, "File must have at least 4 columns: Seat Number, Enrollment Number, Name, Scheme"
+            
+            # Check if we can find seat numbers in column 0 or 1
+            return True, None, None
         
-        if header_row_idx is None:
-            return False, None, f"Could not find headers. Expected columns: {', '.join(required_columns)}"
-        
-        # Check for missing columns
-        missing_columns = [col for col in required_columns if col not in headers]
-        if missing_columns:
-            return False, None, f"Missing columns: {', '.join(missing_columns)}"
+        else:
+            # Original validation logic for other file types
+            for idx, row in df.iterrows():
+                row_headers = [str(cell).strip().upper() if pd.notna(cell) else '' for cell in row.values]
+                found_columns = [col for col in required_columns if col in row_headers]
+                if len(found_columns) >= len(required_columns) * 0.5:  # At least 50% match
+                    header_row_idx = idx
+                    headers = row_headers
+                    break
+            
+            if header_row_idx is None:
+                return False, None, f"Could not find headers. Expected columns: {', '.join(required_columns)}"
+            
+            # Check for missing columns
+            missing_columns = [col for col in required_columns if col not in headers]
+            if missing_columns:
+                return False, None, f"Missing columns: {', '.join(missing_columns)}"
         
         # File is valid
         return True, None, None
         
     except Exception as e:
+        logger.error(f"Excel validation error: {e}")
         return False, None, f"Excel validation failed: {str(e)}"
-
+        
 # ============================================================================
 # Helpers
 # ============================================================================

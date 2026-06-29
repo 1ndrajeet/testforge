@@ -64,6 +64,27 @@
       "when": 1782483795552,
       "tag": "0008_square_firelord",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1782747928802,
+      "tag": "0009_large_lake",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1782762553359,
+      "tag": "0010_equal_ender_wiggin",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1782768549218,
+      "tag": "0011_bouncy_mandarin",
+      "breakpoints": true
     }
   ]
 }

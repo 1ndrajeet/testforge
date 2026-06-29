@@ -1,9 +1,9 @@
 // modules/exam-setup/staff-page.tsx
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { Plus, Radio, RefreshCw, Trash2, UserCog, Users2 } from 'lucide-react';
+import { Download, FileSpreadsheet, Plus, Radio, RefreshCw, Trash2, Upload, UserCog, Users2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { PageEmpty, PageHeader, PageToolbar } from '@/components/layout/page-layout';
@@ -25,11 +25,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import courseCodes from '@/config/course_codes.json';
 import { useUserInfo } from '@/hooks/useUserInfo';
-import { createStaff, deleteStaff, getStaff, getStaffStats, searchStaff } from '@/lib/actions/staff';
+import { bulkCreateStaff, createStaff, deleteStaff, getStaff, getStaffStats, searchStaff } from '@/lib/actions/staff';
 import { StaffMember, StaffStats, StaffType } from '@/lib/types/';
 
 // ============================================================================
-// Configuration - Change this to switch between staff types
+// Configuration
 // ============================================================================
 
 interface StaffPageConfig {
@@ -41,14 +41,13 @@ interface StaffPageConfig {
   showInStats?: boolean;
 }
 
-// Available configurations for different staff types
 export const STAFF_CONFIGS: Record<StaffType, StaffPageConfig> = {
   SUPERVISOR: {
     type: 'SUPERVISOR',
     title: 'Supervisors Management',
     description: 'Manage supervisors who will invigilate examination blocks.',
     icon: UserCog,
-    roleOptions: ['LECTURER', 'LAB ASSISTANT', 'HEAD OF DEPT'],
+    roleOptions: ['LECTURER', 'LAB_ASSISTANT', 'HEAD_OF_DEPT'],
     showInStats: true,
   },
   RELIEVER: {
@@ -56,7 +55,7 @@ export const STAFF_CONFIGS: Record<StaffType, StaffPageConfig> = {
     title: 'Relievers Management',
     description: 'Manage reliever staff who can substitute for absent supervisors.',
     icon: Users2,
-    roleOptions: ['LECTURER', 'LAB ASSISTANT', 'HEAD OF DEPT'],
+    roleOptions: ['LECTURER', 'LAB_ASSISTANT', 'HEAD_OF_DEPT'],
     showInStats: true,
   },
   CONTROL_ROOM: {
@@ -64,16 +63,10 @@ export const STAFF_CONFIGS: Record<StaffType, StaffPageConfig> = {
     title: 'Control Room Staff',
     description: 'Manage staff responsible for examination control room operations.',
     icon: Radio,
-    roleOptions: ['CONTROLLER', 'DEPUTY CONTROLLER', 'ASSISTANT'],
+    roleOptions: ['CONTROLLER', 'DEPUTY_CONTROLLER', 'ASSISTANT'],
     showInStats: true,
   },
 };
-
-const CURRENT_CONFIG: StaffPageConfig = STAFF_CONFIGS.RELIEVER; // Change to RELIEVER or CONTROL_ROOM as needed
-
-// ============================================================================
-// Types
-// ============================================================================
 
 type CourseCode = keyof typeof courseCodes;
 
@@ -108,6 +101,41 @@ const StatsCards = ({ stats }: { stats: StaffStats }) => {
     </div>
   );
 };
+
+// ============================================================================
+// CSV Helpers
+// ============================================================================
+
+const STAFF_CSV_HEADERS = ['UID', 'Name', 'Department', 'Role', 'Email', 'StaffType'];
+
+function staffToCSVRow(staff: StaffMember): string[] {
+  return [staff.uid, staff.name, staff.department, staff.role || '', staff.email || '', staff.staffType];
+}
+
+function csvRowToStaff(row: string[], staffType: StaffType): Partial<StaffMember> {
+  const [uid, name, department, role, email] = row;
+  return {
+    uid: uid?.trim() || '',
+    name: name?.trim() || '',
+    department: department?.trim() || '',
+    role: role?.trim() || null,
+    email: email?.trim() || null,
+    staffType: staffType,
+  };
+}
+
+function downloadCSV(data: string[][], filename: string) {
+  const csvContent = data.map(row => row.join(',')).join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
 
 // ============================================================================
 // Create/Edit Staff Dialog
@@ -359,6 +387,213 @@ function DeleteDialog({ open, onOpenChange, onConfirm, staffName, isLoading }: D
   );
 }
 
+// modules/exam-setup/staff-page.tsx - Fix ImportDialog
+
+// ============================================================================
+// Import Dialog - FIXED
+// ============================================================================
+
+interface ImportDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onImport: (staffData: Partial<StaffMember>[]) => Promise<void>;
+  staffType: StaffType;
+  isLoading?: boolean;
+}
+
+function ImportDialog({ open, onOpenChange, onImport, staffType, isLoading }: ImportDialogProps) {
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<Partial<StaffMember>[]>([]); // Always initialized as array
+  const [isProcessing, setIsProcessing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
+
+    setFile(selectedFile);
+    const reader = new FileReader();
+    reader.onload = event => {
+      try {
+        const text = event.target?.result as string;
+        const lines = text.split('\n').filter(line => line.trim());
+
+        if (lines.length < 2) {
+          toast.error('CSV file must have a header row and at least one data row');
+          setPreview([]); // Reset to empty array
+          return;
+        }
+
+        // Parse header
+        const headers = lines[0].split(',').map(h => h.trim().toUpperCase());
+        const expectedHeaders = STAFF_CSV_HEADERS.map(h => h.toUpperCase());
+
+        // Check if headers match
+        const headerMatch = expectedHeaders.every(h => headers.includes(h));
+        if (!headerMatch) {
+          toast.error(`CSV must have headers: ${STAFF_CSV_HEADERS.join(', ')}`);
+          setPreview([]); // Reset to empty array
+          return;
+        }
+
+        // Parse data rows
+        const parsed: Partial<StaffMember>[] = [];
+        for (let i = 1; i < lines.length; i++) {
+          const row = lines[i].split(',').map(c => c.trim());
+          if (row.length < 3) continue;
+
+          const staff = csvRowToStaff(row, staffType);
+          if (staff.uid && staff.name && staff.department) {
+            parsed.push(staff);
+          }
+        }
+
+        if (parsed.length === 0) {
+          toast.error('No valid staff records found in CSV');
+          setPreview([]); // Reset to empty array
+          return;
+        }
+
+        setPreview(parsed);
+        toast.success(`Parsed ${parsed.length} staff records`);
+      } catch (error) {
+        toast.error('Failed to parse CSV file');
+        console.error(error);
+        setPreview([]); // Reset to empty array
+      }
+    };
+    reader.readAsText(selectedFile);
+  };
+
+  const handleImportClick = async () => {
+    // Ensure preview is an array and has items
+    if (!Array.isArray(preview) || preview.length === 0) {
+      toast.error('No data to import');
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      // Pass the preview array to the parent handler
+      await onImport(preview);
+      // Success - dialog will be closed by parent
+      setFile(null);
+      setPreview([]);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to import staff');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleCancel = () => {
+    onOpenChange(false);
+    setFile(null);
+    setPreview([]);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleCancel}>
+      <DialogContent className="max-h-[90vh] max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Import {staffType}s from CSV</DialogTitle>
+          <DialogDescription>
+            Upload a CSV file with the following columns: {STAFF_CSV_HEADERS.join(', ')}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="hover:border-primary rounded-lg border-2 border-dashed p-6 text-center transition-colors">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv"
+              onChange={handleFileSelect}
+              className="hidden"
+              id="csv-upload"
+            />
+            <label htmlFor="csv-upload" className="block cursor-pointer">
+              <FileSpreadsheet className="mx-auto mb-2 h-12 w-12 text-neutral-400" />
+              <p className="text-sm text-neutral-600">
+                {file ? file.name : 'Click to select CSV file or drag and drop'}
+              </p>
+              <p className="mt-1 text-xs text-neutral-400">CSV files only</p>
+            </label>
+          </div>
+
+          {Array.isArray(preview) && preview.length > 0 && (
+            <div>
+              <p className="mb-2 text-sm font-medium">Preview ({preview.length} records)</p>
+              <div className="max-h-60 overflow-auto rounded-lg border">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-neutral-50">
+                    <tr>
+                      {STAFF_CSV_HEADERS.map(h => (
+                        <th key={h} className="px-2 py-1 text-left font-medium">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {preview.slice(0, 10).map((staff, i) => (
+                      <tr key={i} className="border-t">
+                        <td className="px-2 py-1">{staff.uid}</td>
+                        <td className="px-2 py-1">{staff.name}</td>
+                        <td className="px-2 py-1">{staff.department}</td>
+                        <td className="px-2 py-1">{staff.role || '—'}</td>
+                        <td className="px-2 py-1">{staff.email || '—'}</td>
+                        <td className="px-2 py-1">{staff.staffType}</td>
+                      </tr>
+                    ))}
+                    {preview.length > 10 && (
+                      <tr>
+                        <td colSpan={6} className="px-2 py-1 text-center text-neutral-400">
+                          +{preview.length - 10} more records
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={handleCancel} disabled={isProcessing || isLoading}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleImportClick}
+            disabled={!Array.isArray(preview) || preview.length === 0 || isProcessing || isLoading}
+            className="gap-2"
+          >
+            {isProcessing ? (
+              <>
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Importing...
+              </>
+            ) : (
+              <>
+                <Upload className="h-4 w-4" />
+                Import {Array.isArray(preview) ? preview.length : 0} Record
+                {Array.isArray(preview) && preview.length !== 1 ? 's' : ''}
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ============================================================================
 // Data Table Component
 // ============================================================================
@@ -368,11 +603,13 @@ const StaffTable = ({
   onEdit,
   onDelete,
   isLoading,
+  config,
 }: {
   staffMembers: StaffMember[];
   onEdit: (staff: StaffMember) => void;
   onDelete: (staff: StaffMember) => void;
   isLoading?: boolean;
+  config: StaffPageConfig;
 }) => {
   const getDepartmentName = (code: string) => {
     const dept = departments.find(d => d.code === code);
@@ -392,12 +629,12 @@ const StaffTable = ({
   if (staffMembers.length === 0) {
     return (
       <PageEmpty
-        title={`No ${CURRENT_CONFIG.title} found`}
-        description={`Add ${CURRENT_CONFIG.type.toLowerCase()}s to the examination team.`}
+        title={`No ${config.title} found`}
+        description={`Add ${config.type.toLowerCase()}s to the examination team.`}
         action={
           <Button size="sm" className="gap-2">
             <Plus className="h-4 w-4" />
-            Add {CURRENT_CONFIG.type}
+            Add {config.type}
           </Button>
         }
       />
@@ -489,6 +726,7 @@ export default function StaffPage({ type = 'SUPERVISOR' }: { type?: StaffType })
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingStaff, setDeletingStaff] = useState<StaffMember | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -584,7 +822,97 @@ export default function StaffPage({ type = 'SUPERVISOR' }: { type?: StaffType })
     fetchData();
   };
 
+  // ─── Export ──────────────────────────────────────────────────
+  const handleExport = useCallback(() => {
+    if (staffMembers.length === 0) {
+      toast.error('No staff members to export');
+      return;
+    }
+
+    const csvData = [STAFF_CSV_HEADERS, ...staffMembers.map(staff => staffToCSVRow(staff))];
+
+    const filename = `${config.type.toLowerCase()}-staff-${new Date().toISOString().split('T')[0]}.csv`;
+    downloadCSV(csvData, filename);
+    toast.success(`Exported ${staffMembers.length} staff members`);
+  }, [staffMembers, config.type]);
+
+  // ─── Import ──────────────────────────────────────────────────
+  const handleImport = useCallback(
+    async (staffData: Partial<StaffMember>[]) => {
+      // Validate all staff have required fields
+      const invalidStaff = staffData.filter(s => !s.uid || !s.name || !s.department);
+      if (invalidStaff.length > 0) {
+        toast.error(`${invalidStaff.length} staff members missing required fields (UID, Name, Department)`);
+        return;
+      }
+
+      // Check for duplicate UIDs within the import data
+      const uids = staffData.map(s => s.uid);
+      const duplicateUids = uids.filter((uid, index) => uids.indexOf(uid) !== index);
+      if (duplicateUids.length > 0) {
+        toast.error(`Duplicate UIDs found: ${duplicateUids.join(', ')}`);
+        return;
+      }
+
+      try {
+        // Prepare data for bulk import
+        const bulkData = staffData.map(staff => ({
+          uid: staff.uid!,
+          name: staff.name!,
+          department: staff.department!,
+          email: staff.email || null,
+          staffType: config.type,
+          role: staff.role || null,
+          designation: null,
+          postHeldInExamination: null,
+        }));
+
+        // Use the bulkCreateStaff function with overwrite: false to skip duplicates
+        const result = await bulkCreateStaff({
+          staff: bulkData,
+          overwrite: false,
+        });
+
+        if (result.success) {
+          const count = result.data?.length || 0;
+          const total = staffData.length;
+          const skipped = total - count;
+
+          if (skipped > 0) {
+            toast.success(`Imported ${count} of ${total} staff members (${skipped} skipped due to duplicates)`);
+          } else {
+            toast.success(`Successfully imported ${count} staff members`);
+          }
+
+          await fetchData();
+          setImportDialogOpen(false);
+        } else {
+          const errorMsg = typeof result.error === 'string' ? result.error : 'Failed to import staff';
+          toast.error(errorMsg);
+        }
+      } catch (error) {
+        console.error('Import error:', error);
+        toast.error(error instanceof Error ? error.message : 'Failed to import staff');
+      }
+    },
+    [config.type, fetchData]
+  );
+
   const toolbarActions = [
+    {
+      id: 'export',
+      label: 'Export',
+      icon: <Download className="h-3.5 w-3.5" />,
+      onClick: handleExport,
+      variant: 'ghost' as const,
+    },
+    {
+      id: 'import',
+      label: 'Import',
+      icon: <Upload className="h-3.5 w-3.5" />,
+      onClick: () => setImportDialogOpen(true),
+      variant: 'ghost' as const,
+    },
     {
       id: 'refresh',
       label: 'Refresh',
@@ -626,10 +954,8 @@ export default function StaffPage({ type = 'SUPERVISOR' }: { type?: StaffType })
     <div>
       <PageHeader title={config.title} description={config.description} icon={config.icon} />
 
-      {/* Stats Cards - Only show if configured */}
       {stats && config.showInStats && <StatsCards stats={stats} />}
 
-      {/* Toolbar */}
       <PageToolbar
         searchValue={searchQuery}
         onSearchChange={value => {
@@ -642,15 +968,14 @@ export default function StaffPage({ type = 'SUPERVISOR' }: { type?: StaffType })
         actions={toolbarActions}
       />
 
-      {/* Data Table */}
       <StaffTable
         staffMembers={staffMembers}
         onEdit={handleEdit}
         onDelete={handleDeleteClick}
         isLoading={loading || isSearching}
+        config={config}
       />
 
-      {/* Create/Edit Dialog */}
       <StaffDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
@@ -660,13 +985,20 @@ export default function StaffPage({ type = 'SUPERVISOR' }: { type?: StaffType })
         roleOptions={config.roleOptions || []}
       />
 
-      {/* Delete Confirmation Dialog */}
       <DeleteDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         onConfirm={handleDeleteConfirm}
         staffName={deletingStaff?.name || ''}
         isLoading={isDeleting}
+      />
+
+      <ImportDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        onImport={handleImport}
+        staffType={config.type}
+        isLoading={loading}
       />
     </div>
   );

@@ -81,6 +81,9 @@ import modulesConfig from '@/config/modules.json';
 import { useSidebar } from '@/hooks/useSidebar';
 import { cn } from '@/lib/utils';
 
+import { EmailDailyUsage } from '../admin/email-usage-stats';
+import { Logo } from './header';
+
 // ============================================
 // Types
 // ============================================
@@ -310,15 +313,7 @@ export function Sidebar() {
           >
             {/* Header with close button - fixed at top */}
             <div className="flex flex-shrink-0 items-center justify-between border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">
-              <div className="flex min-w-0 items-center gap-2">
-                <div className="from-primary to-primary flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br">
-                  <span className="text-xs font-bold text-white">TF</span>
-                </div>
-                <span className="truncate font-semibold text-neutral-900 dark:text-neutral-100">TestForge</span>
-                <Badge variant="outline" className="flex-shrink-0 px-1 text-[9px]">
-                  v{modulesConfig.version}
-                </Badge>
-              </div>
+              <Logo />
               <button
                 onClick={close}
                 className="flex-shrink-0 rounded-md p-1.5 text-neutral-500 transition-colors hover:bg-neutral-100 lg:hidden dark:hover:bg-neutral-800"
@@ -356,6 +351,7 @@ export function Sidebar() {
                     <p className="mt-1 text-xs text-neutral-400">Try a different search term</p>
                   </div>
                 )}
+                <EmailDailyUsage />
               </nav>
             </div>
           </motion.aside>

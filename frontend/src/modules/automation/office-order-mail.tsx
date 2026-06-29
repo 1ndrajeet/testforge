@@ -7,6 +7,7 @@ import { AlertCircle, Eye, Loader2, Mail, Plus, UserCheck, Users, Users2, X } fr
 import { HashLoader } from 'react-spinners';
 import { toast } from 'sonner';
 
+import { EmailUsageStats } from '@/components/admin/email-usage-stats';
 import { MSBTEContextBar } from '@/components/layout/msbte-context-bar';
 import { PageHeader } from '@/components/layout/page-layout';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -37,7 +38,7 @@ import { cn } from '@/lib/utils';
 //  Constants
 
 const EMAIL_EXCLUDES_KEY = 'order_email_excludes';
-const QUOTA_LIMIT = 200;
+const QUOTA_LIMIT = 80;
 
 //  Types
 
@@ -692,7 +693,9 @@ export default function OfficeOrderMail() {
           </div>
         }
       />
-
+      <div>
+        <EmailUsageStats />
+      </div>
       <MSBTEContextBar season={examCenter?.season as 'Summer' | 'Winter'} year={examCenter?.examYear!} compact />
 
       {/* Input Section */}
@@ -963,9 +966,6 @@ export default function OfficeOrderMail() {
         <div className="flex items-center gap-3">
           <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
             {getTotalSelected()} selected
-          </Badge>
-          <Badge variant="secondary" className="text-xs">
-            {QUOTA_LIMIT - getTotalSelected()} quota remaining
           </Badge>
         </div>
         <div className="flex items-center gap-2">

@@ -1,6 +1,3 @@
-//
-// page.tsx  —  Enterprise onboarding for MSBTE exam coordinators
-//
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
@@ -19,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import pricingPlans from '@/config/pricing.json';
 import { useUserInfo } from '@/hooks/useUserInfo';
+import { getInstituteInfo } from '@/lib/actions/institute';
 import {
   checkSlugAvailability,
   createOrganization,
@@ -268,10 +266,10 @@ export function OnboardingShell({
               Need help?
             </p>
             <a
-              href="mailto:support@testforge.app"
+              href={`mailto:support@${process.env.NEXT_PUBLIC_HOSTED_URL + '/'}}`}
               className="hover:text-primary dark:hover:text-primary text-sm text-neutral-500 transition-colors"
             >
-              support@testforge.app
+              support@{process.env.NEXT_PUBLIC_HOSTED_URL + '/'}
             </a>
           </div>
           <Button
@@ -433,7 +431,7 @@ export function SlugInput({
   value,
   onChange,
   state,
-  prefix = 'testforge.app/',
+  prefix = process.env.NEXT_PUBLIC_HOSTED_URL + '/' || 'testforge.app/',
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -607,6 +605,10 @@ function OrganizationStep({
 // Step: Exam Center
 //
 
+//
+// Step: Exam Center
+//
+
 function ExamCenterStep({
   prefill,
   onComplete,
@@ -626,8 +628,35 @@ function ExamCenterStep({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState('');
   const { organization, setExamCenterFromDB } = useAppStore();
+  const [instituteLoading, setInstituteLoading] = useState(false);
 
   const set = (k: keyof typeof EC_DEFAULTS, v: string | number) => setForm(p => ({ ...p, [k]: v }));
+
+  // ─── FETCH INSTITUTE NAME FROM CENTER CODE ──────────────────
+  useEffect(() => {
+    const fetchInstitute = async () => {
+      const code = form.code?.trim();
+      if (!code || code.length < 3) return;
+
+      setInstituteLoading(true);
+      try {
+        const result = await getInstituteInfo(code.toUpperCase());
+        if (result.success && result.data) {
+          setForm(prev => ({
+            ...prev,
+            name: result.data.NAME,
+          }));
+        }
+      } catch {
+        // Silent fail - user can still type manually
+      } finally {
+        setInstituteLoading(false);
+      }
+    };
+
+    const timer = setTimeout(fetchInstitute, 500);
+    return () => clearTimeout(timer);
+  }, [form.code]);
 
   useEffect(() => {
     writeStorage(STORAGE_KEYS.EXAM_CENTER, form);
@@ -661,13 +690,18 @@ function ExamCenterStep({
         <FormSection title="Center information">
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField label="Center code" required>
-              <Input
-                value={form.code}
-                onChange={e => set('code', e.target.value.toUpperCase())}
-                placeholder="1234"
-                required
-                className="h-10"
-              />
+              <div className="relative">
+                <Input
+                  value={form.code}
+                  onChange={e => set('code', e.target.value.toUpperCase())}
+                  placeholder="1234"
+                  required
+                  className={cn('h-10 pr-8', instituteLoading && 'pr-10')}
+                />
+                {instituteLoading && (
+                  <Loader2 className="absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 animate-spin text-neutral-400" />
+                )}
+              </div>
             </FormField>
             <FormField label="Center name" required>
               <Input
@@ -1213,6 +1247,7 @@ export default function OnboardingPage() {
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState<string>('');
   const [promoCode, setPromoCode] = useState('');
+
   const [promoStatus, setPromoStatus] = useState<{
     valid: boolean;
     error?: string;

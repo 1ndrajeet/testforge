@@ -1,5 +1,5 @@
 // modules//block-allocation/supervision-order
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 import { boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 
 // ============================================
@@ -544,6 +544,8 @@ export const auditLogs = pgTable(
 export const UPLOAD_STATUSES = ['UPLOADED', 'PROCESSING', 'PROCESSED', 'FAILED'] as const;
 export type UploadStatus = (typeof UPLOAD_STATUSES)[number];
 
+// lib/db/schema.ts - Update uploads table
+
 export const uploads = pgTable(
   'uploads',
   {
@@ -560,12 +562,72 @@ export const uploads = pgTable(
     recordCount: integer('record_count').default(0).notNull(),
     errorMessage: text('error_message'),
     metadata: jsonb('metadata').$type<Record<string, unknown>>().default({}).notNull(),
+    connectedInstituteId: uuid('connected_institute_id').references(() => connectedInstitutes.id, {
+      onDelete: 'set null',
+    }),
     processedAt: timestamp('processed_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   table => ({
-    uniqueUploadIdx: uniqueIndex('upload_status_exam_center_file_type_idx').on(table.examCenterId, table.fileType),
+    // ✅ NEW: Unique constraint includes institute ID
+    uniqueUploadIdx: uniqueIndex('upload_exam_center_file_type_institute_idx').on(
+      table.examCenterId,
+      table.fileType,
+      table.connectedInstituteId
+    ),
+    // ✅ Allow one NULL institute upload per file type
+    uniqueNullInstituteIdx: uniqueIndex('upload_exam_center_file_type_null_institute_idx')
+      .on(table.examCenterId, table.fileType)
+      .where(sql`${table.connectedInstituteId} IS NULL`),
     examCenterIdx: index('upload_status_exam_center_idx').on(table.examCenterId),
+    instituteUploadIdx: index('upload_institute_idx').on(table.connectedInstituteId),
   })
 );
+
+export const emailLogs = pgTable(
+  'email_logs',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    examCenterId: uuid('exam_center_id')
+      .notNull()
+      .references(() => examCenters.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    recipientEmail: text('recipient_email').notNull(),
+    recipientName: text('recipient_name'),
+    subject: text('subject').notNull(),
+    orderType: text('order_type').notNull(), // supervision | reliever | chief
+    orderKey: text('order_key'),
+    status: text('status').notNull(), // sent | failed
+    errorMessage: text('error_message'),
+    sentAt: timestamp('sent_at', { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  table => ({
+    orgIdx: index('email_logs_org_idx').on(table.orgId),
+    examCenterIdx: index('email_logs_exam_center_idx').on(table.examCenterId),
+    sentAtIdx: index('email_logs_sent_at_idx').on(table.sentAt),
+    dailyUsageIdx: index('email_logs_daily_usage_idx').on(table.examCenterId, table.sentAt),
+  })
+);
+
+// Add relations
+export const emailLogsRelations = relations(emailLogs, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [emailLogs.orgId],
+    references: [organizations.id],
+  }),
+  examCenter: one(examCenters, {
+    fields: [emailLogs.examCenterId],
+    references: [examCenters.id],
+  }),
+  user: one(users, {
+    fields: [emailLogs.userId],
+    references: [users.id],
+  }),
+}));
