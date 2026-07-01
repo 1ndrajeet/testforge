@@ -1,0 +1,67 @@
+[
+  {
+    "exam_dayw": 3,
+    "exam_day": 0,
+    "paper_time": "09:30 A.M. to 12:30 P.M.",
+    "date": "27-04-2026",
+    "subject_name": "JAVA PROGRAMMING",
+    "paper_code": "314317",
+    "daysession": "M",
+    "year_code": 4,
+    "subject_no": 2,
+    "duration": 3,
+    "scheme": "TE4K,SE4K,IH4K,IF4K,HA4K,AI4K,AN4K,BD4K,CM4K,CO4K,CW4K,DS4K"
+  },
+  {
+    "exam_dayw": 4,
+    "exam_day": 0,
+    "paper_time": "09:30 A.M. to 12:30 P.M.",
+    "date": "28-04-2026",
+    "subject_name": "APPLIED MATHEMATICS",
+    "paper_code": "312301",
+    "daysession": "M",
+    "year_code": 2,
+    "subject_no": 3,
+    "duration": 3,
+    "scheme": "MRT2K,MY2K,AD2K,EK2K,SE2K,TE2K,PG2K,MU2K,MK2K,ME2K,LE2K,IZ2K,IX2K,IS2K,IH2K,IF2K,IE2K,IC2K,EX2K,ET2K,EP2K,EJ2K,EE2K,DS2K,DE2K,CW2K,CS2K,CR2K,CO2K,CM2K,CH2K,CE2K,BD2K,AT2K,AO2K,AN2K,AL2K,AI2K,AE2K,AA2K,AN2I,MK2I,BD2I,PG2I,ME2I,IF2I,AE2I,CM2I,CO2I,CW2I,CH2I,TE2I,ME2G,CO2G"
+  },
+  {
+    "exam_dayw": 9,
+    "exam_day": 0,
+    "paper_time": "02:00 P.M. to 05:00 P.M.",
+    "date": "05-05-2026",
+    "subject_name": "COMMUNICATION SKILLS",
+    "paper_code": "311303",
+    "daysession": "A",
+    "year_code": 1,
+    "subject_no": 2,
+    "duration": 3,
+    "scheme": "MRT1K,MY1K,AD1K,EK1K,SE1K,TX1K,TR1K,TE1K,SC1K,PO1K,PN1K,PG1K,MU1K,MK1K,ME1K,LE1K,IZ1K,IX1K,IS1K,IH1K,IF1K,IC1K,FC1K,EX1K,ET1K,EJ1K,TC1K,ML1K,IE1K,EE1K,DS1K,DC1K,CW1K,CR1K,CO1K,CM1K,CH1K,CE1K,DE1K,DD1K,BD1K,AT1K,AO1K,AN1K,AI1K,AE1K,AA1K"
+  },
+  {
+    "exam_dayw": 12,
+    "exam_day": 0,
+    "paper_time": "02:00 P.M. to 05:00 P.M.",
+    "date": "08-05-2026",
+    "subject_name": "BASIC MATHEMATICS",
+    "paper_code": "311302",
+    "daysession": "A",
+    "year_code": 1,
+    "subject_no": 2,
+    "duration": 3,
+    "scheme": "MRT1K,MY1K,AD1K,EK1K,TX1K,TE1K,PO1K,PN1K,PG1K,MU1K,MK1K,ME1K,LE1K,IZ1K,IX1K,IS1K,IH1K,IF1K,IC1K,FC1K,EX1K,ET1K,EP1K,EJ1K,TC1K,IE1K,EE1K,DC1K,CW1K,CS1K,CR1K,CO1K,CM1K,CH1K,CE1K,DE1K,BD1K,AT1K,AO1K,AN1K,AI1K,AE1K,AA1K,TE1I,PO1I,AN1I,AO1I,MK1I,IS1I,PG1I,ME1I,IF1I,EX1I,EJ1I,EE1I,CW1I,CR1I,CO1I,CM1I,CH1I,AE1I,CE1I,ME1G,EE1G,CE1G,IE1E"
+  },
+  {
+    "exam_dayw": 13,
+    "exam_day": 0,
+    "paper_time": "09:30 A.M. to 12:30 P.M.",
+    "date": "11-05-2026",
+    "subject_name": "PROGRAMMING IN `C`",
+    "paper_code": "312303",
+    "daysession": "M",
+    "year_code": 2,
+    "subject_no": 4,
+    "duration": 3,
+    "scheme": "SE2K,IH2K,IF2K,DS2K,CW2K,CO2K,CM2K,BD2K,AN2K,AI2K,AN2I,IF2I,EX2I,CM2I,CO2I,CW2I,EJ2I,ET2I,BD2I,TE2I,CO2G"
+  }
+]

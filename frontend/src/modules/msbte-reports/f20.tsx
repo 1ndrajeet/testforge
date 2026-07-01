@@ -1,8 +1,9 @@
 // modules/formats/format20.tsx
 'use client';
 
-import ReportLayout from '@/components/layout/msbte-report-layout';
 import { useUserInfo } from '@/hooks/useUserInfo';
+
+import ReportLayout from '@/components/layout/msbte-report-layout';
 
 // ============================================================
 // Format 20 Content Component - INVENTORY RECEIPT
@@ -32,9 +33,9 @@ function Format20Content() {
       <div className="space-y-4 text-justify">
         <p>
           Received the EC-wise boxes for the DC on{' '}
-          <span className="min-w-[120px] border-b-2 border-black px-8 py-0.5">&nbsp;</span>. The boxes containing
-          question paper bundles were opened and the bundles were arranged EC-wise / Day-wise manner and compared with
-          the EC-wise time table for the EC.
+          <span className="min-w-[120px] border-b-2 border-black px-8 py-0.5">&nbsp;</span>. The
+          boxes containing question paper bundles were opened and the bundles were arranged EC-wise
+          / Day-wise manner and compared with the EC-wise time table for the EC.
         </p>
         <p>The bundles for all examination sessions for each EC are received.</p>
       </div>
@@ -73,7 +74,10 @@ function Format20Content() {
       </div>
 
       {/* Print CSS for clean borders */}
-      <style jsx global>{`
+      <style
+        jsx
+        global
+      >{`
         @media print {
           .no-print {
             display: none !important;

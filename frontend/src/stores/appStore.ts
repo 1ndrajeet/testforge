@@ -194,11 +194,11 @@ export const useAppStore = create<AppState>()(
       isInitialized: false,
 
       // Setters
-      setUser: user => set({ user }),
+      setUser: (user) => set({ user }),
 
-      setOrganization: organization => set({ organization }),
+      setOrganization: (organization) => set({ organization }),
 
-      setOrganizationFromDB: dbOrg => {
+      setOrganizationFromDB: (dbOrg) => {
         if (!dbOrg) {
           set({ organization: null });
           return;
@@ -206,14 +206,14 @@ export const useAppStore = create<AppState>()(
         set({ organization: normalizeOrganization(dbOrg) });
       },
 
-      updateOrganization: updates =>
-        set(state => ({
+      updateOrganization: (updates) =>
+        set((state) => ({
           organization: state.organization ? { ...state.organization, ...updates } : null,
         })),
 
-      setExamCenter: examCenter => set({ examCenter }),
+      setExamCenter: (examCenter) => set({ examCenter }),
 
-      setExamCenterFromDB: dbCenter => {
+      setExamCenterFromDB: (dbCenter) => {
         if (!dbCenter) {
           set({ examCenter: null });
           return;
@@ -221,16 +221,16 @@ export const useAppStore = create<AppState>()(
         set({ examCenter: normalizeExamCenter(dbCenter) });
       },
 
-      updateExamCenter: updates =>
-        set(state => ({
+      updateExamCenter: (updates) =>
+        set((state) => ({
           examCenter: state.examCenter ? { ...state.examCenter, ...updates } : null,
         })),
 
-      setRecentPayment: recentPayment => set({ recentPayment }),
+      setRecentPayment: (recentPayment) => set({ recentPayment }),
 
-      setOnboardingComplete: onboardingComplete => set({ onboardingComplete }),
+      setOnboardingComplete: (onboardingComplete) => set({ onboardingComplete }),
 
-      setInitialized: isInitialized => set({ isInitialized }),
+      setInitialized: (isInitialized) => set({ isInitialized }),
 
       // Computed helpers
       hasActiveSubscription: () => {
@@ -241,7 +241,8 @@ export const useAppStore = create<AppState>()(
         const hasValidExpiry = expiresAt !== null && new Date(expiresAt) > new Date();
 
         const isActiveTier =
-          organization.subscriptionTier === 'premium' || organization.subscriptionTier === 'enterprise';
+          organization.subscriptionTier === 'premium' ||
+          organization.subscriptionTier === 'enterprise';
 
         const isActiveTrial = organization.subscriptionTier === 'trial' && hasValidExpiry;
 
@@ -323,12 +324,12 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'testforge-storage',
-      partialize: state => ({
+      partialize: (state) => ({
         organization: state.organization,
         examCenter: state.examCenter,
         onboardingComplete: state.onboardingComplete,
         recentPayment: state.recentPayment,
       }),
-    }
-  )
+    },
+  ),
 );

@@ -1,4 +1,4 @@
-// modules/formats/format7.tsx - FIXED
+// modules/formats/format7.tsx - FIXED scheme parsing
 
 'use client';
 
@@ -7,22 +7,26 @@ import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { AlertCircle } from 'lucide-react';
 
-import { MultiPageReport, ReportPageData } from '@/components/layout/msbte-report-layout';
-import { SessionSelector } from '@/components/shared/date-selector';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Skeleton } from '@/components/ui/skeleton';
-import departmentMap from '@/config/course_codes.json';
-import { useUserInfo } from '@/hooks/useUserInfo';
 import { getPackingSlip } from '@/lib/actions/allocation';
 import { getTimetableEntries } from '@/lib/actions/timetable';
+import { parseScheme } from '@/lib/utils';
+
+import { useUserInfo } from '@/hooks/useUserInfo';
+
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
+
+import { MultiPageReport, ReportPageData } from '@/components/layout/msbte-report-layout';
+
+import { SessionSelector } from '@/components/shared/date-selector';
 
 // ============================================================
-// Types - ADD instituteName
+// Types
 // ============================================================
 
 interface PackingSlipData {
   instituteCode: string;
-  instituteName: string; // ADDED - from allocation data
+  instituteName: string;
   date: string;
   session: string;
   timeSlot: string;
@@ -39,30 +43,28 @@ interface PackingSlipData {
 // Constants & Helpers
 // ============================================================
 
-const getCourseName = (code: string): string => {
-  const map = departmentMap as Record<string, string>;
-  return map[code] || code;
-};
-
-const formatDateShort = (date: Date | string): string => {
+export const formatDateShort = (date: Date | string): string => {
   return format(new Date(date), 'dd/MM/yyyy');
 };
 
 // ============================================================
-// Render Function - BODY ONLY
+// Scheme Parser - FIXED
 // ============================================================
 
-const renderPackingSlipContent = (pageData: ReportPageData & { isCopyCase?: boolean; cpsNumbers?: number[] }) => {
-  const schemeParts = pageData.scheme?.split('-') || [];
-  const courseCode = schemeParts[0] || '';
-  const sem = schemeParts[1] || '';
-  const master = schemeParts[2] || '';
-  const courseName = getCourseName(courseCode);
+// ============================================================
+// Render Function
+// ============================================================
+
+const renderPackingSlipContent = (
+  pageData: ReportPageData & { isCopyCase?: boolean; cpsNumbers?: number[] },
+) => {
+  const parsed = parseScheme(pageData.scheme || '');
   const isCopyCase = pageData.isCopyCase || false;
 
   const totalFinalStudents = isCopyCase
     ? (pageData.cpsNumbers || []).length
-    : (pageData.totalStudents || 0) - ((pageData.absentNumbers || []).length + (pageData.cpsNumbers || []).length);
+    : (pageData.totalStudents || 0) -
+      ((pageData.absentNumbers || []).length + (pageData.cpsNumbers || []).length);
 
   const absentOrCopyStudents = isCopyCase ? pageData.cpsNumbers : pageData.absentNumbers;
   const slipType = isCopyCase ? 'COPY CASE PACKING SLIP' : 'PACKING SLIP';
@@ -74,14 +76,14 @@ const renderPackingSlipContent = (pageData: ReportPageData & { isCopyCase?: bool
       <div className="border border-black px-4 py-2">
         <div className="details grid grid-cols-2 gap-2 text-xs">
           <p>
-            <strong>Course:</strong> {courseName}
+            <strong>Course:</strong> {parsed.courseName}
           </p>
           <div className="flex justify-between">
             <span>
-              <strong>Sem:</strong> {sem}
+              <strong>Sem:</strong> {parsed.semester || '—'}
             </span>
             <span>
-              <strong>Master:</strong> {master}
+              <strong>Master:</strong> {parsed.master || '—'}
             </span>
           </div>
           <p>
@@ -90,11 +92,11 @@ const renderPackingSlipContent = (pageData: ReportPageData & { isCopyCase?: bool
           <p>
             <strong>Subject Name:</strong> {pageData.subjectName}
           </p>
-          <p className="col-span-">
+          <p className="col-span-2">
             <strong>Total Number of Answer Books in Bundle:</strong>{' '}
             <span className="rounded border border-black px-3 py-2">{totalFinalStudents}</span>
           </p>
-          <p className="col-span-full">
+          <p className="col-span-2">
             <strong>Marksheet No:</strong> {pageData.sheetNo}
           </p>
           <p>
@@ -104,7 +106,7 @@ const renderPackingSlipContent = (pageData: ReportPageData & { isCopyCase?: bool
             <strong>Sealing Time:</strong> ______________ AM/PM
           </p>
           {absentOrCopyStudents && absentOrCopyStudents.length > 0 && (
-            <p className="col-span-full">
+            <p className="col-span-2">
               <strong>{isCopyCase ? 'Copy Case Students' : 'Absent Students'}:</strong>{' '}
               {absentOrCopyStudents.join(', ')}
             </p>
@@ -176,7 +178,7 @@ export default function Format7Report() {
       if (result.success && result.data) {
         const transformedData: PackingSlipData[] = result.data.map((item: any) => ({
           instituteCode: item.instituteCode || '',
-          instituteName: item.instituteName || '', // FROM DATA - like Format 5
+          instituteName: item.instituteName || '',
           date: item.date || date,
           session: item.session || session,
           timeSlot: item.timeSlot || '',
@@ -217,15 +219,17 @@ export default function Format7Report() {
     setError(null);
   };
 
-  // Build pages - FOLLOW FORMAT 5 PATTERN EXACTLY
   const buildPages = (): ReportPageData[] => {
     const pages: ReportPageData[] = [];
 
     data.forEach((item, index) => {
-      // Main packing slip
+      if (item.totalStudents === 0) {
+        return;
+      }
+
       const basePage: ReportPageData = {
         id: `${item.instituteCode}-${item.subjectCode}-${index}`,
-        blockNo: '', // Not used in Format 7
+        blockNo: '',
         blockLocation: '',
         supervisorName: '',
         subjectCode: item.subjectCode,
@@ -234,7 +238,6 @@ export default function Format7Report() {
         seatNumbers: [],
         officerIncharge: examCenter?.officerIncharge || '',
         sealingSupervisor: examCenter?.sealingSupervisor || '',
-        // DATA FROM ALLOCATION - like Format 5
         instituteCode: item.instituteCode || '',
         instituteName: item.instituteName || '',
         sheetNo: item.sheetNo,
@@ -253,7 +256,6 @@ export default function Format7Report() {
 
       pages.push(basePage);
 
-      // Copy case slip if CPS numbers exist
       if (item.cpsNumbers && item.cpsNumbers.length > 0) {
         pages.push({
           ...basePage,
@@ -295,7 +297,10 @@ export default function Format7Report() {
             compact
           />
           {!dates.length && !error && (
-            <Alert variant="default" className="border-amber-200 bg-amber-50">
+            <Alert
+              variant="default"
+              className="border-amber-200 bg-amber-50"
+            >
               <AlertCircle className="h-4 w-4 text-amber-600" />
               <AlertDescription>Upload timetable first.</AlertDescription>
             </Alert>
@@ -313,9 +318,8 @@ export default function Format7Report() {
             examCenterCode: examCenter?.code || '',
             date: firstItem ? new Date(firstItem.date) : new Date(),
             session: (firstItem?.session as 'Morning' | 'Afternoon') || 'Morning',
-
-            instituteCode: firstItem?.instituteCode || 'd',
-            instituteName: firstItem?.instituteName || 'd',
+            instituteCode: firstItem?.instituteCode || '',
+            instituteName: firstItem?.instituteName || '',
           }}
           footer={{
             showTimestamp: false,

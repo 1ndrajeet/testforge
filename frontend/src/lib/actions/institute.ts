@@ -3,9 +3,9 @@
 
 import { revalidatePath } from 'next/cache';
 
+import instituteNames from '@/config/institute_map.json';
 import { and, eq } from 'drizzle-orm';
 
-import instituteNames from '@/config/institute_names.json';
 import { db } from '@/lib/db';
 import { connectedInstitutes } from '@/lib/db/schema';
 import { getCurrentExamCenter } from '@/lib/session';
@@ -38,7 +38,7 @@ export async function getConnectedInstitutes() {
     orderBy: (inst, { asc }) => [asc(inst.instituteCode)],
   });
 
-  const transformed = institutes.map(inst => ({
+  const transformed = institutes.map((inst) => ({
     id: inst.id,
     CODE: inst.instituteCode,
     NAME: inst.instituteName,
@@ -47,7 +47,10 @@ export async function getConnectedInstitutes() {
   return { success: true, data: transformed };
 }
 
-export async function addConnectedInstitute(data: { instituteCode: string; instituteName: string }) {
+export async function addConnectedInstitute(data: {
+  instituteCode: string;
+  instituteName: string;
+}) {
   const examCenter = await getCurrentExamCenter();
   if (!examCenter?.id) {
     return { success: false, error: 'Exam center not found' };
@@ -56,7 +59,7 @@ export async function addConnectedInstitute(data: { instituteCode: string; insti
   const existing = await db.query.connectedInstitutes.findFirst({
     where: and(
       eq(connectedInstitutes.examCenterId, examCenter.id),
-      eq(connectedInstitutes.instituteCode, data.instituteCode)
+      eq(connectedInstitutes.instituteCode, data.instituteCode),
     ),
   });
 
@@ -89,7 +92,9 @@ export async function removeConnectedInstitute(id: string) {
 
   await db
     .delete(connectedInstitutes)
-    .where(and(eq(connectedInstitutes.id, id), eq(connectedInstitutes.examCenterId, examCenter.id)));
+    .where(
+      and(eq(connectedInstitutes.id, id), eq(connectedInstitutes.examCenterId, examCenter.id)),
+    );
 
   revalidatePath('/exam-center/settings');
   return { success: true };

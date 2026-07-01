@@ -37,7 +37,7 @@ export function MSBTEContextBar({
       <div
         className={cn(
           'mb-6 flex flex-wrap items-center gap-4 rounded-lg border border-neutral-100 bg-white px-4 py-3 text-sm dark:border-neutral-800 dark:bg-neutral-950',
-          className
+          className,
         )}
       >
         {season && year && (
@@ -75,7 +75,7 @@ export function MSBTEContextBar({
     <div
       className={cn(
         'mb-6 rounded-lg border border-neutral-100 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950',
-        className
+        className,
       )}
     >
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -104,7 +104,9 @@ export function MSBTEContextBar({
           {session && (
             <div>
               <p className="text-xs text-neutral-400">Session</p>
-              <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{session}</p>
+              <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                {session}
+              </p>
             </div>
           )}
           {examCenter && (
@@ -124,7 +126,9 @@ export function MSBTEContextBar({
           {department && (
             <div>
               <p className="text-xs text-neutral-400">Department</p>
-              <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{department}</p>
+              <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                {department}
+              </p>
             </div>
           )}
         </div>

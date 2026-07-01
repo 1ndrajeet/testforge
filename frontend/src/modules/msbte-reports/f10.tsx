@@ -1,8 +1,9 @@
 // modules/formats/format10.tsx
 'use client';
 
-import ReportLayout from '@/components/layout/msbte-report-layout';
 import { useUserInfo } from '@/hooks/useUserInfo';
+
+import ReportLayout from '@/components/layout/msbte-report-layout';
 
 // ============================================================
 // Format 10 Content Component - STATIC TEMPLATE
@@ -41,11 +42,17 @@ function Format10Content({ examCenter }: { examCenter: any }) {
           <tr>
             <th className="w-[8%] border border-black p-1 text-center">Bundle No.</th>
             <th className="w-[12%] border border-black p-1 text-center">Inst Code No.</th>
-            <th className="w-[18%] border border-black p-1 text-center">Course/ Sem/ Year/ Master</th>
+            <th className="w-[18%] border border-black p-1 text-center">
+              Course/ Sem/ Year/ Master
+            </th>
             <th className="w-[12%] border border-black p-1 text-center">Subject Code No.</th>
-            <th className="w-[15%] border border-black p-1 text-center">Nos. of answer books in the bundle</th>
+            <th className="w-[15%] border border-black p-1 text-center">
+              Nos. of answer books in the bundle
+            </th>
             <th className="w-[12%] border border-black p-1 text-center">Mark Sheet No.</th>
-            <th className="w-[23%] border border-black p-1 text-center">Dated Signature of Receiving officer of RAC</th>
+            <th className="w-[23%] border border-black p-1 text-center">
+              Dated Signature of Receiving officer of RAC
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -99,7 +106,8 @@ export default function Format10Report() {
     <ReportLayout
       header={{
         title: 'FORMAT NO. 10',
-        subtitle: 'Format of Inventory and receipt for submitting written answer book bundles to R.A.C.',
+        subtitle:
+          'Format of Inventory and receipt for submitting written answer book bundles to R.A.C.',
         examSeason: examCenter?.season as 'Summer' | 'Winter',
         examYear: examCenter?.examYear || new Date().getFullYear(),
       }}

@@ -10,9 +10,30 @@ import { format } from 'date-fns';
 import { AlertCircle, Calendar, Check, ChevronLeft, X } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { MSBTEContextBar } from '@/components/layout/msbte-context-bar';
-import { PageHeader } from '@/components/layout/page-layout';
-import { SessionSelector } from '@/components/shared/date-selector';
+import { bulkCreateBlockConfigurations, checkExistingAllocations } from '@/lib/actions/allocation';
+import { getBlocks } from '@/lib/actions/block';
+import { getOrders } from '@/lib/actions/order';
+import { getSupervisors } from '@/lib/actions/staff';
+import { getTimetable, getUniqueDates, getUniqueSessions } from '@/lib/actions/timetable';
+import {
+  addLocalAllocation,
+  clearLocalAllocations,
+  clearLocalTimetable,
+  clearSessionContext,
+  getLocalAllocations,
+  getSessionContext,
+  hasLocalData,
+  type LocalAllocation,
+  removeLocalAllocation,
+  setLocalTimetable,
+  setSessionContext,
+  updateLocalTimetable,
+} from '@/lib/misc/local-storage';
+import { Block, ExistingAllocation, SessionInfo, StaffMember, TimetableEntry } from '@/lib/types';
+import { cn } from '@/lib/utils';
+
+import { useUserInfo } from '@/hooks/useUserInfo';
+
 import { Alert } from '@/components/ui/alert';
 import {
   AlertDialog,
@@ -27,31 +48,28 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useUserInfo } from '@/hooks/useUserInfo';
-import { bulkCreateBlockConfigurations, checkExistingAllocations } from '@/lib/actions/allocation';
-import { getBlocks } from '@/lib/actions/block';
-import { getOrders } from '@/lib/actions/order';
-import { getSupervisors } from '@/lib/actions/staff';
-import { getTimetable, getUniqueDates, getUniqueSessions } from '@/lib/actions/timetable';
 import {
-  type LocalAllocation,
-  addLocalAllocation,
-  clearLocalAllocations,
-  clearLocalTimetable,
-  clearSessionContext,
-  getLocalAllocations,
-  getSessionContext,
-  hasLocalData,
-  removeLocalAllocation,
-  setLocalTimetable,
-  setSessionContext,
-  updateLocalTimetable,
-} from '@/lib/misc/local-storage';
-import { Block, ExistingAllocation, SessionInfo, StaffMember, TimetableEntry } from '@/lib/types';
-import { cn } from '@/lib/utils';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Switch } from '@/components/ui/switch';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+
+import { MSBTEContextBar } from '@/components/layout/msbte-context-bar';
+import { PageHeader } from '@/components/layout/page-layout';
+
+import { SessionSelector } from '@/components/shared/date-selector';
 
 // ============================================================================
 // Types
@@ -77,22 +95,44 @@ function BlockSummaryStrip({
   remainingStudents,
 }: BlockSummaryStripProps) {
   const progress =
-    totalAllocated + remainingStudents > 0 ? (totalAllocated / (totalAllocated + remainingStudents)) * 100 : 0;
+    totalAllocated + remainingStudents > 0
+      ? (totalAllocated / (totalAllocated + remainingStudents)) * 100
+      : 0;
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-6 border-y border-neutral-200 py-2 text-xs dark:border-neutral-800">
-        <StatItem value={totalBlocks} label="blocks" />
+        <StatItem
+          value={totalBlocks}
+          label="blocks"
+        />
         <Divider />
-        <StatItem value={totalCapacity} label="capacity" />
+        <StatItem
+          value={totalCapacity}
+          label="capacity"
+        />
         <Divider />
-        <StatItem value={totalSubjects} label="subjects" />
+        <StatItem
+          value={totalSubjects}
+          label="subjects"
+        />
         <Divider />
-        <StatItem value={totalAllocated} label="assigned" highlighted />
+        <StatItem
+          value={totalAllocated}
+          label="assigned"
+          highlighted
+        />
         <Divider />
-        <StatItem value={remainingStudents} label="remaining" isRemaining />
+        <StatItem
+          value={remainingStudents}
+          label="remaining"
+          isRemaining
+        />
       </div>
       <div className="h-1 w-full overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800">
-        <div className="bg-primary h-full transition-all duration-300" style={{ width: `${progress}%` }} />
+        <div
+          className="bg-primary h-full transition-all duration-300"
+          style={{ width: `${progress}%` }}
+        />
       </div>
     </div>
   );
@@ -115,7 +155,7 @@ const StatItem = ({
         'font-mono text-sm font-semibold',
         highlighted && 'text-primary dark:text-primary',
         isRemaining && value > 0 && 'text-amber-600 dark:text-amber-400',
-        isRemaining && value === 0 && 'text-primary dark:text-primary'
+        isRemaining && value === 0 && 'text-primary dark:text-primary',
       )}
     >
       {value}
@@ -139,14 +179,23 @@ interface AvailableBlocksProps {
   supervisorsAllocated?: Set<string>;
 }
 
-function AvailableBlocks({ blocks, isLoading, selectedBlockId, onSelectBlock, allocatedBlocks }: AvailableBlocksProps) {
+function AvailableBlocks({
+  blocks,
+  isLoading,
+  selectedBlockId,
+  onSelectBlock,
+  allocatedBlocks,
+}: AvailableBlocksProps) {
   if (isLoading) {
     return (
       <div className="space-y-2">
         <SectionHeader title="Available Blocks" />
         <div className="flex gap-2 overflow-x-auto pb-1">
-          {[1, 2, 3, 4, 5].map(i => (
-            <Skeleton key={i} className="h-16 w-28 shrink-0 rounded-md" />
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Skeleton
+              key={i}
+              className="h-16 w-28 shrink-0 rounded-md"
+            />
           ))}
         </div>
       </div>
@@ -164,9 +213,12 @@ function AvailableBlocks({ blocks, isLoading, selectedBlockId, onSelectBlock, al
 
   return (
     <div className="space-y-2">
-      <SectionHeader title="Available Blocks" badge={`${blocks.length} blocks`} />
+      <SectionHeader
+        title="Available Blocks"
+        badge={`${blocks.length} blocks`}
+      />
       <div className="flex gap-2 overflow-x-auto pb-1">
-        {blocks.map(block => {
+        {blocks.map((block) => {
           const allocated = allocatedBlocks?.get(block.location) || 0;
           const remaining = block.strength - allocated;
           const isFull = remaining === 0;
@@ -223,11 +275,16 @@ const BlockCard = ({
         ? 'border-neutral-800 bg-neutral-900 text-white dark:border-neutral-200 dark:bg-neutral-100 dark:text-neutral-900'
         : isFull
           ? 'cursor-not-allowed border-neutral-200 bg-neutral-100 text-neutral-400 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-600'
-          : 'border-neutral-200 bg-white hover:border-neutral-300 hover:bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:border-neutral-700'
+          : 'border-neutral-200 bg-white hover:border-neutral-300 hover:bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:border-neutral-700',
     )}
   >
     <span className="text-sm font-medium">{block.location}</span>
-    <span className={cn('text-xs', isSelected ? 'text-neutral-300 dark:text-neutral-500' : 'text-neutral-500')}>
+    <span
+      className={cn(
+        'text-xs',
+        isSelected ? 'text-neutral-300 dark:text-neutral-500' : 'text-neutral-500',
+      )}
+    >
       {remaining}/{block.strength}
     </span>
     {isSelected && (
@@ -266,7 +323,10 @@ function TimetableTable({
   selectedScheme,
   remainingStudents,
 }: TimetableTableProps) {
-  const totalStudents = useMemo(() => entries.reduce((sum, e) => sum + e.totalStudents, 0), [entries]);
+  const totalStudents = useMemo(
+    () => entries.reduce((sum, e) => sum + e.totalStudents, 0),
+    [entries],
+  );
 
   if (isLoading) {
     return (
@@ -298,10 +358,16 @@ function TimetableTable({
         <div className="h-1.5 w-1.5 rounded-full bg-neutral-400" />
         <h3 className="text-xs font-medium tracking-wide text-neutral-500 uppercase">Timetable</h3>
         <div className="ml-auto flex items-center gap-2">
-          <Badge variant="secondary" className="h-5 text-[10px] font-normal">
+          <Badge
+            variant="secondary"
+            className="h-5 text-[10px] font-normal"
+          >
             {date}
           </Badge>
-          <Badge variant="secondary" className="h-5 text-[10px] font-normal">
+          <Badge
+            variant="secondary"
+            className="h-5 text-[10px] font-normal"
+          >
             {session}
           </Badge>
           <span className="text-[10px] text-neutral-400">{totalStudents} total</span>
@@ -318,7 +384,7 @@ function TimetableTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {entries.map(entry => {
+            {entries.map((entry) => {
               const remaining = remainingStudents?.get(entry.scheme) ?? entry.totalStudents;
               const isCompleted = remaining === 0;
 
@@ -328,7 +394,7 @@ function TimetableTable({
                   className={cn(
                     'cursor-pointer transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-900',
                     selectedScheme === entry.scheme && 'bg-neutral-50 dark:bg-neutral-900',
-                    isCompleted && 'opacity-50'
+                    isCompleted && 'opacity-50',
                   )}
                   onClick={() => !isCompleted && onSelectScheme?.(entry.scheme)}
                 >
@@ -351,10 +417,6 @@ function TimetableTable({
     </div>
   );
 }
-
-// ============================================================================
-// Assignment Form Component
-// ============================================================================
 
 // ============================================================================
 // Assignment Form Component - Updated with Hashmap Lookup
@@ -410,11 +472,13 @@ function AssignmentForm({
   supervisionOrderSupervisors,
   hasSupervisionOrders,
 }: AssignmentFormProps) {
-  const selectedTimetableEntry = timetable.find(t => t.scheme === selectedScheme);
-  const selectedBlockData = blocks.find(b => b.location === selectedBlock);
+  const selectedTimetableEntry = timetable.find((t) => t.scheme === selectedScheme);
+  const selectedBlockData = blocks.find((b) => b.location === selectedBlock);
 
-  const blockRemaining = blockRemainingCapacity?.get(selectedBlock) ?? selectedBlockData?.strength ?? 0;
-  const schemeRemaining = schemeRemainingStudents?.get(selectedScheme) ?? selectedTimetableEntry?.totalStudents ?? 0;
+  const blockRemaining =
+    blockRemainingCapacity?.get(selectedBlock) ?? selectedBlockData?.strength ?? 0;
+  const schemeRemaining =
+    schemeRemainingStudents?.get(selectedScheme) ?? selectedTimetableEntry?.totalStudents ?? 0;
 
   const maxCandidates = Math.min(schemeRemaining, blockRemaining);
   const schemeDepartment = selectedScheme?.split('-')[0];
@@ -425,7 +489,7 @@ function AssignmentForm({
   // Create a map of blockName -> supervisor UID for quick lookup
   const blockSupervisorMap = useMemo(() => {
     const map = new Map<string, string>();
-    localAllocations.forEach(alloc => {
+    localAllocations.forEach((alloc) => {
       if (alloc.supervisor) {
         map.set(alloc.blockName, alloc.supervisor);
       }
@@ -440,13 +504,13 @@ function AssignmentForm({
 
   // Check if current block has any allocation (is locked)
   const isBlockLocked = useMemo(() => {
-    return localAllocations.some(alloc => alloc.blockName === selectedBlock);
+    return localAllocations.some((alloc) => alloc.blockName === selectedBlock);
   }, [localAllocations, selectedBlock]);
 
   // Get set of supervisors already assigned to blocks (excluding current block)
   const assignedSupervisorsSet = useMemo(() => {
     const set = new Set<string>();
-    localAllocations.forEach(alloc => {
+    localAllocations.forEach((alloc) => {
       if (alloc.blockName !== selectedBlock && alloc.supervisor) {
         set.add(alloc.supervisor);
       }
@@ -456,12 +520,14 @@ function AssignmentForm({
 
   // Filter available schemes (only those with remaining students > 0)
   const availableSchemes = useMemo(() => {
-    return timetable.filter(entry => (schemeRemainingStudents?.get(entry.scheme) ?? entry.totalStudents) > 0);
+    return timetable.filter(
+      (entry) => (schemeRemainingStudents?.get(entry.scheme) ?? entry.totalStudents) > 0,
+    );
   }, [timetable, schemeRemainingStudents]);
 
   // Filter supervisors based on current context
   const filteredSupervisors = useMemo(() => {
-    return supervisors.filter(sup => {
+    return supervisors.filter((sup) => {
       // Skip if no scheme selected
       if (!schemeDepartment) return false;
 
@@ -514,7 +580,9 @@ function AssignmentForm({
   // Check if scheme already assigned to this block
   const isSchemeAlreadyInBlock = useMemo(() => {
     return (
-      selectedBlock && selectedScheme && existingAllocationsByBlockScheme?.has(`${selectedBlock}-${selectedScheme}`)
+      selectedBlock &&
+      selectedScheme &&
+      existingAllocationsByBlockScheme?.has(`${selectedBlock}-${selectedScheme}`)
     );
   }, [selectedBlock, selectedScheme, existingAllocationsByBlockScheme]);
 
@@ -522,11 +590,13 @@ function AssignmentForm({
   const showDepartmentWarning =
     selectedScheme &&
     selectedSupervisor &&
-    supervisors.find(s => s.uid === selectedSupervisor)?.department === schemeDepartment;
+    supervisors.find((s) => s.uid === selectedSupervisor)?.department === schemeDepartment;
 
-  const showSupervisorAllocatedWarning = selectedSupervisor && assignedSupervisorsSet.has(selectedSupervisor);
+  const showSupervisorAllocatedWarning =
+    selectedSupervisor && assignedSupervisorsSet.has(selectedSupervisor);
 
-  const showNoSupervisorsWarning = selectedScheme && !isBlockLocked && filteredSupervisors.length === 0;
+  const showNoSupervisorsWarning =
+    selectedScheme && !isBlockLocked && filteredSupervisors.length === 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -558,7 +628,14 @@ function AssignmentForm({
       maxCandidates > 0 &&
       !isSchemeAlreadyInBlock
     );
-  }, [selectedScheme, selectedBlock, selectedSupervisor, candidateCount, maxCandidates, isSchemeAlreadyInBlock]);
+  }, [
+    selectedScheme,
+    selectedBlock,
+    selectedSupervisor,
+    candidateCount,
+    maxCandidates,
+    isSchemeAlreadyInBlock,
+  ]);
 
   if (timetable.length === 0) {
     return (
@@ -575,35 +652,31 @@ function AssignmentForm({
         <SectionHeader title="Assignment" />
         <div className="flex items-center gap-2">
           <label className="text-xs text-neutral-500">Supervision Orders</label>
-          <button
-            onClick={() => onFilterBySupervisionChange(!filterBySupervision)}
-            className={cn(
-              'relative inline-flex h-5 w-9 items-center rounded-full transition-colors',
-              filterBySupervision ? 'bg-primary' : 'bg-neutral-300 dark:bg-neutral-700'
-            )}
-          >
-            <span
-              className={cn(
-                'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
-                filterBySupervision ? 'translate-x-[18px]' : 'translate-x-[2px]'
-              )}
-            />
-          </button>
+          <Switch
+            checked={filterBySupervision}
+            onCheckedChange={() => onFilterBySupervisionChange(!filterBySupervision)}
+          />
           {filterBySupervision && hasSupervisionOrders && (
-            <Badge variant="outline" className="h-4 text-[10px]">
+            <Badge
+              variant="outline"
+              className="h-4 text-[10px]"
+            >
               {supervisionOrderSupervisors.size} active
             </Badge>
           )}
         </div>
       </div>
       <div className="rounded-md border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-950">
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-3"
+        >
           <FormSelect
             label="Scheme"
             value={selectedScheme}
             onValueChange={onSchemeChange}
             placeholder="Select scheme"
-            items={availableSchemes.map(entry => ({
+            items={availableSchemes.map((entry) => ({
               value: entry.scheme,
               label: entry.scheme,
               sublabel: `${entry.subjectCode} · ${schemeRemainingStudents?.get(entry.scheme) ?? entry.totalStudents} remaining`,
@@ -615,7 +688,7 @@ function AssignmentForm({
             value={selectedBlock}
             onValueChange={onBlockChange}
             placeholder="Select block"
-            items={blocks.map(block => ({
+            items={blocks.map((block) => ({
               value: block.location,
               label: block.location,
               sublabel: `${block.name} · ${blockRemainingCapacity?.get(block.location) ?? block.strength} capacity`,
@@ -623,14 +696,25 @@ function AssignmentForm({
           />
 
           <div className="space-y-1">
-            <label className="text-xs font-medium text-neutral-700 dark:text-neutral-300">Supervisor</label>
-            <Select value={selectedSupervisor} onValueChange={onSupervisorChange} disabled={isBlockLocked}>
+            <label className="text-xs font-medium text-neutral-700 dark:text-neutral-300">
+              Supervisor
+            </label>
+            <Select
+              value={selectedSupervisor}
+              onValueChange={onSupervisorChange}
+              disabled={isBlockLocked}
+            >
               <SelectTrigger className="h-8 text-sm">
-                <SelectValue placeholder={isBlockLocked ? 'Supervisor locked' : 'Select supervisor'} />
+                <SelectValue
+                  placeholder={isBlockLocked ? 'Supervisor locked' : 'Select supervisor'}
+                />
               </SelectTrigger>
               <SelectContent>
-                {filteredSupervisors.map(sup => (
-                  <SelectItem key={sup.id} value={sup.uid}>
+                {filteredSupervisors.map((sup) => (
+                  <SelectItem
+                    key={sup.id}
+                    value={sup.uid}
+                  >
                     <div className="flex w-full items-center justify-between gap-4">
                       <span className="font-medium">{sup.name}</span>
                       <span className="text-xs text-neutral-400">
@@ -640,7 +724,9 @@ function AssignmentForm({
                   </SelectItem>
                 ))}
                 {filteredSupervisors.length === 0 && (
-                  <div className="px-2 py-4 text-center text-xs text-neutral-500">No available supervisors</div>
+                  <div className="px-2 py-4 text-center text-xs text-neutral-500">
+                    No available supervisors
+                  </div>
                 )}
               </SelectContent>
             </Select>
@@ -648,7 +734,8 @@ function AssignmentForm({
             {/* Show locked supervisor info */}
             {isBlockLocked && lockedSupervisor && (
               <p className="text-[10px] text-amber-600">
-                Supervisor locked for this block ({lockedSupervisor}). Remove all allocations for this block to change.
+                Supervisor locked for this block ({lockedSupervisor}). Remove all allocations for
+                this block to change.
               </p>
             )}
 
@@ -659,7 +746,9 @@ function AssignmentForm({
             )}
 
             {showSupervisorAllocatedWarning && (
-              <p className="text-[10px] text-amber-600">Supervisor already assigned to another block in this session</p>
+              <p className="text-[10px] text-amber-600">
+                Supervisor already assigned to another block in this session
+              </p>
             )}
 
             {showNoSupervisorsWarning && (
@@ -680,18 +769,25 @@ function AssignmentForm({
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-medium text-neutral-700 dark:text-neutral-300">Candidates</label>
+            <label className="text-xs font-medium text-neutral-700 dark:text-neutral-300">
+              Candidates
+            </label>
             <div className="flex items-center gap-2">
               <Input
                 type="number"
                 min={1}
                 max={maxCandidates}
                 value={candidateCount || ''}
-                onChange={e => onCandidateCountChange(Number(e.target.value))}
+                onChange={(e) => onCandidateCountChange(Number(e.target.value))}
                 placeholder={`Max: ${maxCandidates}`}
                 className="h-8 text-sm"
               />
-              <Button type="submit" disabled={isSubmitting || isLoading || !isFormValid} size="sm" className="h-8 px-4">
+              <Button
+                type="submit"
+                disabled={isSubmitting || isLoading || !isFormValid}
+                size="sm"
+                className="h-8 px-4"
+              >
                 {isSubmitting ? 'Assigning...' : 'Assign'}
               </Button>
             </div>
@@ -730,13 +826,19 @@ const FormSelect = ({
 }) => (
   <div className="space-y-1">
     <label className="text-xs font-medium text-neutral-700 dark:text-neutral-300">{label}</label>
-    <Select value={value} onValueChange={onValueChange}>
+    <Select
+      value={value}
+      onValueChange={onValueChange}
+    >
       <SelectTrigger className="h-8 text-sm">
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>
-        {items.map(item => (
-          <SelectItem key={item.value} value={item.value}>
+        {items.map((item) => (
+          <SelectItem
+            key={item.value}
+            value={item.value}
+          >
             <div className="flex w-full items-center justify-between gap-4">
               <span className="font-mono text-sm">{item.label}</span>
               <span className="text-xs text-neutral-400">{item.sublabel}</span>
@@ -800,12 +902,20 @@ function DistributionTable({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="h-1.5 w-1.5 rounded-full bg-neutral-400" />
-          <h3 className="text-xs font-medium tracking-wide text-neutral-500 uppercase">Block Distribution</h3>
+          <h3 className="text-xs font-medium tracking-wide text-neutral-500 uppercase">
+            Block Distribution
+          </h3>
           <div className="flex items-center gap-1.5">
-            <Badge variant="secondary" className="h-5 text-[10px] font-normal">
+            <Badge
+              variant="secondary"
+              className="h-5 text-[10px] font-normal"
+            >
               {allocations.length} allocations
             </Badge>
-            <Badge variant="secondary" className="h-5 text-[10px] font-normal">
+            <Badge
+              variant="secondary"
+              className="h-5 text-[10px] font-normal"
+            >
               {totalAllocated} students
             </Badge>
           </div>
@@ -835,8 +945,8 @@ function DistributionTable({
         <Alert className="border-amber-600 bg-amber-50">
           <AlertCircle className="h-4 w-4 text-amber-600" />
           <span className="text-sm text-amber-600">
-            {remainingStudents} student{remainingStudents !== 1 ? 's' : ''} still need allocation. Submit disabled until
-            all students are allocated.
+            {remainingStudents} student{remainingStudents !== 1 ? 's' : ''} still need allocation.
+            Submit disabled until all students are allocated.
           </span>
         </Alert>
       )}
@@ -854,9 +964,14 @@ function DistributionTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {allocations.map(alloc => (
-              <TableRow key={alloc.id} className="h-9 border-b border-neutral-100 dark:border-neutral-800">
-                <TableCell className="py-1.5 text-sm font-medium">{alloc.blockName || 'Unknown'}</TableCell>
+            {allocations.map((alloc) => (
+              <TableRow
+                key={alloc.id}
+                className="h-9 border-b border-neutral-100 dark:border-neutral-800"
+              >
+                <TableCell className="py-1.5 text-sm font-medium">
+                  {alloc.blockName || 'Unknown'}
+                </TableCell>
                 <TableCell className="py-1.5 font-mono text-xs">{alloc.scheme}</TableCell>
                 <TableCell className="py-1.5">
                   <code className="rounded bg-neutral-100 px-1 py-0.5 font-mono text-[10px] dark:bg-neutral-800">
@@ -901,7 +1016,10 @@ function UnsaveChangesDialog({
   allocationCount: number;
 }) {
   return (
-    <AlertDialog open={open} onOpenChange={onClose}>
+    <AlertDialog
+      open={open}
+      onOpenChange={onClose}
+    >
       <AlertDialogContent className="max-w-md">
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
@@ -911,10 +1029,14 @@ function UnsaveChangesDialog({
 
           <AlertDialogDescription className="space-y-2">
             <p>
-              You have <strong>{allocationCount}</strong> unsaved allocation draft{allocationCount !== 1 ? 's' : ''}.
+              You have <strong>{allocationCount}</strong> unsaved allocation draft
+              {allocationCount !== 1 ? 's' : ''}.
             </p>
 
-            <p>Changing the examination session will remove all draft allocations for the current session.</p>
+            <p>
+              Changing the examination session will remove all draft allocations for the current
+              session.
+            </p>
 
             <p className="text-xs text-neutral-500">This action cannot be undone.</p>
           </AlertDialogDescription>
@@ -923,7 +1045,10 @@ function UnsaveChangesDialog({
         <AlertDialogFooter>
           <AlertDialogCancel>Continue Editing</AlertDialogCancel>
 
-          <AlertDialogAction onClick={onDiscard} className="bg-red-600 hover:bg-red-700">
+          <AlertDialogAction
+            onClick={onDiscard}
+            className="bg-red-600 hover:bg-red-700"
+          >
             Discard Drafts
           </AlertDialogAction>
         </AlertDialogFooter>
@@ -954,7 +1079,10 @@ function ExistingAllocationsDialog({
   };
 
   return (
-    <AlertDialog open={open} onOpenChange={onClose}>
+    <AlertDialog
+      open={open}
+      onOpenChange={onClose}
+    >
       <AlertDialogContent className="flex max-h-[90vh] max-w-4xl flex-col">
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
@@ -965,8 +1093,8 @@ function ExistingAllocationsDialog({
 
         <div className="flex flex-1 flex-col gap-4 overflow-hidden">
           <p className="text-sm text-neutral-600 dark:text-neutral-400">
-            This date and session already has existing block allocations. You cannot create new allocations while
-            existing ones exist.
+            This date and session already has existing block allocations. You cannot create new
+            allocations while existing ones exist.
           </p>
 
           <div className="flex-1 overflow-auto rounded-md border border-neutral-200">
@@ -982,14 +1110,18 @@ function ExistingAllocationsDialog({
               <TableBody>
                 {allocations.map((alloc, idx) => (
                   <TableRow key={idx}>
-                    <TableCell className="py-2 font-mono text-sm">{alloc.blockName || 'Unknown'}</TableCell>
+                    <TableCell className="py-2 font-mono text-sm">
+                      {alloc.blockName || 'Unknown'}
+                    </TableCell>
                     <TableCell className="py-2 font-mono text-sm">{alloc.scheme}</TableCell>
                     <TableCell className="py-2 text-sm">
                       <code className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-xs dark:bg-neutral-800">
                         {alloc.subjectCode}
                       </code>
                     </TableCell>
-                    <TableCell className="py-2 text-right text-sm font-medium">{alloc.assignedCount || 0}</TableCell>
+                    <TableCell className="py-2 text-right text-sm font-medium">
+                      {alloc.assignedCount || 0}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -1009,7 +1141,10 @@ function ExistingAllocationsDialog({
 
         <AlertDialogFooter className="mt-4">
           <AlertDialogCancel onClick={onCancel}>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={handleClearAndProceed} className="bg-amber-600 hover:bg-amber-700">
+          <AlertDialogAction
+            onClick={handleClearAndProceed}
+            className="bg-amber-600 hover:bg-amber-700"
+          >
             Go To Allocation Cleanup
           </AlertDialogAction>
         </AlertDialogFooter>
@@ -1043,7 +1178,9 @@ export default function BlockAllocationPage() {
   const [supervisorsLoading, setSupervisorsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [filterBySupervision, setFilterBySupervision] = useState(false);
-  const [supervisionOrderSupervisors, setSupervisionOrderSupervisors] = useState<Set<string>>(new Set());
+  const [supervisionOrderSupervisors, setSupervisionOrderSupervisors] = useState<Set<string>>(
+    new Set(),
+  );
 
   // Form state
   const [selectedScheme, setSelectedScheme] = useState('');
@@ -1053,10 +1190,16 @@ export default function BlockAllocationPage() {
 
   // Capacity tracking
   const [blockAllocatedCount, setBlockAllocatedCount] = useState<Map<string, number>>(new Map());
-  const [blockRemainingCapacity, setBlockRemainingCapacity] = useState<Map<string, number>>(new Map());
-  const [schemeRemainingStudents, setSchemeRemainingStudents] = useState<Map<string, number>>(new Map());
+  const [blockRemainingCapacity, setBlockRemainingCapacity] = useState<Map<string, number>>(
+    new Map(),
+  );
+  const [schemeRemainingStudents, setSchemeRemainingStudents] = useState<Map<string, number>>(
+    new Map(),
+  );
   const [allocatedSupervisorsSet, setAllocatedSupervisorsSet] = useState<Set<string>>(new Set());
-  const [existingAllocationsByBlockScheme, setExistingAllocationsByBlockScheme] = useState<Set<string>>(new Set());
+  const [existingAllocationsByBlockScheme, setExistingAllocationsByBlockScheme] = useState<
+    Set<string>
+  >(new Set());
 
   // Dialog states
   const [showExistingAllocations, setShowExistingAllocations] = useState(false);
@@ -1082,14 +1225,14 @@ export default function BlockAllocationPage() {
     for (const alloc of localAllocations) {
       newBlockAllocatedCount.set(
         alloc.blockName,
-        (newBlockAllocatedCount.get(alloc.blockName) || 0) + alloc.numberOfCandidates
+        (newBlockAllocatedCount.get(alloc.blockName) || 0) + alloc.numberOfCandidates,
       );
     }
 
     setBlockAllocatedCount(newBlockAllocatedCount);
 
     // Calculate remaining per block
-    const newBlockRemaining = new Map(blocks.map(b => [b.location, b.strength]));
+    const newBlockRemaining = new Map(blocks.map((b) => [b.location, b.strength]));
     for (const alloc of localAllocations) {
       const blockRemaining = newBlockRemaining.get(alloc.blockName) || 0;
       newBlockRemaining.set(alloc.blockName, blockRemaining - alloc.numberOfCandidates);
@@ -1097,7 +1240,7 @@ export default function BlockAllocationPage() {
     setBlockRemainingCapacity(newBlockRemaining);
 
     // Calculate remaining students per scheme
-    const newSchemeRemaining = new Map(timetable.map(t => [t.scheme, t.totalStudents]));
+    const newSchemeRemaining = new Map(timetable.map((t) => [t.scheme, t.totalStudents]));
     for (const alloc of localAllocations) {
       const schemeRemaining = newSchemeRemaining.get(alloc.scheme) || 0;
       newSchemeRemaining.set(alloc.scheme, schemeRemaining - alloc.numberOfCandidates);
@@ -1181,13 +1324,34 @@ export default function BlockAllocationPage() {
       }
 
       const timetableData = timetableResult.data as TimetableEntry[];
-      setTimetable(timetableData);
+
+      // ADD THIS CHECK
+      if (!timetableData || timetableData.length === 0) {
+        toast.error(
+          'No timetable entries found for this date and session. Please upload a timetable first.',
+        );
+        setIsLoadingSession(false);
+        return;
+      }
+
+      // ✅ FILTER OUT ENTRIES WITH ZERO STUDENTS
+      const filteredTimetable = timetableData.filter((entry) => entry.totalStudents > 0);
+
+      if (filteredTimetable.length === 0) {
+        toast.error(
+          'All timetable entries have zero students. Please check your seating chart data.',
+        );
+        setIsLoadingSession(false);
+        return;
+      }
+
+      setTimetable(filteredTimetable);
 
       // Save to local storage for recovery
       setLocalTimetable({
         date,
         session,
-        entries: timetableData.map(entry => ({
+        entries: filteredTimetable.map((entry) => ({
           scheme: entry.scheme,
           subjectCode: entry.subjectCode,
           subjectName: entry.subjectName,
@@ -1201,9 +1365,8 @@ export default function BlockAllocationPage() {
       if (fromLocal) {
         const savedAllocations = getLocalAllocations();
         setLocalAllocations(savedAllocations);
-        // FIX: Populate allocated supervisors
         const supervisorSet = new Set<string>();
-        savedAllocations.forEach(a => {
+        savedAllocations.forEach((a) => {
           if (a.supervisor) supervisorSet.add(a.supervisor);
         });
         setAllocatedSupervisorsSet(supervisorSet);
@@ -1242,7 +1405,10 @@ export default function BlockAllocationPage() {
   useEffect(() => {
     const fetchMetadata = async () => {
       setLoading(true);
-      const [datesResult, sessionsResult] = await Promise.all([getUniqueDates(), getUniqueSessions()]);
+      const [datesResult, sessionsResult] = await Promise.all([
+        getUniqueDates(),
+        getUniqueSessions(),
+      ]);
       if (datesResult.success && datesResult.data) setDates(datesResult.data);
       if (sessionsResult.success && sessionsResult.data) setSessions(sessionsResult.data);
       setLoading(false);
@@ -1257,7 +1423,8 @@ export default function BlockAllocationPage() {
       setSupervisorsLoading(true);
       const [blocksResult, supervisorsResult] = await Promise.all([getBlocks(), getSupervisors()]);
       if (blocksResult.success && blocksResult.data) setBlocks(blocksResult.data);
-      if (supervisorsResult.success && supervisorsResult.data) setSupervisors(supervisorsResult.data);
+      if (supervisorsResult.success && supervisorsResult.data)
+        setSupervisors(supervisorsResult.data);
       setBlocksLoading(false);
       setSupervisorsLoading(false);
     };
@@ -1329,7 +1496,7 @@ export default function BlockAllocationPage() {
     }
 
     // Check supervisor not already assigned to another block
-    const blockSupervisor = localAllocations.find(a => a.blockName === selectedBlock)?.supervisor;
+    const blockSupervisor = localAllocations.find((a) => a.blockName === selectedBlock)?.supervisor;
 
     if (allocatedSupervisorsSet.has(selectedSupervisor) && blockSupervisor !== selectedSupervisor) {
       toast.error('Supervisor already assigned to another block in this session');
@@ -1351,9 +1518,12 @@ export default function BlockAllocationPage() {
       return;
     }
 
-    const selectedTimetableEntry = timetable.find(t => t.scheme === selectedScheme);
-    const schemeAllocations = localAllocations.filter(a => a.scheme === selectedScheme);
-    const totalAllocatedForScheme = schemeAllocations.reduce((sum, a) => sum + a.numberOfCandidates, 0);
+    const selectedTimetableEntry = timetable.find((t) => t.scheme === selectedScheme);
+    const schemeAllocations = localAllocations.filter((a) => a.scheme === selectedScheme);
+    const totalAllocatedForScheme = schemeAllocations.reduce(
+      (sum, a) => sum + a.numberOfCandidates,
+      0,
+    );
     const startFrom = totalAllocatedForScheme + 1;
 
     const newAllocation = addLocalAllocation({
@@ -1366,31 +1536,31 @@ export default function BlockAllocationPage() {
       timeslot: selectedTimetableEntry?.timeSlot || '',
     });
 
-    setLocalAllocations(prev => [...prev, newAllocation]);
+    setLocalAllocations((prev) => [...prev, newAllocation]);
     updateLocalTimetable(selectedScheme, candidateCount);
 
     setSelectedScheme('');
     setSelectedBlock('');
     setSelectedSupervisor('');
-    setAllocatedSupervisorsSet(prev => new Set(prev).add(selectedSupervisor));
+    setAllocatedSupervisorsSet((prev) => new Set(prev).add(selectedSupervisor));
     setCandidateCount(0);
 
     toast.success(`Assigned ${candidateCount} students to ${selectedBlock} (saved locally)`);
   };
 
   const handleRemoveAllocation = (id: string) => {
-    const allocation = localAllocations.find(a => a.id === id);
+    const allocation = localAllocations.find((a) => a.id === id);
     if (!allocation) return;
 
     removeLocalAllocation(id);
-    setLocalAllocations(prev => prev.filter(a => a.id !== id));
+    setLocalAllocations((prev) => prev.filter((a) => a.id !== id));
     updateLocalTimetable(allocation.scheme, -allocation.numberOfCandidates);
 
     // Check if supervisor still used
-    const remainingAllocations = localAllocations.filter(a => a.id !== id);
-    const stillUsed = remainingAllocations.some(a => a.supervisor === allocation.supervisor);
+    const remainingAllocations = localAllocations.filter((a) => a.id !== id);
+    const stillUsed = remainingAllocations.some((a) => a.supervisor === allocation.supervisor);
     if (!stillUsed) {
-      setAllocatedSupervisorsSet(prev => {
+      setAllocatedSupervisorsSet((prev) => {
         const newSet = new Set(prev);
         newSet.delete(allocation.supervisor);
         return newSet;
@@ -1413,7 +1583,9 @@ export default function BlockAllocationPage() {
     }
 
     // Check all allocations have supervisors
-    const hasEmptySupervisor = localAllocations.some(a => !a.supervisor || a.supervisor.trim().length === 0);
+    const hasEmptySupervisor = localAllocations.some(
+      (a) => !a.supervisor || a.supervisor.trim().length === 0,
+    );
     if (hasEmptySupervisor) {
       toast.error('All allocations must have a supervisor assigned');
       return;
@@ -1424,7 +1596,7 @@ export default function BlockAllocationPage() {
       const payload = {
         date: new Date(selectedDate),
         session: selectedSession as 'Morning' | 'Afternoon',
-        allocations: localAllocations.map(alloc => ({
+        allocations: localAllocations.map((alloc) => ({
           blockName: alloc.blockName,
           scheme: alloc.scheme,
           subCode: alloc.subCode,
@@ -1473,7 +1645,11 @@ export default function BlockAllocationPage() {
   if (isLoadingAny && step === 'select') {
     return (
       <div className="mx-auto max-w-[1400px] space-y-5 px-6 py-5">
-        <PageHeader title="Block Allocation" description="Loading..." icon={Calendar} />
+        <PageHeader
+          title="Block Allocation"
+          description="Loading..."
+          icon={Calendar}
+        />
         <Skeleton className="mx-auto h-80 w-full max-w-xl rounded-lg" />
       </div>
     );
@@ -1523,14 +1699,22 @@ export default function BlockAllocationPage() {
         description={`${format(new Date(selectedDate), 'dd MMMM yyyy')} · ${selectedSession}`}
         icon={Calendar}
         actions={
-          <Button variant="outline" size="sm" onClick={handleChangeSessionClick} className="h-7 text-xs">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleChangeSessionClick}
+            className="h-7 text-xs"
+          >
             <ChevronLeft className="mr-1 h-3 w-3" />
             Change Session
           </Button>
         }
       />
 
-      <MSBTEContextBar season={examCenter?.season as 'Summer' | 'Winter'} year={examCenter?.examYear!} />
+      <MSBTEContextBar
+        season={examCenter?.season as 'Summer' | 'Winter'}
+        year={examCenter?.examYear!}
+      />
 
       <BlockSummaryStrip
         totalBlocks={totalBlocks}
@@ -1556,7 +1740,7 @@ export default function BlockAllocationPage() {
           session={selectedSession}
           isLoading={isLoadingSession}
           selectedScheme={selectedScheme}
-          onSelectScheme={scheme => {
+          onSelectScheme={(scheme) => {
             setSelectedScheme(scheme);
             setSelectedSupervisor('');
           }}

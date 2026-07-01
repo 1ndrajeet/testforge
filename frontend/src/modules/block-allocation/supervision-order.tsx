@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import departments from '@/config/course_codes.json';
 import { format } from 'date-fns';
 import {
   BarChart,
@@ -13,15 +14,31 @@ import {
   RefreshCw,
   Save,
   UserCheck,
-  UserX,
   Users,
   Users2,
+  UserX,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { getAllocationsByDateSession } from '@/lib/actions/allocation';
+import { getBlocks } from '@/lib/actions/block';
+import { createOrder, deleteOrder, getOrders } from '@/lib/actions/order';
+import { getStaff } from '@/lib/actions/staff';
+import { getTimetableEntries } from '@/lib/actions/timetable';
+import { cn } from '@/lib/utils';
+
+import { useUserInfo } from '@/hooks/useUserInfo';
+
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -35,14 +52,6 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import departments from '@/config/course_codes.json';
-import { useUserInfo } from '@/hooks/useUserInfo';
-import { getAllocationsByDateSession } from '@/lib/actions/allocation';
-import { getBlocks } from '@/lib/actions/block';
-import { createOrder, deleteOrder, getOrders } from '@/lib/actions/order';
-import { getStaff } from '@/lib/actions/staff';
-import { getTimetableEntries } from '@/lib/actions/timetable';
-import { cn } from '@/lib/utils';
 
 const getDept = (code: string) => (departments as Record<string, string>)[code] || code;
 
@@ -101,8 +110,12 @@ export default function SupervisionOrder() {
   const [sessions, setSessions] = useState<SessionData[]>([]);
   const [selectedSupervisors, setSelectedSupervisors] = useState<Record<string, string[]>>({});
   const [selectedRelievers, setSelectedRelievers] = useState<Record<string, string[]>>({});
-  const [existingSupervisorOrders, setExistingSupervisorOrders] = useState<Record<string, string[]>>({});
-  const [existingRelieverOrders, setExistingRelieverOrders] = useState<Record<string, string[]>>({});
+  const [existingSupervisorOrders, setExistingSupervisorOrders] = useState<
+    Record<string, string[]>
+  >({});
+  const [existingRelieverOrders, setExistingRelieverOrders] = useState<Record<string, string[]>>(
+    {},
+  );
   const [isAllSaved, setIsAllSaved] = useState(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [staffPerBlock, setStaffPerBlock] = useState<number>(30);
@@ -157,7 +170,10 @@ export default function SupervisionOrder() {
 
   useEffect(() => {
     const fetchStaff = async () => {
-      const [supResult, relResult] = await Promise.all([getStaff('SUPERVISOR'), getStaff('RELIEVER')]);
+      const [supResult, relResult] = await Promise.all([
+        getStaff('SUPERVISOR'),
+        getStaff('RELIEVER'),
+      ]);
       if (supResult.success && supResult.data) {
         setSupervisors(supResult.data);
       }
@@ -203,7 +219,7 @@ export default function SupervisionOrder() {
 
       if (ttData.length > 0) {
         totalStudents = ttData.reduce((sum, entry) => sum + (entry.totalStudents || 0), 0);
-        ttData.forEach(entry => {
+        ttData.forEach((entry) => {
           if (entry.scheme && !schemes.includes(entry.scheme)) {
             schemes.push(entry.scheme);
           }
@@ -225,15 +241,18 @@ export default function SupervisionOrder() {
       }
 
       // Get departments
-      schemes.forEach(scheme => {
-        const dept = scheme.split('-')[0] || '';
+      schemes.forEach((scheme) => {
+        const dept = scheme.match(/^[A-Za-z]+/)?.toString() || '';
         if (dept && !departments.includes(dept)) {
           departments.push(dept);
         }
       });
 
       // Calculate required staff using staffPerBlock
-      const requiredSupervisors = Math.max(MIN_SUPERVISORS, Math.ceil(totalStudents / staffPerBlock) + 1);
+      const requiredSupervisors = Math.max(
+        MIN_SUPERVISORS,
+        Math.ceil(totalStudents / staffPerBlock) + 1,
+      );
       const requiredRelievers = Math.max(1, Math.ceil(requiredSupervisors / RELIEVER_RATIO));
 
       const sessionKey = `${date}-${session}`;
@@ -287,7 +306,13 @@ export default function SupervisionOrder() {
   // ============================================================
 
   useEffect(() => {
-    if (date && session && supervisors.length > 0 && relievers.length > 0 && !isLoadingStaffPerBlock) {
+    if (
+      date &&
+      session &&
+      supervisors.length > 0 &&
+      relievers.length > 0 &&
+      !isLoadingStaffPerBlock
+    ) {
       loadData();
     }
   }, [date, session, loadData, supervisors.length, relievers.length, isLoadingStaffPerBlock]);
@@ -297,7 +322,7 @@ export default function SupervisionOrder() {
   // ============================================================
 
   const handleSupervisorChange = (sessionKey: string, index: number, staffUid: string) => {
-    setSelectedSupervisors(prev => {
+    setSelectedSupervisors((prev) => {
       const current = prev[sessionKey] || [];
       const updated = [...current];
       while (updated.length <= index) updated.push('');
@@ -309,7 +334,7 @@ export default function SupervisionOrder() {
   };
 
   const handleRelieverChange = (sessionKey: string, index: number, staffUid: string) => {
-    setSelectedRelievers(prev => {
+    setSelectedRelievers((prev) => {
       const current = prev[sessionKey] || [];
       const updated = [...current];
       while (updated.length <= index) updated.push('');
@@ -322,12 +347,12 @@ export default function SupervisionOrder() {
 
   const getAvailableSupervisors = (sessionKey: string, currentIndex: number) => {
     const selected = selectedSupervisors[sessionKey] || [];
-    return supervisors.filter(s => !selected.includes(s.uid) || selected[currentIndex] === s.uid);
+    return supervisors.filter((s) => !selected.includes(s.uid) || selected[currentIndex] === s.uid);
   };
 
   const getAvailableRelievers = (sessionKey: string, currentIndex: number) => {
     const selected = selectedRelievers[sessionKey] || [];
-    return relievers.filter(s => !selected.includes(s.uid) || selected[currentIndex] === s.uid);
+    return relievers.filter((s) => !selected.includes(s.uid) || selected[currentIndex] === s.uid);
   };
 
   const generateOrderKey = (prefix: string, date: string, session: string, index: number) => {
@@ -337,13 +362,13 @@ export default function SupervisionOrder() {
   const groupedSupervisors = useMemo(() => {
     const groups = new Map<string, StaffMember[]>();
     const filtered = supervisors.filter(
-      s =>
+      (s) =>
         s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         s.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.uid.toLowerCase().includes(searchQuery.toLowerCase())
+        s.uid.toLowerCase().includes(searchQuery.toLowerCase()),
     );
 
-    filtered.forEach(s => {
+    filtered.forEach((s) => {
       const dept = s.department || 'Unknown';
       if (!groups.has(dept)) groups.set(dept, []);
       groups.get(dept)!.push(s);
@@ -372,7 +397,9 @@ export default function SupervisionOrder() {
 
     // Validate
     if (validSup.length < sessionData.requiredSupervisors) {
-      toast.warning(`Need ${sessionData.requiredSupervisors} supervisors, selected ${validSup.length}`);
+      toast.warning(
+        `Need ${sessionData.requiredSupervisors} supervisors, selected ${validSup.length}`,
+      );
       return;
     }
 
@@ -416,7 +443,7 @@ export default function SupervisionOrder() {
 
       // Create supervisor orders
       const supPromises = validSup.map((uid, index) => {
-        const member = supervisors.find(s => s.uid === uid);
+        const member = supervisors.find((s) => s.uid === uid);
         if (!member) return null;
         return createOrder({
           staffId: member.id,
@@ -429,7 +456,7 @@ export default function SupervisionOrder() {
 
       // Create reliever orders
       const relPromises = validRel.map((uid, index) => {
-        const member = relievers.find(s => s.uid === uid);
+        const member = relievers.find((s) => s.uid === uid);
         if (!member) return null;
         return createOrder({
           staffId: member.id,
@@ -441,15 +468,19 @@ export default function SupervisionOrder() {
       });
 
       const results = await Promise.all(
-        [...supPromises, ...relPromises].filter((promise): promise is Promise<any> => promise !== null)
+        [...supPromises, ...relPromises].filter(
+          (promise): promise is Promise<any> => promise !== null,
+        ),
       );
 
       // Update state
-      setExistingSupervisorOrders(prev => ({ ...prev, [sessionKey]: validSup }));
-      setExistingRelieverOrders(prev => ({ ...prev, [sessionKey]: validRel }));
+      setExistingSupervisorOrders((prev) => ({ ...prev, [sessionKey]: validSup }));
+      setExistingRelieverOrders((prev) => ({ ...prev, [sessionKey]: validRel }));
       setIsAllSaved(true);
 
-      toast.success(`Created ${results.length} orders (${validSup.length} supervisors, ${validRel.length} relievers)`);
+      toast.success(
+        `Created ${results.length} orders (${validSup.length} supervisors, ${validRel.length} relievers)`,
+      );
 
       // Refresh
       await loadData();
@@ -479,7 +510,7 @@ export default function SupervisionOrder() {
 
   const getStaffName = (uid: string, type: 'supervisor' | 'reliever') => {
     const pool = type === 'supervisor' ? supervisors : relievers;
-    const member = pool.find(s => s.uid === uid);
+    const member = pool.find((s) => s.uid === uid);
     return member ? `${member.name} (${getDept(member.department)})` : uid;
   };
 
@@ -514,11 +545,19 @@ export default function SupervisionOrder() {
           <div className="flex flex-wrap gap-4">
             <div className="flex flex-col gap-2">
               <label className="text-sm font-medium">Date</label>
-              <Input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-48" />
+              <Input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-48"
+              />
             </div>
             <div className="flex flex-col gap-2">
               <label className="text-sm font-medium">Session</label>
-              <Select value={session} onValueChange={(v: 'Morning' | 'Afternoon') => setSession(v)}>
+              <Select
+                value={session}
+                onValueChange={(v: 'Morning' | 'Afternoon') => setSession(v)}
+              >
                 <SelectTrigger className="w-40">
                   <SelectValue placeholder="Select session" />
                 </SelectTrigger>
@@ -529,7 +568,11 @@ export default function SupervisionOrder() {
               </Select>
             </div>
             <div className="flex flex-col justify-end gap-2">
-              <Button onClick={loadData} disabled={loading} className="h-10">
+              <Button
+                onClick={loadData}
+                disabled={loading}
+                className="h-10"
+              >
                 <RefreshCw className={cn('mr-2 h-4 w-4', loading && 'animate-spin')} />
                 {loading ? 'Loading...' : 'Load Data'}
               </Button>
@@ -563,7 +606,10 @@ export default function SupervisionOrder() {
                     month: 'short',
                     day: 'numeric',
                   })}
-                  <Badge variant="outline" className="ml-2">
+                  <Badge
+                    variant="outline"
+                    className="ml-2"
+                  >
                     <Clock className="mr-1 h-3 w-3" />
                     {sessionData.session}
                   </Badge>
@@ -571,7 +617,11 @@ export default function SupervisionOrder() {
                 <CardDescription className="mt-2">
                   <div className="flex flex-wrap gap-2">
                     {sessionData.departments.map((dept, idx) => (
-                      <Badge key={idx} variant="secondary" className="bg-blue-50 text-blue-700">
+                      <Badge
+                        key={idx}
+                        variant="secondary"
+                        className="bg-blue-50 text-blue-700"
+                      >
                         {getDept(dept)}
                       </Badge>
                     ))}
@@ -579,7 +629,11 @@ export default function SupervisionOrder() {
                   {sessionData.schemes.length > 0 && (
                     <div className="mt-1 flex flex-wrap gap-1">
                       {sessionData.schemes.map((scheme, idx) => (
-                        <Badge key={idx} variant="outline" className="text-xs">
+                        <Badge
+                          key={idx}
+                          variant="outline"
+                          className="text-xs"
+                        >
                           {scheme}
                         </Badge>
                       ))}
@@ -620,25 +674,30 @@ export default function SupervisionOrder() {
               <div className="mb-4 flex items-center gap-2">
                 <UserCheck className="h-5 w-5 text-purple-600" />
                 <h3 className="text-lg font-semibold">Supervisors</h3>
-                <Badge variant="outline" className="ml-2">
+                <Badge
+                  variant="outline"
+                  className="ml-2"
+                >
                   {sessionData.requiredSupervisors} required
                 </Badge>
                 <Badge
                   variant="outline"
                   className={cn(
-                    (selectedSupervisors[sessionKey] || []).filter(Boolean).length === sessionData.requiredSupervisors
+                    (selectedSupervisors[sessionKey] || []).filter(Boolean).length ===
+                      sessionData.requiredSupervisors
                       ? 'border-green-200 bg-green-50 text-green-700'
-                      : 'border-amber-200 bg-amber-50 text-amber-700'
+                      : 'border-amber-200 bg-amber-50 text-amber-700',
                   )}
                 >
-                  {(selectedSupervisors[sessionKey] || []).filter(Boolean).length} / {sessionData.requiredSupervisors}{' '}
-                  assigned
+                  {(selectedSupervisors[sessionKey] || []).filter(Boolean).length} /{' '}
+                  {sessionData.requiredSupervisors} assigned
                 </Badge>
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {Array.from({ length: sessionData.requiredSupervisors }).map((_, index) => {
                   const existingUid = existingSupervisorOrders[sessionKey]?.[index] || '';
-                  const currentUid = (selectedSupervisors[sessionKey] || [])[index] || existingUid || '';
+                  const currentUid =
+                    (selectedSupervisors[sessionKey] || [])[index] || existingUid || '';
                   const isFilled = !!currentUid;
 
                   return (
@@ -646,20 +705,25 @@ export default function SupervisionOrder() {
                       key={index}
                       className={cn(
                         'space-y-1 rounded-lg border p-3 transition-all',
-                        isFilled ? 'border-green-200 bg-green-50/50' : 'border-dashed border-neutral-200'
+                        isFilled
+                          ? 'border-green-200 bg-green-50/50'
+                          : 'border-dashed border-neutral-200',
                       )}
                     >
                       <label className="flex items-center gap-2 text-sm font-medium">
                         Supervisor {index + 1}
                         {existingUid && (
-                          <Badge variant="outline" className="border-green-200 bg-green-50 text-xs text-green-700">
+                          <Badge
+                            variant="outline"
+                            className="border-green-200 bg-green-50 text-xs text-green-700"
+                          >
                             Existing
                           </Badge>
                         )}
                       </label>
                       <Select
                         value={currentUid || '#'}
-                        onValueChange={value => handleSupervisorChange(sessionKey, index, value)}
+                        onValueChange={(value) => handleSupervisorChange(sessionKey, index, value)}
                       >
                         <SelectTrigger className={cn('w-full', !isFilled && 'border-dashed')}>
                           <SelectValue placeholder="Select supervisor" />
@@ -669,12 +733,17 @@ export default function SupervisionOrder() {
                           {groupedSupervisors.map((group, groupIndex) => (
                             <SelectGroup key={group.department}>
                               <SelectLabel>{getDept(group.department)}</SelectLabel>
-                              {group.members.map(staff => {
+                              {group.members.map((staff) => {
                                 const isDisabled =
-                                  getAvailableSupervisors(sessionKey, index).every(s => s.uid !== staff.uid) &&
-                                  staff.uid !== currentUid;
+                                  getAvailableSupervisors(sessionKey, index).every(
+                                    (s) => s.uid !== staff.uid,
+                                  ) && staff.uid !== currentUid;
                                 return (
-                                  <SelectItem key={staff.uid} value={staff.uid} disabled={isDisabled}>
+                                  <SelectItem
+                                    key={staff.uid}
+                                    value={staff.uid}
+                                    disabled={isDisabled}
+                                  >
                                     {staff.name} ({staff.uid})
                                   </SelectItem>
                                 );
@@ -703,25 +772,30 @@ export default function SupervisionOrder() {
               <div className="mb-4 flex items-center gap-2">
                 <Users2 className="h-5 w-5 text-indigo-600" />
                 <h3 className="text-lg font-semibold">Relievers</h3>
-                <Badge variant="outline" className="ml-2">
+                <Badge
+                  variant="outline"
+                  className="ml-2"
+                >
                   {sessionData.requiredRelievers} required
                 </Badge>
                 <Badge
                   variant="outline"
                   className={cn(
-                    (selectedRelievers[sessionKey] || []).filter(Boolean).length === sessionData.requiredRelievers
+                    (selectedRelievers[sessionKey] || []).filter(Boolean).length ===
+                      sessionData.requiredRelievers
                       ? 'border-green-200 bg-green-50 text-green-700'
-                      : 'border-amber-200 bg-amber-50 text-amber-700'
+                      : 'border-amber-200 bg-amber-50 text-amber-700',
                   )}
                 >
-                  {(selectedRelievers[sessionKey] || []).filter(Boolean).length} / {sessionData.requiredRelievers}{' '}
-                  assigned
+                  {(selectedRelievers[sessionKey] || []).filter(Boolean).length} /{' '}
+                  {sessionData.requiredRelievers} assigned
                 </Badge>
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {Array.from({ length: sessionData.requiredRelievers }).map((_, index) => {
                   const existingUid = existingRelieverOrders[sessionKey]?.[index] || '';
-                  const currentUid = (selectedRelievers[sessionKey] || [])[index] || existingUid || '';
+                  const currentUid =
+                    (selectedRelievers[sessionKey] || [])[index] || existingUid || '';
                   const isFilled = !!currentUid;
 
                   return (
@@ -729,28 +803,36 @@ export default function SupervisionOrder() {
                       key={index}
                       className={cn(
                         'space-y-1 rounded-lg border p-3 transition-all',
-                        isFilled ? 'border-green-200 bg-green-50/50' : 'border-dashed border-neutral-200'
+                        isFilled
+                          ? 'border-green-200 bg-green-50/50'
+                          : 'border-dashed border-neutral-200',
                       )}
                     >
                       <label className="flex items-center gap-2 text-sm font-medium">
                         Reliever {index + 1}
                         {existingUid && (
-                          <Badge variant="outline" className="border-green-200 bg-green-50 text-xs text-green-700">
+                          <Badge
+                            variant="outline"
+                            className="border-green-200 bg-green-50 text-xs text-green-700"
+                          >
                             Existing
                           </Badge>
                         )}
                       </label>
                       <Select
                         value={currentUid || '#'}
-                        onValueChange={value => handleRelieverChange(sessionKey, index, value)}
+                        onValueChange={(value) => handleRelieverChange(sessionKey, index, value)}
                       >
                         <SelectTrigger className={cn('w-full', !isFilled && 'border-dashed')}>
                           <SelectValue placeholder="Select reliever" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="#">Clear</SelectItem>
-                          {getAvailableRelievers(sessionKey, index).map(staff => (
-                            <SelectItem key={staff.uid} value={staff.uid}>
+                          {getAvailableRelievers(sessionKey, index).map((staff) => (
+                            <SelectItem
+                              key={staff.uid}
+                              value={staff.uid}
+                            >
                               {staff.name} ({staff.department})
                             </SelectItem>
                           ))}
@@ -783,7 +865,11 @@ export default function SupervisionOrder() {
                 </span>
               )}
             </div>
-            <Button onClick={saveAllOrders} disabled={!isSaveEnabled()} className="flex items-center gap-2">
+            <Button
+              onClick={saveAllOrders}
+              disabled={!isSaveEnabled()}
+              className="flex items-center gap-2"
+            >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               {saving ? 'Saving...' : isAllSaved ? 'Saved' : 'Save All Orders'}
             </Button>

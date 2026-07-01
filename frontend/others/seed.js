@@ -9,7 +9,7 @@ const crypto = require('crypto');
 // ============================================
 
 const CONFIG = {
-  USER_ID: '8pGTiU17RLMMV6ZiGAqLwyvJrlYw81cZ',
+  USER_ID: '4ATap694rorzEmSQjqen5VYvmhM7u00Z',
   USER_NAME: 'MMCOE',
   USER_EMAIL: 'rit@testforge.tech',
   USER_PASSWORD: 'rit@bludhaven',
@@ -82,7 +82,13 @@ function safeJson(value, fallback = []) {
 
 function generateUuidFromString(str) {
   const hash = crypto.createHash('sha256').update(str).digest('hex');
-  return [hash.slice(0, 8), hash.slice(8, 12), hash.slice(12, 16), hash.slice(16, 20), hash.slice(20, 32)].join('-');
+  return [
+    hash.slice(0, 8),
+    hash.slice(8, 12),
+    hash.slice(12, 16),
+    hash.slice(16, 20),
+    hash.slice(20, 32),
+  ].join('-');
 }
 
 // ============================================
@@ -381,7 +387,7 @@ function processBlockDetails(rows) {
 }
 
 function calculateExamDays() {
-  const uniqueDates = [...new Set(data.timetable.map(t => t.date))].sort();
+  const uniqueDates = [...new Set(data.timetable.map((t) => t.date))].sort();
 
   const dateMap = new Map();
 
@@ -389,7 +395,7 @@ function calculateExamDays() {
     dateMap.set(date, index + 1);
   });
 
-  data.timetable.forEach(t => {
+  data.timetable.forEach((t) => {
     if (t.examDay == null) {
       t.examDay = dateMap.get(t.date);
     }
@@ -524,7 +530,9 @@ function processBlockAllocation(rows) {
 }
 
 function resolveBlockAllocationInstitutes() {
-  console.log(`   🔗 Resolving institutes for ${data.rawBlockAllocations.length} block allocations...`);
+  console.log(
+    `   🔗 Resolving institutes for ${data.rawBlockAllocations.length} block allocations...`,
+  );
 
   for (const raw of data.rawBlockAllocations) {
     let connectedInstituteId = null;
@@ -545,7 +553,9 @@ function resolveBlockAllocationInstitutes() {
       }
     }
     if (!connectedInstituteId) {
-      console.log(`⚠️ No institute for ${raw.location} - ${raw.subjectCode} (${raw.seatNumbers.length} seats)`);
+      console.log(
+        `⚠️ No institute for ${raw.location} - ${raw.subjectCode} (${raw.seatNumbers.length} seats)`,
+      );
     }
 
     data.blockAllocations.push({
@@ -573,8 +583,10 @@ function resolveBlockAllocationInstitutes() {
     });
   }
 
-  const resolvedCount = data.blockAllocations.filter(b => b.connectedInstituteId).length;
-  console.log(`   ✅ Resolved institutes for ${resolvedCount}/${data.blockAllocations.length} allocations`);
+  const resolvedCount = data.blockAllocations.filter((b) => b.connectedInstituteId).length;
+  console.log(
+    `   ✅ Resolved institutes for ${resolvedCount}/${data.blockAllocations.length} allocations`,
+  );
 }
 
 function processSupervisorOrder(rows) {
@@ -597,8 +609,17 @@ function processRelieverOrder(rows) {
 
 function processInventory(rows) {
   for (const values of rows) {
-    const [id, day, date, session, subjectCode, expectedStudents, expectedPackets, receivedPackets, receivedQps] =
-      values;
+    const [
+      id,
+      day,
+      date,
+      session,
+      subjectCode,
+      expectedStudents,
+      expectedPackets,
+      receivedPackets,
+      receivedQps,
+    ] = values;
 
     data.qpInventory.push({
       id: generateUuidFromString(`${date}_${session}_${subjectCode}`),
@@ -694,7 +715,11 @@ function processFile(content) {
             pendingRows.get(tableName).push(...rows);
           } else if (tableName === 'TH_SC_1740') {
             pendingStudents.push(...rows);
-          } else if (tableName === 'TH_CROOM_1740' || tableName === 'TH_SUP_1740' || tableName === 'TH_REL_1740') {
+          } else if (
+            tableName === 'TH_CROOM_1740' ||
+            tableName === 'TH_SUP_1740' ||
+            tableName === 'TH_REL_1740'
+          ) {
             if (!pendingRows.has(tableName)) {
               pendingRows.set(tableName, []);
             }
@@ -810,14 +835,22 @@ async function generatePostgresSQL() {
     writeLine('-- ============================================');
     writeLine('');
 
-    writeLine(`INSERT INTO "user" (id, name, email, email_verified, image, created_at, updated_at) VALUES (`);
-    writeLine(`  ${escape(CONFIG.USER_ID)}, ${escape(CONFIG.USER_NAME)}, ${escape(CONFIG.USER_EMAIL)},`);
+    writeLine(
+      `INSERT INTO "user" (id, name, email, email_verified, image, created_at, updated_at) VALUES (`,
+    );
+    writeLine(
+      `  ${escape(CONFIG.USER_ID)}, ${escape(CONFIG.USER_NAME)}, ${escape(CONFIG.USER_EMAIL)},`,
+    );
     writeLine(`  true, NULL, ${escape(CONFIG.NOW)}, ${escape(CONFIG.NOW)}`);
     writeLine(`) ON CONFLICT (id) DO NOTHING;`);
     writeLine('');
 
-    writeLine(`INSERT INTO account (id, account_id, provider_id, user_id, password, created_at, updated_at) VALUES (`);
-    writeLine(`  ${escape(accountId)}, ${escape(CONFIG.USER_EMAIL)}, 'credential', ${escape(CONFIG.USER_ID)},`);
+    writeLine(
+      `INSERT INTO account (id, account_id, provider_id, user_id, password, created_at, updated_at) VALUES (`,
+    );
+    writeLine(
+      `  ${escape(accountId)}, ${escape(CONFIG.USER_EMAIL)}, 'credential', ${escape(CONFIG.USER_ID)},`,
+    );
     writeLine(`  ${escape(hashedPassword)}, ${escape(CONFIG.NOW)}, ${escape(CONFIG.NOW)}`);
     writeLine(`) ON CONFLICT (id) DO NOTHING;`);
     writeLine('');
@@ -831,21 +864,25 @@ async function generatePostgresSQL() {
   writeLine('-- ============================================');
   writeLine('');
   writeLine(
-    `INSERT INTO organizations (id, name, slug, owner_id, subscription_tier, subscription_expires_at, trial_started_at, trial_ends_at, settings, created_at, updated_at) VALUES (`
+    `INSERT INTO organizations (id, name, slug, owner_id, subscription_tier, subscription_expires_at, trial_started_at, trial_ends_at, settings, created_at, updated_at) VALUES (`,
   );
   writeLine(
-    `  ${escape(CONFIG.ORG_ID)}, ${escape(CONFIG.ORG_NAME)}, ${escape(CONFIG.ORG_SLUG)}, ${escape(CONFIG.USER_ID)},`
+    `  ${escape(CONFIG.ORG_ID)}, ${escape(CONFIG.ORG_NAME)}, ${escape(CONFIG.ORG_SLUG)}, ${escape(CONFIG.USER_ID)},`,
   );
   writeLine(
-    `  'trial', NULL, ${escape(CONFIG.NOW)}, ${escape(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString())},`
+    `  'trial', NULL, ${escape(CONFIG.NOW)}, ${escape(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString())},`,
   );
   writeLine(`  '{}', ${escape(CONFIG.NOW)}, ${escape(CONFIG.NOW)}`);
   writeLine(`) ON CONFLICT (id) DO NOTHING;`);
   writeLine('');
 
   const orgMemberId = generateUuidFromString(`${CONFIG.ORG_ID}_${CONFIG.USER_ID}`);
-  writeLine(`INSERT INTO org_members (id, org_id, user_id, role, permissions, created_at, updated_at) VALUES (`);
-  writeLine(`  ${escape(orgMemberId)}, ${escape(CONFIG.ORG_ID)}, ${escape(CONFIG.USER_ID)}, 'owner',`);
+  writeLine(
+    `INSERT INTO org_members (id, org_id, user_id, role, permissions, created_at, updated_at) VALUES (`,
+  );
+  writeLine(
+    `  ${escape(orgMemberId)}, ${escape(CONFIG.ORG_ID)}, ${escape(CONFIG.USER_ID)}, 'owner',`,
+  );
   writeLine(`  '["all"]'::jsonb, ${escape(CONFIG.NOW)}, ${escape(CONFIG.NOW)}`);
   writeLine(`) ON CONFLICT (id) DO NOTHING;`);
   writeLine('');
@@ -858,17 +895,19 @@ async function generatePostgresSQL() {
     writeLine('');
     const ec = data.examCenters;
     writeLine(
-      `INSERT INTO exam_centers (id, org_id, code, name, address, officer_incharge, sealing_supervisor, dist_center_code, dist_center_name, season, exam_year, start_date, end_date, departments, is_active, is_deleted, created_at, updated_at) VALUES (`
+      `INSERT INTO exam_centers (id, org_id, code, name, address, officer_incharge, sealing_supervisor, dist_center_code, dist_center_name, season, exam_year, start_date, end_date, departments, is_active, is_deleted, created_at, updated_at) VALUES (`,
     );
     writeLine(
-      `  ${escape(ec.id)}, ${escape(ec.orgId)}, ${escape(ec.code)}, ${escape(ec.name)}, ${escape(ec.address)},`
+      `  ${escape(ec.id)}, ${escape(ec.orgId)}, ${escape(ec.code)}, ${escape(ec.name)}, ${escape(ec.address)},`,
     );
     writeLine(
-      `  ${escape(ec.officerIncharge)}, ${escape(ec.sealingSupervisor)}, ${escape(ec.distCenterCode)}, ${escape(ec.distCenterName)},`
+      `  ${escape(ec.officerIncharge)}, ${escape(ec.sealingSupervisor)}, ${escape(ec.distCenterCode)}, ${escape(ec.distCenterName)},`,
     );
-    writeLine(`  ${escape(ec.season)}, ${ec.examYear}, ${escape(ec.startDate)}, ${escape(ec.endDate)},`);
     writeLine(
-      `  ${jsonb(ec.departments)}, ${ec.isActive}, ${ec.isDeleted}, ${escape(ec.createdAt)}, ${escape(ec.updatedAt)}`
+      `  ${escape(ec.season)}, ${ec.examYear}, ${escape(ec.startDate)}, ${escape(ec.endDate)},`,
+    );
+    writeLine(
+      `  ${jsonb(ec.departments)}, ${ec.isActive}, ${ec.isDeleted}, ${escape(ec.createdAt)}, ${escape(ec.updatedAt)}`,
     );
     writeLine(`) ON CONFLICT (id) DO NOTHING;`);
     writeLine('');
@@ -891,9 +930,15 @@ async function generatePostgresSQL() {
 
       if (!existing) {
         uniqueInstitutes.set(key, ci);
-      } else if (!existing.instituteName.startsWith('Institute ') && ci.instituteName.startsWith('Institute ')) {
+      } else if (
+        !existing.instituteName.startsWith('Institute ') &&
+        ci.instituteName.startsWith('Institute ')
+      ) {
         continue;
-      } else if (existing.instituteName.startsWith('Institute ') && !ci.instituteName.startsWith('Institute ')) {
+      } else if (
+        existing.instituteName.startsWith('Institute ') &&
+        !ci.instituteName.startsWith('Institute ')
+      ) {
         uniqueInstitutes.set(key, ci);
       } else {
         if (!uniqueInstitutes.has(key)) uniqueInstitutes.set(key, ci);
@@ -905,13 +950,13 @@ async function generatePostgresSQL() {
       const examCenterId = data.examCenters.id;
 
       writeLine(
-        `INSERT INTO connected_institutes (id, exam_center_id, institute_code, institute_name, is_active, created_at, updated_at) VALUES`
+        `INSERT INTO connected_institutes (id, exam_center_id, institute_code, institute_name, is_active, created_at, updated_at) VALUES`,
       );
       for (let i = 0; i < institutesArray.length; i++) {
         const ci = institutesArray[i];
         const isLast = i === institutesArray.length - 1;
         writeLine(
-          `  (${escape(ci.id)}, ${escape(examCenterId)}, ${escape(ci.instituteCode)}, ${escape(ci.instituteName)}, ${ci.isActive}, ${escape(ci.createdAt)}, ${escape(ci.updatedAt)})${isLast ? '' : ','}`
+          `  (${escape(ci.id)}, ${escape(examCenterId)}, ${escape(ci.instituteCode)}, ${escape(ci.instituteName)}, ${ci.isActive}, ${escape(ci.createdAt)}, ${escape(ci.updatedAt)})${isLast ? '' : ','}`,
         );
       }
       writeLine(` ON CONFLICT (id) DO NOTHING;`);
@@ -925,12 +970,14 @@ async function generatePostgresSQL() {
   writeLine('-- ============================================');
   writeLine('');
   if (data.subjects.length > 0) {
-    writeLine(`INSERT INTO subjects (id, code, name, scheme, abbr, is_deleted, created_at, updated_at) VALUES`);
+    writeLine(
+      `INSERT INTO subjects (id, code, name, scheme, abbr, is_deleted, created_at, updated_at) VALUES`,
+    );
     for (let i = 0; i < data.subjects.length; i++) {
       const subj = data.subjects[i];
       const isLast = i === data.subjects.length - 1;
       writeLine(
-        `  (${escape(subj.id)}, ${escape(subj.code)}, ${escape(subj.name)}, ${escape(subj.scheme)}, ${escape(subj.abbr)}, ${subj.isDeleted}, ${escape(subj.createdAt)}, ${escape(subj.updatedAt)})${isLast ? '' : ','}`
+        `  (${escape(subj.id)}, ${escape(subj.code)}, ${escape(subj.name)}, ${escape(subj.scheme)}, ${escape(subj.abbr)}, ${subj.isDeleted}, ${escape(subj.createdAt)}, ${escape(subj.updatedAt)})${isLast ? '' : ','}`,
       );
     }
     writeLine(` ON CONFLICT (id) DO NOTHING;`);
@@ -951,13 +998,13 @@ async function generatePostgresSQL() {
     const staffArray = Array.from(uniqueStaff.values());
     console.log(`   📝 Generating bulk INSERT for ${staffArray.length} staff members`);
     writeLine(
-      `INSERT INTO staff (id, exam_center_id, uid, name, department, email, staff_type, role, designation, post_held_in_examination, is_deleted, created_at, updated_at) VALUES`
+      `INSERT INTO staff (id, exam_center_id, uid, name, department, email, staff_type, role, designation, post_held_in_examination, is_deleted, created_at, updated_at) VALUES`,
     );
     for (let i = 0; i < staffArray.length; i++) {
       const staff = staffArray[i];
       const isLast = i === staffArray.length - 1;
       writeLine(
-        `  (${escape(staff.id)}, ${escape(staff.examCenterId)}, ${escape(staff.uid)}, ${escape(staff.name)}, ${escape(staff.department)}, ${escape(staff.email)}, ${escape(staff.staffType)}, ${escape(staff.role)}, ${escape(staff.designation)}, ${escape(staff.postHeldInExamination)}, ${staff.isDeleted}, ${escape(staff.createdAt)}, ${escape(staff.updatedAt)})${isLast ? '' : ','}`
+        `  (${escape(staff.id)}, ${escape(staff.examCenterId)}, ${escape(staff.uid)}, ${escape(staff.name)}, ${escape(staff.department)}, ${escape(staff.email)}, ${escape(staff.staffType)}, ${escape(staff.role)}, ${escape(staff.designation)}, ${escape(staff.postHeldInExamination)}, ${staff.isDeleted}, ${escape(staff.createdAt)}, ${escape(staff.updatedAt)})${isLast ? '' : ','}`,
       );
     }
     writeLine(` ON CONFLICT (id) DO NOTHING;`);
@@ -971,13 +1018,13 @@ async function generatePostgresSQL() {
   writeLine('');
   if (data.blocks.length > 0 && data.examCenters) {
     writeLine(
-      `INSERT INTO blocks (id, exam_center_id, block_no, location, name, strength, distribution, is_deleted, created_at, updated_at) VALUES`
+      `INSERT INTO blocks (id, exam_center_id, block_no, location, name, strength, distribution, is_deleted, created_at, updated_at) VALUES`,
     );
     for (let i = 0; i < data.blocks.length; i++) {
       const block = data.blocks[i];
       const isLast = i === data.blocks.length - 1;
       writeLine(
-        `  (${escape(block.id)}, ${escape(data.examCenters.id)}, ${escape(block.blockNo)}, ${escape(block.location)}, ${escape(block.name)}, ${block.strength}, ${jsonb(block.distribution)}, ${block.isDeleted}, ${escape(block.createdAt)}, ${escape(block.updatedAt)})${isLast ? '' : ','}`
+        `  (${escape(block.id)}, ${escape(data.examCenters.id)}, ${escape(block.blockNo)}, ${escape(block.location)}, ${escape(block.name)}, ${block.strength}, ${jsonb(block.distribution)}, ${block.isDeleted}, ${escape(block.createdAt)}, ${escape(block.updatedAt)})${isLast ? '' : ','}`,
       );
     }
     writeLine(` ON CONFLICT (id) DO NOTHING;`);
@@ -991,13 +1038,13 @@ async function generatePostgresSQL() {
   writeLine('');
   if (data.timetable.length > 0 && data.examCenters) {
     writeLine(
-      `INSERT INTO timetable (id, exam_center_id, subject_id, exam_day,date, session, time_slot, subject_code, subject_name, scheme, subject_abbr, total_students, absent_numbers, cps_students, created_at, updated_at) VALUES`
+      `INSERT INTO timetable (id, exam_center_id, subject_id, exam_day,date, session, time_slot, subject_code, subject_name, scheme, subject_abbr, total_students, absent_numbers, cps_students, created_at, updated_at) VALUES`,
     );
     for (let i = 0; i < data.timetable.length; i++) {
       const tt = data.timetable[i];
       const isLast = i === data.timetable.length - 1;
       writeLine(
-        `  (${escape(tt.id)}, ${escape(data.examCenters.id)}, ${escape(tt.subjectId)},   ${tt.examDay},${escape(tt.date)}, ${escape(tt.session)}, ${escape(tt.timeSlot)}, ${escape(tt.subjectCode)}, ${escape(tt.subjectName)}, ${escape(tt.scheme)}, ${escape(tt.subjectAbbr)}, ${tt.totalStudents}, ${jsonb(tt.absentNumbers)}, ${jsonb(tt.cpsStudents)}, ${escape(tt.createdAt)}, ${escape(tt.updatedAt)})${isLast ? '' : ','}`
+        `  (${escape(tt.id)}, ${escape(data.examCenters.id)}, ${escape(tt.subjectId)},   ${tt.examDay},${escape(tt.date)}, ${escape(tt.session)}, ${escape(tt.timeSlot)}, ${escape(tt.subjectCode)}, ${escape(tt.subjectName)}, ${escape(tt.scheme)}, ${escape(tt.subjectAbbr)}, ${tt.totalStudents}, ${jsonb(tt.absentNumbers)}, ${jsonb(tt.cpsStudents)}, ${escape(tt.createdAt)}, ${escape(tt.updatedAt)})${isLast ? '' : ','}`,
       );
     }
     writeLine(` ON CONFLICT (id) DO NOTHING;`);
@@ -1011,13 +1058,13 @@ async function generatePostgresSQL() {
   writeLine('');
   if (data.students.length > 0 && data.examCenters) {
     writeLine(
-      `INSERT INTO students (id, exam_center_id, connected_institute_id, seat_number, institute_code, enrollment_number, name, scheme, subjects, sub_codes, is_deleted, created_at, updated_at) VALUES`
+      `INSERT INTO students (id, exam_center_id, connected_institute_id, seat_number, institute_code, enrollment_number, name, scheme, subjects, sub_codes, is_deleted, created_at, updated_at) VALUES`,
     );
     for (let i = 0; i < data.students.length; i++) {
       const student = data.students[i];
       const isLast = i === data.students.length - 1;
       writeLine(
-        `  (${escape(student.id)}, ${escape(data.examCenters.id)}, ${escape(student.connectedInstituteId)}, ${student.seatNumber}, ${escape(student.instituteCode)}, ${escape(student.enrollmentNumber)}, ${escape(student.name)}, ${escape(student.scheme)}, ${jsonb(student.subjects)}, ${jsonb(student.subCodes)}, ${student.isDeleted}, ${escape(student.createdAt)}, ${escape(student.updatedAt)})${isLast ? '' : ','}`
+        `  (${escape(student.id)}, ${escape(data.examCenters.id)}, ${escape(student.connectedInstituteId)}, ${student.seatNumber}, ${escape(student.instituteCode)}, ${escape(student.enrollmentNumber)}, ${escape(student.name)}, ${escape(student.scheme)}, ${jsonb(student.subjects)}, ${jsonb(student.subCodes)}, ${student.isDeleted}, ${escape(student.createdAt)}, ${escape(student.updatedAt)})${isLast ? '' : ','}`,
       );
     }
     writeLine(` ON CONFLICT (id) DO NOTHING;`);
@@ -1031,13 +1078,13 @@ async function generatePostgresSQL() {
   writeLine('');
   if (data.blockAllocations.length > 0 && data.examCenters) {
     writeLine(
-      `INSERT INTO block_allocations (id, exam_center_id, date, session, timeslot, block_no, block_id, location, scheme, subject_code, subject_name, seat_numbers, first_seat, last_seat, assigned_count, strength, supervisor_uid, supervisor_name, connected_institute_id, created_at, updated_at) VALUES`
+      `INSERT INTO block_allocations (id, exam_center_id, date, session, timeslot, block_no, block_id, location, scheme, subject_code, subject_name, seat_numbers, first_seat, last_seat, assigned_count, strength, supervisor_uid, supervisor_name, connected_institute_id, created_at, updated_at) VALUES`,
     );
     for (let i = 0; i < data.blockAllocations.length; i++) {
       const ba = data.blockAllocations[i];
       const isLast = i === data.blockAllocations.length - 1;
       writeLine(
-        `  (${escape(ba.id)}, ${escape(data.examCenters.id)}, ${escape(ba.date)}, ${escape(ba.session)}, ${escape(ba.timeslot)}, ${escape(ba.blockNo)}, ${escape(ba.blockId)}, ${escape(ba.location)}, ${escape(ba.scheme)}, ${escape(ba.subjectCode)}, ${escape(ba.subjectName)}, ${jsonb(ba.seatNumbers)}, ${ba.firstSeat}, ${ba.lastSeat}, ${ba.assignedCount}, ${ba.strength}, ${escape(ba.supervisorUid)}, ${escape(ba.supervisorName)}, ${escape(ba.connectedInstituteId)}, ${escape(ba.createdAt)}, ${escape(ba.updatedAt)})${isLast ? '' : ','}`
+        `  (${escape(ba.id)}, ${escape(data.examCenters.id)}, ${escape(ba.date)}, ${escape(ba.session)}, ${escape(ba.timeslot)}, ${escape(ba.blockNo)}, ${escape(ba.blockId)}, ${escape(ba.location)}, ${escape(ba.scheme)}, ${escape(ba.subjectCode)}, ${escape(ba.subjectName)}, ${jsonb(ba.seatNumbers)}, ${ba.firstSeat}, ${ba.lastSeat}, ${ba.assignedCount}, ${ba.strength}, ${escape(ba.supervisorUid)}, ${escape(ba.supervisorName)}, ${escape(ba.connectedInstituteId)}, ${escape(ba.createdAt)}, ${escape(ba.updatedAt)})${isLast ? '' : ','}`,
       );
     }
     writeLine(` ON CONFLICT (id) DO NOTHING;`);
@@ -1051,13 +1098,13 @@ async function generatePostgresSQL() {
   writeLine('');
   if (data.orders.length > 0 && data.examCenters) {
     writeLine(
-      `INSERT INTO orders (id, exam_center_id, staff_id, order_type, date, session, order_key, sent_at, created_at, updated_at) VALUES`
+      `INSERT INTO orders (id, exam_center_id, staff_id, order_type, date, session, order_key, sent_at, created_at, updated_at) VALUES`,
     );
     for (let i = 0; i < data.orders.length; i++) {
       const order = data.orders[i];
       const isLast = i === data.orders.length - 1;
       writeLine(
-        `  (${escape(order.id)}, ${escape(data.examCenters.id)}, ${escape(order.staffId)}, ${escape(order.orderType)}, ${escape(order.date)}, ${escape(order.session)}, ${escape(order.orderKey)}, ${escape(order.sentAt)}, ${escape(order.createdAt)}, ${escape(order.updatedAt)})${isLast ? '' : ','}`
+        `  (${escape(order.id)}, ${escape(data.examCenters.id)}, ${escape(order.staffId)}, ${escape(order.orderType)}, ${escape(order.date)}, ${escape(order.session)}, ${escape(order.orderKey)}, ${escape(order.sentAt)}, ${escape(order.createdAt)}, ${escape(order.updatedAt)})${isLast ? '' : ','}`,
       );
     }
     writeLine(` ON CONFLICT (id) DO NOTHING;`);
@@ -1071,13 +1118,13 @@ async function generatePostgresSQL() {
   writeLine('');
   if (data.qpInventory.length > 0 && data.examCenters) {
     writeLine(
-      `INSERT INTO qp_inventory (id, exam_center_id, day, date, session, subject_code, expected_students, expected_packets, received_packets, received_qps, created_at, updated_at) VALUES`
+      `INSERT INTO qp_inventory (id, exam_center_id, day, date, session, subject_code, expected_students, expected_packets, received_packets, received_qps, created_at, updated_at) VALUES`,
     );
     for (let i = 0; i < data.qpInventory.length; i++) {
       const inv = data.qpInventory[i];
       const isLast = i === data.qpInventory.length - 1;
       writeLine(
-        `  (${escape(inv.id)}, ${escape(data.examCenters.id)}, ${inv.day}, ${escape(inv.date)}, ${escape(inv.session)}, ${escape(inv.subjectCode)}, ${inv.expectedStudents}, ${inv.expectedPackets}, ${inv.receivedPackets}, ${inv.receivedQps}, ${escape(inv.createdAt)}, ${escape(inv.updatedAt)})${isLast ? '' : ','}`
+        `  (${escape(inv.id)}, ${escape(data.examCenters.id)}, ${inv.day}, ${escape(inv.date)}, ${escape(inv.session)}, ${escape(inv.subjectCode)}, ${inv.expectedStudents}, ${inv.expectedPackets}, ${inv.receivedPackets}, ${inv.receivedQps}, ${escape(inv.createdAt)}, ${escape(inv.updatedAt)})${isLast ? '' : ','}`,
       );
     }
     writeLine(` ON CONFLICT (id) DO NOTHING;`);
@@ -1091,13 +1138,13 @@ async function generatePostgresSQL() {
   writeLine('');
   if (data.eMarksheets.length > 0 && data.examCenters) {
     writeLine(
-      `INSERT INTO e_marksheets (id, exam_center_id, sheet_no, subject_name, scheme, subject_head, paper_code, file_name, processed_at, created_at) VALUES`
+      `INSERT INTO e_marksheets (id, exam_center_id, sheet_no, subject_name, scheme, subject_head, paper_code, file_name, processed_at, created_at) VALUES`,
     );
     for (let i = 0; i < data.eMarksheets.length; i++) {
       const em = data.eMarksheets[i];
       const isLast = i === data.eMarksheets.length - 1;
       writeLine(
-        `  (${escape(em.id)}, ${escape(data.examCenters.id)}, ${escape(em.sheetNo)}, ${escape(em.subjectName)}, ${escape(em.scheme)}, ${escape(em.subjectHead)}, ${escape(em.paperCode)}, ${escape(em.fileName)}, ${escape(em.processedAt)}, ${escape(em.createdAt)})${isLast ? '' : ','}`
+        `  (${escape(em.id)}, ${escape(data.examCenters.id)}, ${escape(em.sheetNo)}, ${escape(em.subjectName)}, ${escape(em.scheme)}, ${escape(em.subjectHead)}, ${escape(em.paperCode)}, ${escape(em.fileName)}, ${escape(em.processedAt)}, ${escape(em.createdAt)})${isLast ? '' : ','}`,
       );
     }
     writeLine(` ON CONFLICT (id) DO NOTHING;`);
@@ -1106,7 +1153,7 @@ async function generatePostgresSQL() {
 
   // 13. Promo Codes
   writeLine(
-    `INSERT INTO promo_codes(code, type, duration_days, amount, expires_at)VALUES('EARLYACCESS2026', 'trial_30day', 30, 100, '2026-12-31'),('FOUNDER30',       'trial_30day', 30, 100, '2026-12-31'),('LAUNCH30',        'trial_30day', 30, 100, '2026-12-31'),('MSBTE30',         'trial_30day', 30, 100, '2026-12-31'),('TESTFORGE30',     'trial_30day', 30, 100, '2026-12-31');`
+    `INSERT INTO promo_codes(code, type, duration_days, amount, expires_at)VALUES('EARLYACCESS2026', 'trial_30day', 30, 100, '2026-12-31'),('FOUNDER30',       'trial_30day', 30, 100, '2026-12-31'),('LAUNCH30',        'trial_30day', 30, 100, '2026-12-31'),('MSBTE30',         'trial_30day', 30, 100, '2026-12-31'),('TESTFORGE30',     'trial_30day', 30, 100, '2026-12-31');`,
   );
 
   writeLine('COMMIT;');

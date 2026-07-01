@@ -3,10 +3,32 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { Download, FileSpreadsheet, Plus, Radio, RefreshCw, Trash2, Upload, UserCog, Users2 } from 'lucide-react';
+import courseCodes from '@/config/course_codes.json';
+import {
+  Download,
+  FileSpreadsheet,
+  Plus,
+  Radio,
+  RefreshCw,
+  Trash2,
+  Upload,
+  UserCog,
+  Users2,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
-import { PageEmpty, PageHeader, PageToolbar } from '@/components/layout/page-layout';
+import {
+  bulkCreateStaff,
+  createStaff,
+  deleteStaff,
+  getStaff,
+  getStaffStats,
+  searchStaff,
+} from '@/lib/actions/staff';
+import { StaffMember, StaffStats, StaffType } from '@/lib/types/';
+
+import { useUserInfo } from '@/hooks/useUserInfo';
+
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,14 +41,25 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import courseCodes from '@/config/course_codes.json';
-import { useUserInfo } from '@/hooks/useUserInfo';
-import { bulkCreateStaff, createStaff, deleteStaff, getStaff, getStaffStats, searchStaff } from '@/lib/actions/staff';
-import { StaffMember, StaffStats, StaffType } from '@/lib/types/';
+
+import { PageEmpty, PageHeader, PageToolbar } from '@/components/layout/page-layout';
 
 // ============================================================================
 // Configuration
@@ -83,19 +116,27 @@ const StatsCards = ({ stats }: { stats: StaffStats }) => {
   return (
     <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
       <div className="rounded-lg border border-neutral-100 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
-        <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">{stats.total}</p>
+        <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
+          {stats.total}
+        </p>
         <p className="text-xs text-neutral-500">Total Staff</p>
       </div>
       <div className="rounded-lg border border-neutral-100 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
-        <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">{stats.supervisors}</p>
+        <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
+          {stats.supervisors}
+        </p>
         <p className="text-xs text-neutral-500">Supervisors</p>
       </div>
       <div className="rounded-lg border border-neutral-100 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
-        <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">{stats.relievers}</p>
+        <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
+          {stats.relievers}
+        </p>
         <p className="text-xs text-neutral-500">Relievers</p>
       </div>
       <div className="rounded-lg border border-neutral-100 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
-        <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">{stats.controlRoom}</p>
+        <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
+          {stats.controlRoom}
+        </p>
         <p className="text-xs text-neutral-500">Control Room</p>
       </div>
     </div>
@@ -109,7 +150,14 @@ const StatsCards = ({ stats }: { stats: StaffStats }) => {
 const STAFF_CSV_HEADERS = ['UID', 'Name', 'Department', 'Role', 'Email', 'StaffType'];
 
 function staffToCSVRow(staff: StaffMember): string[] {
-  return [staff.uid, staff.name, staff.department, staff.role || '', staff.email || '', staff.staffType];
+  return [
+    staff.uid,
+    staff.name,
+    staff.department,
+    staff.role || '',
+    staff.email || '',
+    staff.staffType,
+  ];
 }
 
 function csvRowToStaff(row: string[], staffType: StaffType): Partial<StaffMember> {
@@ -125,7 +173,7 @@ function csvRowToStaff(row: string[], staffType: StaffType): Partial<StaffMember
 }
 
 function downloadCSV(data: string[][], filename: string) {
-  const csvContent = data.map(row => row.join(',')).join('\n');
+  const csvContent = data.map((row) => row.join(',')).join('\n');
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -166,7 +214,14 @@ interface StaffDialogProps {
   roleOptions: string[];
 }
 
-function StaffDialog({ open, onOpenChange, onSuccess, editingStaff, staffType, roleOptions }: StaffDialogProps) {
+function StaffDialog({
+  open,
+  onOpenChange,
+  onSuccess,
+  editingStaff,
+  staffType,
+  roleOptions,
+}: StaffDialogProps) {
   const [formData, setFormData] = useState<StaffFormData>(defaultFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<keyof StaffFormData, string>>>({});
@@ -227,7 +282,9 @@ function StaffDialog({ open, onOpenChange, onSuccess, editingStaff, staffType, r
       });
 
       if (result.success) {
-        toast.success(isEditing ? `${staffType} updated successfully` : `${staffType} created successfully`);
+        toast.success(
+          isEditing ? `${staffType} updated successfully` : `${staffType} created successfully`,
+        );
         onSuccess();
         onOpenChange(false);
       } else {
@@ -241,12 +298,17 @@ function StaffDialog({ open, onOpenChange, onSuccess, editingStaff, staffType, r
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+    >
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>{isEditing ? `Edit ${staffType}` : `Add New ${staffType}`}</DialogTitle>
           <DialogDescription>
-            {isEditing ? `Update ${staffType} information.` : `Add a new ${staffType} to the examination team.`}
+            {isEditing
+              ? `Update ${staffType} information.`
+              : `Add a new ${staffType} to the examination team.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -258,7 +320,7 @@ function StaffDialog({ open, onOpenChange, onSuccess, editingStaff, staffType, r
             <Input
               id="uid"
               value={formData.uid}
-              onChange={e => setFormData({ ...formData, uid: e.target.value.toUpperCase() })}
+              onChange={(e) => setFormData({ ...formData, uid: e.target.value.toUpperCase() })}
               placeholder="e.g., STAFF001"
               className={errors.uid ? 'border-rose-500' : ''}
               disabled={isEditing}
@@ -273,7 +335,7 @@ function StaffDialog({ open, onOpenChange, onSuccess, editingStaff, staffType, r
             <Input
               id="name"
               value={formData.name}
-              onChange={e => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="Full name"
               className={errors.name ? 'border-rose-500' : ''}
             />
@@ -286,14 +348,17 @@ function StaffDialog({ open, onOpenChange, onSuccess, editingStaff, staffType, r
             </Label>
             <Select
               value={formData.department}
-              onValueChange={value => setFormData({ ...formData, department: value })}
+              onValueChange={(value) => setFormData({ ...formData, department: value })}
             >
               <SelectTrigger className={errors.department ? 'border-rose-500' : ''}>
                 <SelectValue placeholder="Select department" />
               </SelectTrigger>
               <SelectContent>
-                {departments.map(dept => (
-                  <SelectItem key={dept.code} value={dept.code}>
+                {departments.map((dept) => (
+                  <SelectItem
+                    key={dept.code}
+                    value={dept.code}
+                  >
                     <span className="font-mono">{dept.code}</span> - {dept.name}
                   </SelectItem>
                 ))}
@@ -306,13 +371,19 @@ function StaffDialog({ open, onOpenChange, onSuccess, editingStaff, staffType, r
             <Label htmlFor="role">
               Role <span className="text-rose-500">*</span>
             </Label>
-            <Select value={formData.role} onValueChange={value => setFormData({ ...formData, role: value })}>
+            <Select
+              value={formData.role}
+              onValueChange={(value) => setFormData({ ...formData, role: value })}
+            >
               <SelectTrigger className={errors.role ? 'border-rose-500' : ''}>
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
               <SelectContent>
-                {roleOptions.map(role => (
-                  <SelectItem key={role} value={role}>
+                {roleOptions.map((role) => (
+                  <SelectItem
+                    key={role}
+                    value={role}
+                  >
                     {role.replace(/_/g, ' ')}
                   </SelectItem>
                 ))}
@@ -327,7 +398,7 @@ function StaffDialog({ open, onOpenChange, onSuccess, editingStaff, staffType, r
               id="email"
               type="email"
               value={formData.email}
-              onChange={e => setFormData({ ...formData, email: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               placeholder="staff@example.com"
               className={errors.email ? 'border-rose-500' : ''}
             />
@@ -336,10 +407,17 @@ function StaffDialog({ open, onOpenChange, onSuccess, editingStaff, staffType, r
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+          >
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting} className="gap-2">
+          <Button
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+            className="gap-2"
+          >
             {isSubmitting && (
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
             )}
@@ -365,20 +443,30 @@ interface DeleteDialogProps {
 
 function DeleteDialog({ open, onOpenChange, onConfirm, staffName, isLoading }: DeleteDialogProps) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+    >
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>Delete Staff Member</DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete <span className="font-medium">{staffName}</span>? This action cannot be
-            undone.
+            Are you sure you want to delete <span className="font-medium">{staffName}</span>? This
+            action cannot be undone.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+          >
             Cancel
           </Button>
-          <Button variant="destructive" onClick={onConfirm} disabled={isLoading}>
+          <Button
+            variant="destructive"
+            onClick={onConfirm}
+            disabled={isLoading}
+          >
             {isLoading ? 'Deleting...' : 'Delete'}
           </Button>
         </DialogFooter>
@@ -413,10 +501,10 @@ function ImportDialog({ open, onOpenChange, onImport, staffType, isLoading }: Im
 
     setFile(selectedFile);
     const reader = new FileReader();
-    reader.onload = event => {
+    reader.onload = (event) => {
       try {
         const text = event.target?.result as string;
-        const lines = text.split('\n').filter(line => line.trim());
+        const lines = text.split('\n').filter((line) => line.trim());
 
         if (lines.length < 2) {
           toast.error('CSV file must have a header row and at least one data row');
@@ -425,11 +513,11 @@ function ImportDialog({ open, onOpenChange, onImport, staffType, isLoading }: Im
         }
 
         // Parse header
-        const headers = lines[0].split(',').map(h => h.trim().toUpperCase());
-        const expectedHeaders = STAFF_CSV_HEADERS.map(h => h.toUpperCase());
+        const headers = lines[0].split(',').map((h) => h.trim().toUpperCase());
+        const expectedHeaders = STAFF_CSV_HEADERS.map((h) => h.toUpperCase());
 
         // Check if headers match
-        const headerMatch = expectedHeaders.every(h => headers.includes(h));
+        const headerMatch = expectedHeaders.every((h) => headers.includes(h));
         if (!headerMatch) {
           toast.error(`CSV must have headers: ${STAFF_CSV_HEADERS.join(', ')}`);
           setPreview([]); // Reset to empty array
@@ -439,7 +527,7 @@ function ImportDialog({ open, onOpenChange, onImport, staffType, isLoading }: Im
         // Parse data rows
         const parsed: Partial<StaffMember>[] = [];
         for (let i = 1; i < lines.length; i++) {
-          const row = lines[i].split(',').map(c => c.trim());
+          const row = lines[i].split(',').map((c) => c.trim());
           if (row.length < 3) continue;
 
           const staff = csvRowToStaff(row, staffType);
@@ -499,8 +587,11 @@ function ImportDialog({ open, onOpenChange, onImport, staffType, isLoading }: Im
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleCancel}>
-      <DialogContent className="max-h-[90vh] max-w-2xl">
+    <Dialog
+      open={open}
+      onOpenChange={handleCancel}
+    >
+      <DialogContent className="max-h-[90vh] max-w-3xl">
         <DialogHeader>
           <DialogTitle>Import {staffType}s from CSV</DialogTitle>
           <DialogDescription>
@@ -518,7 +609,10 @@ function ImportDialog({ open, onOpenChange, onImport, staffType, isLoading }: Im
               className="hidden"
               id="csv-upload"
             />
-            <label htmlFor="csv-upload" className="block cursor-pointer">
+            <label
+              htmlFor="csv-upload"
+              className="block cursor-pointer"
+            >
               <FileSpreadsheet className="mx-auto mb-2 h-12 w-12 text-neutral-400" />
               <p className="text-sm text-neutral-600">
                 {file ? file.name : 'Click to select CSV file or drag and drop'}
@@ -534,8 +628,11 @@ function ImportDialog({ open, onOpenChange, onImport, staffType, isLoading }: Im
                 <table className="w-full text-xs">
                   <thead className="sticky top-0 bg-neutral-50">
                     <tr>
-                      {STAFF_CSV_HEADERS.map(h => (
-                        <th key={h} className="px-2 py-1 text-left font-medium">
+                      {STAFF_CSV_HEADERS.map((h) => (
+                        <th
+                          key={h}
+                          className="px-2 py-1 text-left font-medium"
+                        >
                           {h}
                         </th>
                       ))}
@@ -543,7 +640,10 @@ function ImportDialog({ open, onOpenChange, onImport, staffType, isLoading }: Im
                   </thead>
                   <tbody>
                     {preview.slice(0, 10).map((staff, i) => (
-                      <tr key={i} className="border-t">
+                      <tr
+                        key={i}
+                        className="border-t"
+                      >
                         <td className="px-2 py-1">{staff.uid}</td>
                         <td className="px-2 py-1">{staff.name}</td>
                         <td className="px-2 py-1">{staff.department}</td>
@@ -554,7 +654,10 @@ function ImportDialog({ open, onOpenChange, onImport, staffType, isLoading }: Im
                     ))}
                     {preview.length > 10 && (
                       <tr>
-                        <td colSpan={6} className="px-2 py-1 text-center text-neutral-400">
+                        <td
+                          colSpan={6}
+                          className="px-2 py-1 text-center text-neutral-400"
+                        >
                           +{preview.length - 10} more records
                         </td>
                       </tr>
@@ -567,7 +670,11 @@ function ImportDialog({ open, onOpenChange, onImport, staffType, isLoading }: Im
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleCancel} disabled={isProcessing || isLoading}>
+          <Button
+            variant="outline"
+            onClick={handleCancel}
+            disabled={isProcessing || isLoading}
+          >
             Cancel
           </Button>
           <Button
@@ -612,7 +719,7 @@ const StaffTable = ({
   config: StaffPageConfig;
 }) => {
   const getDepartmentName = (code: string) => {
-    const dept = departments.find(d => d.code === code);
+    const dept = departments.find((d) => d.code === code);
     return dept ? `${dept.code} - ${dept.name}` : code;
   };
 
@@ -620,7 +727,10 @@ const StaffTable = ({
     return (
       <div className="space-y-2">
         {Array.from({ length: 5 }).map((_, i) => (
-          <Skeleton key={i} className="h-12 w-full" />
+          <Skeleton
+            key={i}
+            className="h-12 w-full"
+          />
         ))}
       </div>
     );
@@ -632,7 +742,10 @@ const StaffTable = ({
         title={`No ${config.title} found`}
         description={`Add ${config.type.toLowerCase()}s to the examination team.`}
         action={
-          <Button size="sm" className="gap-2">
+          <Button
+            size="sm"
+            className="gap-2"
+          >
             <Plus className="h-4 w-4" />
             Add {config.type}
           </Button>
@@ -649,20 +762,32 @@ const StaffTable = ({
             <TableRow>
               <TableHead className="text-xs font-medium tracking-wide uppercase">UID</TableHead>
               <TableHead className="text-xs font-medium tracking-wide uppercase">Name</TableHead>
-              <TableHead className="text-xs font-medium tracking-wide uppercase">Department</TableHead>
+              <TableHead className="text-xs font-medium tracking-wide uppercase">
+                Department
+              </TableHead>
               <TableHead className="text-xs font-medium tracking-wide uppercase">Role</TableHead>
               <TableHead className="text-xs font-medium tracking-wide uppercase">Email</TableHead>
-              <TableHead className="w-24 text-right text-xs font-medium tracking-wide uppercase">Actions</TableHead>
+              <TableHead className="w-24 text-right text-xs font-medium tracking-wide uppercase">
+                Actions
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {staffMembers.map(member => (
-              <TableRow key={member.id} className="h-12 hover:bg-neutral-50 dark:hover:bg-neutral-900">
+            {staffMembers.map((member) => (
+              <TableRow
+                key={member.id}
+                className="h-12 hover:bg-neutral-50 dark:hover:bg-neutral-900"
+              >
                 <TableCell className="px-4 py-3 font-mono text-sm">{member.uid}</TableCell>
                 <TableCell className="px-4 py-3 text-sm font-medium">{member.name}</TableCell>
-                <TableCell className="px-4 py-3 text-sm">{getDepartmentName(member.department)}</TableCell>
+                <TableCell className="px-4 py-3 text-sm">
+                  {getDepartmentName(member.department)}
+                </TableCell>
                 <TableCell className="px-4 py-3">
-                  <Badge variant="secondary" className="text-xs">
+                  <Badge
+                    variant="secondary"
+                    className="text-xs"
+                  >
                     {member.role?.replace(/_/g, ' ') || '—'}
                   </Badge>
                 </TableCell>
@@ -672,7 +797,11 @@ const StaffTable = ({
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <Button variant="ghost" size="icon-sm" onClick={() => onEdit(member)}>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => onEdit(member)}
+                          >
                             <UserCog className="h-4 w-4" />
                           </Button>
                         </TooltipTrigger>
@@ -731,7 +860,10 @@ export default function StaffPage({ type = 'SUPERVISOR' }: { type?: StaffType })
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [staffResult, statsResult] = await Promise.all([getStaff(config.type), getStaffStats()]);
+      const [staffResult, statsResult] = await Promise.all([
+        getStaff(config.type),
+        getStaffStats(),
+      ]);
 
       if (!staffResult.success) {
         throw new Error(staffResult.error);
@@ -829,7 +961,7 @@ export default function StaffPage({ type = 'SUPERVISOR' }: { type?: StaffType })
       return;
     }
 
-    const csvData = [STAFF_CSV_HEADERS, ...staffMembers.map(staff => staffToCSVRow(staff))];
+    const csvData = [STAFF_CSV_HEADERS, ...staffMembers.map((staff) => staffToCSVRow(staff))];
 
     const filename = `${config.type.toLowerCase()}-staff-${new Date().toISOString().split('T')[0]}.csv`;
     downloadCSV(csvData, filename);
@@ -840,14 +972,16 @@ export default function StaffPage({ type = 'SUPERVISOR' }: { type?: StaffType })
   const handleImport = useCallback(
     async (staffData: Partial<StaffMember>[]) => {
       // Validate all staff have required fields
-      const invalidStaff = staffData.filter(s => !s.uid || !s.name || !s.department);
+      const invalidStaff = staffData.filter((s) => !s.uid || !s.name || !s.department);
       if (invalidStaff.length > 0) {
-        toast.error(`${invalidStaff.length} staff members missing required fields (UID, Name, Department)`);
+        toast.error(
+          `${invalidStaff.length} staff members missing required fields (UID, Name, Department)`,
+        );
         return;
       }
 
       // Check for duplicate UIDs within the import data
-      const uids = staffData.map(s => s.uid);
+      const uids = staffData.map((s) => s.uid);
       const duplicateUids = uids.filter((uid, index) => uids.indexOf(uid) !== index);
       if (duplicateUids.length > 0) {
         toast.error(`Duplicate UIDs found: ${duplicateUids.join(', ')}`);
@@ -856,7 +990,7 @@ export default function StaffPage({ type = 'SUPERVISOR' }: { type?: StaffType })
 
       try {
         // Prepare data for bulk import
-        const bulkData = staffData.map(staff => ({
+        const bulkData = staffData.map((staff) => ({
           uid: staff.uid!,
           name: staff.name!,
           department: staff.department!,
@@ -879,7 +1013,9 @@ export default function StaffPage({ type = 'SUPERVISOR' }: { type?: StaffType })
           const skipped = total - count;
 
           if (skipped > 0) {
-            toast.success(`Imported ${count} of ${total} staff members (${skipped} skipped due to duplicates)`);
+            toast.success(
+              `Imported ${count} of ${total} staff members (${skipped} skipped due to duplicates)`,
+            );
           } else {
             toast.success(`Successfully imported ${count} staff members`);
           }
@@ -887,7 +1023,8 @@ export default function StaffPage({ type = 'SUPERVISOR' }: { type?: StaffType })
           await fetchData();
           setImportDialogOpen(false);
         } else {
-          const errorMsg = typeof result.error === 'string' ? result.error : 'Failed to import staff';
+          const errorMsg =
+            typeof result.error === 'string' ? result.error : 'Failed to import staff';
           toast.error(errorMsg);
         }
       } catch (error) {
@@ -895,7 +1032,7 @@ export default function StaffPage({ type = 'SUPERVISOR' }: { type?: StaffType })
         toast.error(error instanceof Error ? error.message : 'Failed to import staff');
       }
     },
-    [config.type, fetchData]
+    [config.type, fetchData],
   );
 
   const toolbarActions = [
@@ -942,7 +1079,10 @@ export default function StaffPage({ type = 'SUPERVISOR' }: { type?: StaffType })
         </div>
         <div className="grid grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 w-full" />
+            <Skeleton
+              key={i}
+              className="h-24 w-full"
+            />
           ))}
         </div>
         <Skeleton className="h-96 w-full" />
@@ -952,13 +1092,17 @@ export default function StaffPage({ type = 'SUPERVISOR' }: { type?: StaffType })
 
   return (
     <div>
-      <PageHeader title={config.title} description={config.description} icon={config.icon} />
+      <PageHeader
+        title={config.title}
+        description={config.description}
+        icon={config.icon}
+      />
 
       {stats && config.showInStats && <StatsCards stats={stats} />}
 
       <PageToolbar
         searchValue={searchQuery}
-        onSearchChange={value => {
+        onSearchChange={(value) => {
           setSearchQuery(value);
           if (!value) {
             fetchData();

@@ -4,12 +4,12 @@
 import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
 
+import pricingPlans from '@/config/pricing.json';
 import { and, desc, eq } from 'drizzle-orm';
 
-import pricingPlans from '@/config/pricing.json';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { examCenters, orgMembers, organizations, payments, promoCodes } from '@/lib/db/schema';
+import { examCenters, organizations, orgMembers, payments, promoCodes } from '@/lib/db/schema';
 
 async function getCurrentUser() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -58,7 +58,11 @@ export async function getOnboardingStatus() {
     });
 
     const needsExamSetup =
-      !examCenter || !examCenter.code || !examCenter.season || !examCenter.examYear || !examCenter.distCenterCode;
+      !examCenter ||
+      !examCenter.code ||
+      !examCenter.season ||
+      !examCenter.examYear ||
+      !examCenter.distCenterCode;
 
     if (needsExamSetup) {
       return {
@@ -306,7 +310,7 @@ export async function downgradeSubscription(planId: string) {
   try {
     const { orgId } = await getCurrentOrg();
 
-    const plan = pricingPlans.find(p => p.id === planId);
+    const plan = pricingPlans.find((p) => p.id === planId);
     if (!plan) {
       return { success: false, error: 'Invalid plan' };
     }

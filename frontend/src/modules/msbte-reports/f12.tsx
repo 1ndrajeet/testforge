@@ -1,8 +1,9 @@
 // modules/formats/format12.tsx
 'use client';
 
-import ReportLayout from '@/components/layout/msbte-report-layout';
 import { useUserInfo } from '@/hooks/useUserInfo';
+
+import ReportLayout from '@/components/layout/msbte-report-layout';
 
 // ============================================================
 // Format 12 Content Component - STATIC TEMPLATE
@@ -14,7 +15,9 @@ function Format12Content({ examCenter }: { examCenter: any }) {
       {/* Title */}
       <div className="text-center">
         <h2 className="text-lg font-bold underline">FORMAT NO. 12</h2>
-        <p className="mt-1 text-base font-medium">Format of certificate to be given by External examiner</p>
+        <p className="mt-1 text-base font-medium">
+          Format of certificate to be given by External examiner
+        </p>
       </div>
 
       {/* Main Content */}
@@ -35,14 +38,18 @@ function Format12Content({ examCenter }: { examCenter: any }) {
         {/* Subject Name */}
         <div className="flex items-center gap-2">
           <span className="font-medium whitespace-nowrap">Name of the subject:</span>
-          <span className="flex-1 border-b border-black px-2">________________________________________________</span>
+          <span className="flex-1 border-b border-black px-2">
+            ________________________________________________
+          </span>
           <span className="text-sm text-neutral-500">(practical / oral / term-work)</span>
         </div>
 
         {/* Course and Semester */}
         <div className="flex items-center gap-2">
           <span className="font-medium whitespace-nowrap">Course:</span>
-          <span className="flex-1 border-b border-black px-2">________________________________________________</span>
+          <span className="flex-1 border-b border-black px-2">
+            ________________________________________________
+          </span>
           <span className="font-medium whitespace-nowrap">Year/Semester</span>
           <span className="w-24 border-b border-black px-2">_____________</span>
         </div>
@@ -58,23 +65,35 @@ function Format12Content({ examCenter }: { examCenter: any }) {
         {/* Declaration */}
         <div className="mt-4 space-y-2">
           <p>
-            I have prepared and checked the marks as per CIAAN format and verified that marks correctly entered in the
-            e-marks sheet by examiner. Internal examiner and I have put full signature/s on printout of e-mark sheet.
+            I have prepared and checked the marks as per CIAAN format and verified that marks
+            correctly entered in the e-marks sheet by examiner. Internal examiner and I have put
+            full signature/s on printout of e-mark sheet.
           </p>
         </div>
 
         {/* Comments Section */}
         <div className="mt-4">
           <p className="font-medium">
-            I offer my specific comments about laboratory facility, equipment etc. available in this Institute as under:
+            I offer my specific comments about laboratory facility, equipment etc. available in this
+            Institute as under:
           </p>
-          <p className="mt-1 text-xs text-neutral-500">(Specific and objective remarks are expected.)</p>
+          <p className="mt-1 text-xs text-neutral-500">
+            (Specific and objective remarks are expected.)
+          </p>
           <div className="mt-3 min-h-[120px] rounded-lg border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-900/50">
             <p className="text-neutral-400">_________________________________________________</p>
-            <p className="mt-2 text-neutral-400">_________________________________________________</p>
-            <p className="mt-2 text-neutral-400">_________________________________________________</p>
-            <p className="mt-2 text-neutral-400">_________________________________________________</p>
-            <p className="mt-2 text-neutral-400">_________________________________________________</p>
+            <p className="mt-2 text-neutral-400">
+              _________________________________________________
+            </p>
+            <p className="mt-2 text-neutral-400">
+              _________________________________________________
+            </p>
+            <p className="mt-2 text-neutral-400">
+              _________________________________________________
+            </p>
+            <p className="mt-2 text-neutral-400">
+              _________________________________________________
+            </p>
           </div>
         </div>
 
@@ -102,8 +121,8 @@ function Format12Content({ examCenter }: { examCenter: any }) {
         {/* Footer Note */}
         <div className="mt-4 text-xs text-neutral-500">
           <p>
-            Note: This certificate should be submitted to the examination department after completion of
-            practical/oral/term-work examination.
+            Note: This certificate should be submitted to the examination department after
+            completion of practical/oral/term-work examination.
           </p>
         </div>
       </div>

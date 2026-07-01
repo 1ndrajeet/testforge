@@ -1,4 +1,5 @@
 // modules/testforge-reports/subject-allocation.tsx
+
 'use client';
 
 import { ReactNode, useEffect, useState } from 'react';
@@ -6,14 +7,24 @@ import { ReactNode, useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { AlertCircle } from 'lucide-react';
 
-import { MultiPageReport, ReportPageData } from '@/components/layout/testforge-report-layout';
-import { SessionSelector } from '@/components/shared/date-selector';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useUserInfo } from '@/hooks/useUserInfo';
 import { getAllocationsByDateSession } from '@/lib/actions/allocation';
 import { getTimetableEntries } from '@/lib/actions/timetable';
 import { cn } from '@/lib/utils';
+
+import { useUserInfo } from '@/hooks/useUserInfo';
+
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
+
+import { MultiPageReport, ReportPageData } from '@/components/layout/testforge-report-layout';
+
+import { SessionSelector } from '@/components/shared/date-selector';
+
+// ============================================================
+// Constants
+// ============================================================
+
+const MAX_ROWS_PER_PAGE = 15;
 
 // ============================================================
 // Types
@@ -37,23 +48,21 @@ interface SubjectGroup {
 
 interface SubjectAllocationPageData extends ReportPageData {
   groups: SubjectGroup[];
+  pageNumber: number;
+  totalPages: number;
 }
 
 // ============================================================
-// Render Function - Table
-// ============================================================
-
-// Render Function - Table
+// Render Function
 // ============================================================
 
 const renderSubjectAllocationTable = (pageData: SubjectAllocationPageData) => {
-  const { groups } = pageData;
+  const { groups, pageNumber, totalPages } = pageData;
   const totalBlocks = groups.reduce((sum, g) => sum + g.rows.length, 0);
   const totalStudents = groups.reduce((sum, g) => sum + g.totalStudents, 0);
 
   return (
     <div className="flex h-full flex-col">
-      {/* Table */}
       <div className="flex-1 overflow-hidden">
         <table className="w-full border-collapse text-xs">
           <thead>
@@ -76,7 +85,7 @@ const renderSubjectAllocationTable = (pageData: SubjectAllocationPageData) => {
             </tr>
           </thead>
           <tbody>
-            {groups.map(group => {
+            {groups.map((group) => {
               const rowCount = group.rows.length;
 
               return group.rows.map((row, rowIndex) => {
@@ -86,7 +95,10 @@ const renderSubjectAllocationTable = (pageData: SubjectAllocationPageData) => {
                 return (
                   <tr
                     key={`${group.subjectCode}-${rowIndex}`}
-                    className={cn('border-b border-neutral-200', isLast && 'border-b-2 border-neutral-300')}
+                    className={cn(
+                      'border-b border-neutral-200',
+                      isLast && 'border-b-2 border-neutral-300',
+                    )}
                   >
                     {isFirst && (
                       <td
@@ -98,12 +110,17 @@ const renderSubjectAllocationTable = (pageData: SubjectAllocationPageData) => {
                     )}
 
                     {isFirst && (
-                      <td rowSpan={rowCount} className="border border-neutral-300 px-3 py-2 align-middle">
+                      <td
+                        rowSpan={rowCount}
+                        className="border border-neutral-300 px-3 py-2 align-middle"
+                      >
                         {group.subjectName}
                       </td>
                     )}
 
-                    <td className="border border-neutral-300 px-3 py-2 text-center font-mono text-xs">{row.blockNo}</td>
+                    <td className="border border-neutral-300 px-3 py-2 text-center font-mono text-xs">
+                      {row.blockNo}
+                    </td>
 
                     <td className="border border-neutral-300 px-3 py-2">{row.location}</td>
 
@@ -117,10 +134,12 @@ const renderSubjectAllocationTable = (pageData: SubjectAllocationPageData) => {
               });
             })}
           </tbody>
-          {/* GRAND TOTAL ROW */}
           <tfoot>
             <tr className="border-t-2 border-neutral-400 bg-neutral-100">
-              <td colSpan={3} className="border border-neutral-300 px-3 py-2 text-right font-bold text-neutral-800">
+              <td
+                colSpan={3}
+                className="border border-neutral-300 px-3 py-2 text-right font-bold text-neutral-800"
+              >
                 GRAND TOTAL
               </td>
               <td className="border border-neutral-300 px-3 py-2 text-center font-mono text-xs text-neutral-600">
@@ -133,6 +152,17 @@ const renderSubjectAllocationTable = (pageData: SubjectAllocationPageData) => {
           </tfoot>
         </table>
       </div>
+
+      {totalPages > 1 && (
+        <div className="mt-2 border-t border-black pt-1 text-[10px]">
+          <div className="flex justify-between">
+            <span className="font-medium">Subject Allocation</span>
+            <span>
+              Page {pageNumber} of {totalPages}
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -213,9 +243,11 @@ export default function SubjectAllocationReport() {
         group.totalStudents += students;
       });
 
-      const sortedGroups = Array.from(subjectMap.values()).sort((a, b) => a.subjectCode.localeCompare(b.subjectCode));
+      const sortedGroups = Array.from(subjectMap.values()).sort((a, b) =>
+        a.subjectCode.localeCompare(b.subjectCode),
+      );
 
-      sortedGroups.forEach(group => {
+      sortedGroups.forEach((group) => {
         group.rows.sort((a, b) => {
           const aNum = parseInt(a.blockNo) || 0;
           const bNum = parseInt(b.blockNo) || 0;
@@ -234,7 +266,10 @@ export default function SubjectAllocationReport() {
     }
   };
 
-  const handleSessionSelect = async (session: { date: string; session: 'Morning' | 'Afternoon' | 'All' }) => {
+  const handleSessionSelect = async (session: {
+    date: string;
+    session: 'Morning' | 'Afternoon' | 'All';
+  }) => {
     setSelectedDate(session.date);
     setSelectedSession(session.session);
     await fetchData(session.date, session.session);
@@ -246,41 +281,32 @@ export default function SubjectAllocationReport() {
     setError(null);
   };
 
-  // Build pages
+  // Build pages - ✅ Count ACTUAL rows (each row is a TR)
   const buildPages = (): SubjectAllocationPageData[] => {
-    const MAX_ROWS_PER_PAGE = 40;
-
     if (groups.length === 0) return [];
 
+    // Count total actual rows (each row is 1)
     const totalRows = groups.reduce((sum, g) => sum + g.rows.length, 0);
-
-    if (totalRows <= MAX_ROWS_PER_PAGE) {
-      return [
-        {
-          id: 'subject-allocation',
-          groups: groups,
-          metadata: {
-            Subjects: groups.length,
-            Blocks: totalRows,
-            Students: groups.reduce((sum, g) => sum + g.totalStudents, 0),
-          },
-        },
-      ];
-    }
 
     const pages: SubjectAllocationPageData[] = [];
     let currentGroups: SubjectGroup[] = [];
     let currentRowCount = 0;
+    let pageCounter = 0;
 
+    // ✅ Paginate by ACTUAL rows
     for (const group of groups) {
       const groupRowCount = group.rows.length;
 
+      // If adding this group would exceed max rows, save current page
       if (currentRowCount + groupRowCount > MAX_ROWS_PER_PAGE && currentGroups.length > 0) {
+        pageCounter++;
         pages.push({
-          id: `subject-allocation-${pages.length + 1}`,
+          id: `subject-allocation-${pageCounter}`,
           groups: [...currentGroups],
+          pageNumber: pageCounter,
+          totalPages: 0, // Will be updated after all pages are built
           metadata: {
-            Page: pages.length + 1,
+            Page: pageCounter,
             Subjects: currentGroups.length,
             Blocks: currentRowCount,
             Students: currentGroups.reduce((sum, g) => sum + g.totalStudents, 0),
@@ -294,12 +320,16 @@ export default function SubjectAllocationReport() {
       currentRowCount += groupRowCount;
     }
 
+    // Add last page
     if (currentGroups.length > 0) {
+      pageCounter++;
       pages.push({
-        id: `subject-allocation-${pages.length + 1}`,
+        id: `subject-allocation-${pageCounter}`,
         groups: [...currentGroups],
+        pageNumber: pageCounter,
+        totalPages: 0,
         metadata: {
-          Page: pages.length + 1,
+          Page: pageCounter,
           Subjects: currentGroups.length,
           Blocks: currentRowCount,
           Students: currentGroups.reduce((sum, g) => sum + g.totalStudents, 0),
@@ -307,10 +337,17 @@ export default function SubjectAllocationReport() {
       });
     }
 
+    // Update totalPages for all pages
+    const totalPages = pages.length;
+    pages.forEach((page) => {
+      page.totalPages = totalPages;
+    });
+
     return pages;
   };
 
   const pages = buildPages();
+  const firstPage = pages[0];
 
   // Loading
   if (loadingDates || userLoading) {
@@ -341,7 +378,10 @@ export default function SubjectAllocationReport() {
             compact
           />
           {!dates.length && !error && (
-            <Alert variant="default" className="border-amber-200 bg-amber-50">
+            <Alert
+              variant="default"
+              className="border-amber-200 bg-amber-50"
+            >
               <AlertCircle className="h-4 w-4 text-amber-600" />
               <AlertDescription>Upload timetable first.</AlertDescription>
             </Alert>
@@ -368,9 +408,9 @@ export default function SubjectAllocationReport() {
             date: selectedDate ? new Date(selectedDate) : new Date(),
           },
           headerFields: {
-            Subjects: String(groups.length),
-            Blocks: String(groups.reduce((sum, g) => sum + g.rows.length, 0)),
-            Students: String(groups.reduce((sum, g) => sum + g.totalStudents, 0)),
+            'Total Subjects': String(firstPage?.metadata?.Subjects || 0),
+            'Total Blocks': String(firstPage?.metadata?.Blocks || 0),
+            'Total Students': String(firstPage?.metadata?.Students || 0),
           },
         }}
         footer={{

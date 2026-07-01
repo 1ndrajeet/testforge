@@ -39,7 +39,9 @@ export function FormSection({ title, children, className }: FormSectionProps) {
     <div className={cn('space-y-4', className)}>
       {title && (
         <div className="border-b border-neutral-100 pb-2 dark:border-neutral-800">
-          <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">{title}</h3>
+          <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
+            {title}
+          </h3>
         </div>
       )}
       <div className="space-y-4">{children}</div>
@@ -70,7 +72,7 @@ export function FormActions({
     <div
       className={cn(
         'mt-6 flex items-center justify-end gap-3 border-t border-neutral-100 pt-6 dark:border-neutral-800',
-        className
+        className,
       )}
     >
       {children}
@@ -97,7 +99,14 @@ export function FormActions({
               fill="none"
               viewBox="0 0 24 24"
             >
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
               <path
                 className="opacity-75"
                 fill="currentColor"

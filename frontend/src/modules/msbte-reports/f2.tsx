@@ -6,11 +6,15 @@ import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { AlertCircle, Loader2 } from 'lucide-react';
 
-import ReportLayout from '@/components/layout/msbte-report-layout';
-import { SessionSelector } from '@/components/shared/date-selector';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { useUserInfo } from '@/hooks/useUserInfo';
 import { getAvailableInventoryDates, getQPInventory } from '@/lib/actions/inventory';
+
+import { useUserInfo } from '@/hooks/useUserInfo';
+
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+
+import ReportLayout from '@/components/layout/msbte-report-layout';
+
+import { SessionSelector } from '@/components/shared/date-selector';
 
 interface ExamRecord {
   id: string;
@@ -24,11 +28,19 @@ interface ExamRecord {
   day: number | null;
 }
 
-function Format2Content({ data, ecCode, distCode }: { data: ExamRecord[]; ecCode: string; distCode: string }) {
+function Format2Content({
+  data,
+  ecCode,
+  distCode,
+}: {
+  data: ExamRecord[];
+  ecCode: string;
+  distCode: string;
+}) {
   if (!data.length) return null;
 
-  const morningRecords = data.filter(r => r.session === 'Morning');
-  const afternoonRecords = data.filter(r => r.session === 'Afternoon');
+  const morningRecords = data.filter((r) => r.session === 'Morning');
+  const afternoonRecords = data.filter((r) => r.session === 'Afternoon');
 
   const morningPackets = morningRecords.reduce((sum, r) => sum + r.receivedPackets, 0);
   const afternoonPackets = afternoonRecords.reduce((sum, r) => sum + r.receivedPackets, 0);
@@ -66,12 +78,18 @@ function Format2Content({ data, ecCode, distCode }: { data: ExamRecord[]; ecCode
       <table className="mb-4 w-full table-fixed border-collapse border border-black text-sm">
         <thead>
           <tr>
-            <th className="w-[16%] border border-black p-1.5 text-center font-bold">Exam Centre Code</th>
+            <th className="w-[16%] border border-black p-1.5 text-center font-bold">
+              Exam Centre Code
+            </th>
             <th className="w-[12%] border border-black p-1.5 text-center font-bold">Day</th>
             <th className="w-[16%] border border-black p-1.5 text-center font-bold">Date</th>
             <th className="w-[12%] border border-black p-1.5 text-center font-bold">Session</th>
-            <th className="w-[29%] border border-black p-1.5 text-center font-bold">Bundle details</th>
-            <th className="w-[15%] border border-black p-1.5 text-center font-bold">Total bundles</th>
+            <th className="w-[29%] border border-black p-1.5 text-center font-bold">
+              Bundle details
+            </th>
+            <th className="w-[15%] border border-black p-1.5 text-center font-bold">
+              Total bundles
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -83,7 +101,9 @@ function Format2Content({ data, ecCode, distCode }: { data: ExamRecord[]; ecCode
             <td className="border border-black p-1.5 text-center">
               {hasMorning ? `One bundle for morning session` : '—'}
             </td>
-            <td className="border border-black p-1.5 text-center font-medium">{hasMorning ? '1' : '0'}</td>
+            <td className="border border-black p-1.5 text-center font-medium">
+              {hasMorning ? '1' : '0'}
+            </td>
           </tr>
           <tr>
             <td className="border border-black p-1.5 text-center font-medium">{ecCode}</td>
@@ -93,11 +113,16 @@ function Format2Content({ data, ecCode, distCode }: { data: ExamRecord[]; ecCode
             <td className="border border-black p-1.5 text-center">
               {hasAfternoon ? `One bundle for afternoon session` : '—'}
             </td>
-            <td className="border border-black p-1.5 text-center font-medium">{hasAfternoon ? '1' : '0'}</td>
+            <td className="border border-black p-1.5 text-center font-medium">
+              {hasAfternoon ? '1' : '0'}
+            </td>
           </tr>
           {hasMorning && hasAfternoon && (
             <tr className="font-semibold">
-              <td colSpan={5} className="border border-black p-1.5 pr-4 text-right">
+              <td
+                colSpan={5}
+                className="border border-black p-1.5 pr-4 text-right"
+              >
                 Total:
               </td>
               <td className="border border-black p-1.5 text-center">2</td>
@@ -188,15 +213,18 @@ export default function Format2Report() {
           hideSession
           onSessionSelect={handleSelect}
           defaultDate={selectedDate}
+          compact
           defaultSession="Morning"
           isLoading={loading}
           error={error}
           title="Format 2 - QP Receipt (Controller to DC)"
           description={availableDates.length ? 'Select a date' : 'No inventory data'}
-          compact={false}
         />
         {!availableDates.length && !error && (
-          <Alert variant="default" className="border-amber-200 bg-amber-50">
+          <Alert
+            variant="default"
+            className="border-amber-200 bg-amber-50"
+          >
             <AlertCircle className="h-4 w-4 text-amber-600" />
             <AlertTitle>No Data</AlertTitle>
             <AlertDescription>Upload inventory data first.</AlertDescription>
@@ -222,7 +250,11 @@ export default function Format2Report() {
       documentTitle="Format_2_Report"
       bordered
     >
-      <Format2Content data={data} ecCode={examCenter?.code || ''} distCode={examCenter?.distCenterCode || ''} />
+      <Format2Content
+        data={data}
+        ecCode={examCenter?.code || ''}
+        distCode={examCenter?.distCenterCode || ''}
+      />
     </ReportLayout>
   );
 }

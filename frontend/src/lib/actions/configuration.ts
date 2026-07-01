@@ -135,28 +135,29 @@ export async function getExamStatistics() {
     }
 
     // Get various counts in parallel
-    const [staffCount, studentCount, timetableCount, allocationCount, orderCount] = await Promise.all([
-      db
-        .select({ count: sql<number>`count(*)` })
-        .from(staff)
-        .where(eq(staff.examCenterId, examCenterId)),
-      db
-        .select({ count: sql<number>`count(*)` })
-        .from(students)
-        .where(eq(students.examCenterId, examCenterId)),
-      db
-        .select({ count: sql<number>`count(*)` })
-        .from(timetable)
-        .where(eq(timetable.examCenterId, examCenterId)),
-      db
-        .select({ count: sql<number>`count(*)` })
-        .from(blockAllocations)
-        .where(eq(blockAllocations.examCenterId, examCenterId)),
-      db
-        .select({ count: sql<number>`count(*)` })
-        .from(orders)
-        .where(eq(orders.examCenterId, examCenterId)),
-    ]);
+    const [staffCount, studentCount, timetableCount, allocationCount, orderCount] =
+      await Promise.all([
+        db
+          .select({ count: sql<number>`count(*)` })
+          .from(staff)
+          .where(eq(staff.examCenterId, examCenterId)),
+        db
+          .select({ count: sql<number>`count(*)` })
+          .from(students)
+          .where(eq(students.examCenterId, examCenterId)),
+        db
+          .select({ count: sql<number>`count(*)` })
+          .from(timetable)
+          .where(eq(timetable.examCenterId, examCenterId)),
+        db
+          .select({ count: sql<number>`count(*)` })
+          .from(blockAllocations)
+          .where(eq(blockAllocations.examCenterId, examCenterId)),
+        db
+          .select({ count: sql<number>`count(*)` })
+          .from(orders)
+          .where(eq(orders.examCenterId, examCenterId)),
+      ]);
 
     const stats = {
       staff: Number(staffCount[0]?.count || 0),

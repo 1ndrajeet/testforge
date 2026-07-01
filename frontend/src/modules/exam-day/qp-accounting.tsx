@@ -19,8 +19,17 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { MSBTEContextBar } from '@/components/layout/msbte-context-bar';
-import { PageHeader, PageToolbar } from '@/components/layout/page-layout';
+import {
+  bulkUpdateQPInventory,
+  generateQPInventoryFromTimetable,
+  getQPInventory,
+  type QPInventoryRecord,
+  type QPInventoryStats,
+} from '@/lib/actions/inventory';
+import { cn } from '@/lib/utils';
+
+import { useUserInfo } from '@/hooks/useUserInfo';
+
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -35,27 +44,37 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useUserInfo } from '@/hooks/useUserInfo';
 import {
-  type QPInventoryRecord,
-  type QPInventoryStats,
-  bulkUpdateQPInventory,
-  generateQPInventoryFromTimetable,
-  getQPInventory,
-} from '@/lib/actions/inventory';
-import { cn } from '@/lib/utils';
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+
+import { MSBTEContextBar } from '@/components/layout/msbte-context-bar';
+import { PageHeader, PageToolbar } from '@/components/layout/page-layout';
 
 // ============================================================================
 // Stats Cards Component
 // ============================================================================
 
-const StatsCards = ({ stats, isLoading }: { stats: QPInventoryStats | null; isLoading: boolean }) => {
+const StatsCards = ({
+  stats,
+  isLoading,
+}: {
+  stats: QPInventoryStats | null;
+  isLoading: boolean;
+}) => {
   if (isLoading) {
     return (
       <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-5">
         {Array.from({ length: 5 }).map((_, i) => (
-          <Skeleton key={i} className="h-24 w-full rounded-lg" />
+          <Skeleton
+            key={i}
+            className="h-24 w-full rounded-lg"
+          />
         ))}
       </div>
     );
@@ -66,7 +85,9 @@ const StatsCards = ({ stats, isLoading }: { stats: QPInventoryStats | null; isLo
   return (
     <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-5">
       <div className="rounded-lg border border-neutral-100 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
-        <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">{stats.totalSubjects}</p>
+        <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
+          {stats.totalSubjects}
+        </p>
         <p className="text-xs text-neutral-500">Subjects</p>
       </div>
       <div className="rounded-lg border border-neutral-100 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
@@ -92,7 +113,9 @@ const StatsCards = ({ stats, isLoading }: { stats: QPInventoryStats | null; isLo
         <p className="text-xs text-neutral-500">Packet Discrepancy</p>
       </div>
       <div className="rounded-lg border border-neutral-100 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
-        <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">{stats.completionRate}%</p>
+        <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
+          {stats.completionRate}%
+        </p>
         <p className="text-xs text-neutral-500">Completion Rate</p>
       </div>
     </div>
@@ -110,14 +133,22 @@ interface QPInventoryTableProps {
   readOnly?: boolean;
 }
 
-const QPInventoryTable = ({ records, isLoading, onUpdate, readOnly = false }: QPInventoryTableProps) => {
+const QPInventoryTable = ({
+  records,
+  isLoading,
+  onUpdate,
+  readOnly = false,
+}: QPInventoryTableProps) => {
   const [searchTerm, setSearchTerm] = useState('');
 
   if (isLoading) {
     return (
       <div className="space-y-2">
         {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-12 w-full" />
+          <Skeleton
+            key={i}
+            className="h-12 w-full"
+          />
         ))}
       </div>
     );
@@ -127,16 +158,18 @@ const QPInventoryTable = ({ records, isLoading, onUpdate, readOnly = false }: QP
     return (
       <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-neutral-200 bg-gradient-to-b from-neutral-50 to-white py-16 dark:border-neutral-800 dark:from-neutral-900/50 dark:to-neutral-950">
         <Package className="mb-4 h-16 w-16 text-neutral-300 dark:text-neutral-700" />
-        <h3 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">No Inventory Records</h3>
+        <h3 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
+          No Inventory Records
+        </h3>
         <p className="mt-2 text-sm text-neutral-500">Select a date to fetch QP inventory data.</p>
       </div>
     );
   }
 
   const filteredRecords = records.filter(
-    record =>
+    (record) =>
       record.subjectCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.subjectName.toLowerCase().includes(searchTerm.toLowerCase())
+      record.subjectName.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   return (
@@ -146,7 +179,7 @@ const QPInventoryTable = ({ records, isLoading, onUpdate, readOnly = false }: QP
         <Input
           type="text"
           value={searchTerm}
-          onChange={e => setSearchTerm(e.target.value)}
+          onChange={(e) => setSearchTerm(e.target.value)}
           placeholder="Search subjects..."
           className="h-9 pl-9 text-sm"
         />
@@ -157,12 +190,24 @@ const QPInventoryTable = ({ records, isLoading, onUpdate, readOnly = false }: QP
           <Table>
             <TableHeader className="bg-gradient-to-r from-neutral-50 to-neutral-100 dark:from-neutral-900 dark:to-neutral-900/80">
               <TableRow>
-                <TableHead className="text-xs font-semibold tracking-wide uppercase">Date</TableHead>
-                <TableHead className="text-xs font-semibold tracking-wide uppercase">Session</TableHead>
-                <TableHead className="text-xs font-semibold tracking-wide uppercase">Subject Code</TableHead>
-                <TableHead className="text-xs font-semibold tracking-wide uppercase">Subject Name</TableHead>
-                <TableHead className="text-xs font-semibold tracking-wide uppercase">Scheme</TableHead>
-                <TableHead className="text-right text-xs font-semibold tracking-wide uppercase">Expected</TableHead>
+                <TableHead className="text-xs font-semibold tracking-wide uppercase">
+                  Date
+                </TableHead>
+                <TableHead className="text-xs font-semibold tracking-wide uppercase">
+                  Session
+                </TableHead>
+                <TableHead className="text-xs font-semibold tracking-wide uppercase">
+                  Subject Code
+                </TableHead>
+                <TableHead className="text-xs font-semibold tracking-wide uppercase">
+                  Subject Name
+                </TableHead>
+                <TableHead className="text-xs font-semibold tracking-wide uppercase">
+                  Scheme
+                </TableHead>
+                <TableHead className="text-right text-xs font-semibold tracking-wide uppercase">
+                  Expected
+                </TableHead>
                 <TableHead className="text-right text-xs font-semibold tracking-wide uppercase">
                   Expected Packets
                 </TableHead>
@@ -172,7 +217,9 @@ const QPInventoryTable = ({ records, isLoading, onUpdate, readOnly = false }: QP
                 <TableHead className="text-right text-xs font-semibold tracking-wide uppercase">
                   QP Per Packet
                 </TableHead>
-                <TableHead className="text-right text-xs font-semibold tracking-wide uppercase">Status</TableHead>
+                <TableHead className="text-right text-xs font-semibold tracking-wide uppercase">
+                  Status
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -186,7 +233,9 @@ const QPInventoryTable = ({ records, isLoading, onUpdate, readOnly = false }: QP
                     className={cn(
                       'transition-colors',
                       isDiscrepancy ? 'bg-amber-50/50 dark:bg-amber-950/20' : '',
-                      record.session === 'Afternoon' ? 'border-t border-neutral-200 dark:border-neutral-800' : ''
+                      record.session === 'Afternoon'
+                        ? 'border-t border-neutral-200 dark:border-neutral-800'
+                        : '',
                     )}
                   >
                     <TableCell className="px-4 py-3 font-mono text-sm">
@@ -199,25 +248,31 @@ const QPInventoryTable = ({ records, isLoading, onUpdate, readOnly = false }: QP
                           'text-xs',
                           record.session === 'Morning'
                             ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400'
-                            : 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-400'
+                            : 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-400',
                         )}
                       >
                         {record.session}
                       </Badge>
                     </TableCell>
-                    <TableCell className="px-4 py-3 font-mono text-sm font-medium">{record.subjectCode}</TableCell>
+                    <TableCell className="px-4 py-3 font-mono text-sm font-medium">
+                      {record.subjectCode}
+                    </TableCell>
                     <TableCell className="px-4 py-3 text-sm">{record.subjectName}</TableCell>
                     <TableCell className="px-4 py-3 font-mono text-sm">{record.scheme}</TableCell>
                     <TableCell className="px-4 py-3 text-right font-mono text-sm">
                       {record.expectedStudents.toLocaleString()}
                     </TableCell>
-                    <TableCell className="px-4 py-3 text-right font-mono text-sm">{record.expectedPackets}</TableCell>
+                    <TableCell className="px-4 py-3 text-right font-mono text-sm">
+                      {record.expectedPackets}
+                    </TableCell>
                     <TableCell className="px-4 py-3 text-right">
                       {readOnly ? (
                         <span
                           className={cn(
                             'font-mono text-sm',
-                            isDiscrepancy ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600'
+                            isDiscrepancy
+                              ? 'text-amber-600 dark:text-amber-400'
+                              : 'text-emerald-600',
                           )}
                         >
                           {record.receivedPackets}
@@ -227,12 +282,14 @@ const QPInventoryTable = ({ records, isLoading, onUpdate, readOnly = false }: QP
                           type="number"
                           min={0}
                           value={record.receivedPackets || ''}
-                          onChange={e => onUpdate(index, 'receivedPackets', Number(e.target.value))}
+                          onChange={(e) =>
+                            onUpdate(index, 'receivedPackets', Number(e.target.value))
+                          }
                           className={cn(
                             'h-8 w-20 text-center font-mono text-sm',
                             isDiscrepancy
                               ? 'border-amber-500 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30'
-                              : ''
+                              : '',
                           )}
                         />
                       )}
@@ -245,7 +302,7 @@ const QPInventoryTable = ({ records, isLoading, onUpdate, readOnly = false }: QP
                           type="number"
                           min={0}
                           value={record.qpPerPacket || ''}
-                          onChange={e => onUpdate(index, 'qpPerPacket', Number(e.target.value))}
+                          onChange={(e) => onUpdate(index, 'qpPerPacket', Number(e.target.value))}
                           className="h-8 w-20 text-center font-mono text-sm"
                         />
                       )}
@@ -315,11 +372,20 @@ interface ConfirmDialogProps {
   isSubmitting: boolean;
 }
 
-function ConfirmDialog({ open, onOpenChange, onConfirm, discrepancies, isSubmitting }: ConfirmDialogProps) {
+function ConfirmDialog({
+  open,
+  onOpenChange,
+  onConfirm,
+  discrepancies,
+  isSubmitting,
+}: ConfirmDialogProps) {
   const hasDiscrepancies = discrepancies.length > 0;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+    >
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -346,7 +412,10 @@ function ConfirmDialog({ open, onOpenChange, onConfirm, discrepancies, isSubmitt
           <div className="max-h-60 overflow-y-auto rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/20">
             <div className="space-y-1">
               {discrepancies.map((d, idx) => (
-                <div key={idx} className="flex items-center justify-between text-sm">
+                <div
+                  key={idx}
+                  className="flex items-center justify-between text-sm"
+                >
                   <span className="font-mono">{d.subjectCode}</span>
                   <span className="text-amber-600 dark:text-amber-400">
                     Expected: {d.expected}, Received: {d.received}
@@ -366,7 +435,10 @@ function ConfirmDialog({ open, onOpenChange, onConfirm, discrepancies, isSubmitt
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+          >
             Cancel
           </Button>
           <Button
@@ -453,7 +525,8 @@ export default function QPAccountingPage() {
     }
 
     // Update status flags
-    updatedRecords[index].isComplete = updatedRecords[index].receivedPackets >= updatedRecords[index].expectedPackets;
+    updatedRecords[index].isComplete =
+      updatedRecords[index].receivedPackets >= updatedRecords[index].expectedPackets;
     updatedRecords[index].hasDiscrepancy =
       updatedRecords[index].expectedPackets !== updatedRecords[index].receivedPackets;
 
@@ -471,7 +544,7 @@ export default function QPAccountingPage() {
     try {
       const updateData = {
         date: new Date(selectedDate),
-        records: records.map(r => ({
+        records: records.map((r) => ({
           id: r.id,
           receivedPackets: r.receivedPackets,
           qpPerPacket: r.qpPerPacket,
@@ -485,7 +558,7 @@ export default function QPAccountingPage() {
         await fetchInventory();
       } else {
         const errorMessage = Array.isArray(result.error)
-          ? result.error.map(issue => issue.message).join(', ')
+          ? result.error.map((issue) => issue.message).join(', ')
           : result.error || 'Failed to submit inventory';
 
         toast.error(errorMessage);
@@ -516,7 +589,7 @@ export default function QPAccountingPage() {
       'QP Per Packet',
       'Status',
     ];
-    const rows = records.map(r => [
+    const rows = records.map((r) => [
       format(new Date(r.date), 'dd/MM/yyyy'),
       r.session,
       r.subjectCode,
@@ -529,7 +602,9 @@ export default function QPAccountingPage() {
       r.isComplete ? 'Complete' : r.hasDiscrepancy ? 'Discrepancy' : 'Pending',
     ]);
 
-    const csv = [headers, ...rows].map(row => row.map(cell => `"${cell ?? ''}"`).join(',')).join('\n');
+    const csv = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${cell ?? ''}"`).join(','))
+      .join('\n');
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -567,7 +642,7 @@ export default function QPAccountingPage() {
     }
   };
 
-  const discrepancies = records.filter(r => r.expectedPackets !== r.receivedPackets);
+  const discrepancies = records.filter((r) => r.expectedPackets !== r.receivedPackets);
   const hasDiscrepancies = discrepancies.length > 0;
 
   const toolbarActions = [
@@ -664,19 +739,23 @@ export default function QPAccountingPage() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-end sm:gap-4">
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium tracking-wide text-neutral-500 uppercase">Examination Date</Label>
+                <Label className="text-xs font-medium tracking-wide text-neutral-500 uppercase">
+                  Examination Date
+                </Label>
                 <Input
                   type="date"
                   value={selectedDate}
-                  onChange={e => setSelectedDate(e.target.value)}
+                  onChange={(e) => setSelectedDate(e.target.value)}
                   className="h-9 w-48"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium tracking-wide text-neutral-500 uppercase">Session</Label>
+                <Label className="text-xs font-medium tracking-wide text-neutral-500 uppercase">
+                  Session
+                </Label>
                 <select
                   value={selectedSession}
-                  onChange={e => setSelectedSession(e.target.value)}
+                  onChange={(e) => setSelectedSession(e.target.value)}
                   className="h-9 rounded-md border border-neutral-200 bg-white px-3 text-sm dark:border-neutral-800 dark:bg-neutral-950"
                 >
                   <option value="">All Sessions</option>
@@ -684,8 +763,16 @@ export default function QPAccountingPage() {
                   <option value="Afternoon">Afternoon</option>
                 </select>
               </div>
-              <Button onClick={fetchInventory} disabled={loading} className="h-9 gap-1.5">
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Package className="h-4 w-4" />}
+              <Button
+                onClick={fetchInventory}
+                disabled={loading}
+                className="h-9 gap-1.5"
+              >
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Package className="h-4 w-4" />
+                )}
                 {loading ? 'Loading...' : 'Fetch Inventory'}
               </Button>
             </div>
@@ -697,7 +784,11 @@ export default function QPAccountingPage() {
                   disabled={loading || submitting || records.length === 0}
                   className="h-9 gap-1.5"
                 >
-                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  {submitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
                   {submitting ? 'Saving...' : 'Submit Inventory'}
                 </Button>
               </div>
@@ -707,13 +798,26 @@ export default function QPAccountingPage() {
       </Card>
 
       {/* Stats */}
-      <StatsCards stats={stats} isLoading={loading} />
+      <StatsCards
+        stats={stats}
+        isLoading={loading}
+      />
 
       {/* Toolbar */}
-      <PageToolbar actions={toolbarActions} searchValue="" onSearchChange={() => {}} searchPlaceholder="" />
+      <PageToolbar
+        actions={toolbarActions}
+        searchValue=""
+        onSearchChange={() => {}}
+        searchPlaceholder=""
+      />
 
       {/* Inventory Table */}
-      <QPInventoryTable records={records} isLoading={loading} onUpdate={handleUpdate} readOnly={!hasData} />
+      <QPInventoryTable
+        records={records}
+        isLoading={loading}
+        onUpdate={handleUpdate}
+        readOnly={!hasData}
+      />
 
       {/* Confirmation Dialog */}
       <ConfirmDialog
@@ -721,8 +825,8 @@ export default function QPAccountingPage() {
         onOpenChange={setShowConfirmDialog}
         onConfirm={handleConfirmSubmit}
         discrepancies={records
-          .filter(r => r.expectedPackets !== r.receivedPackets)
-          .map(r => ({
+          .filter((r) => r.expectedPackets !== r.receivedPackets)
+          .map((r) => ({
             subjectCode: r.subjectCode,
             expected: r.expectedPackets,
             received: r.receivedPackets,
@@ -735,8 +839,8 @@ export default function QPAccountingPage() {
         <div className="border-t border-neutral-200 pt-4 dark:border-neutral-800">
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-400">
             <span>
-              {records.length} records • {records.filter(r => r.isComplete).length} complete •{' '}
-              {records.filter(r => r.hasDiscrepancy).length} discrepancies
+              {records.length} records • {records.filter((r) => r.isComplete).length} complete •{' '}
+              {records.filter((r) => r.hasDiscrepancy).length} discrepancies
             </span>
             <span>Last updated: {format(new Date(), 'dd MMM yyyy, HH:mm:ss')}</span>
           </div>

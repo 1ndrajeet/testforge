@@ -1,8 +1,9 @@
 // modules/formats/format4.tsx
 'use client';
 
-import ReportLayout from '@/components/layout/msbte-report-layout';
 import { useUserInfo } from '@/hooks/useUserInfo';
+
+import ReportLayout from '@/components/layout/msbte-report-layout';
 
 function Format4Content({ examCenter }: { examCenter: any }) {
   return (
@@ -10,7 +11,8 @@ function Format4Content({ examCenter }: { examCenter: any }) {
       {/* Institute Info */}
       <div className="flex justify-between">
         <p>
-          <strong>Name of the Institute:</strong> {examCenter?.name || '____________________________'}
+          <strong>Name of the Institute:</strong>{' '}
+          {examCenter?.name || '____________________________'}
         </p>
         <p>
           <strong>Code of the Institute:</strong> {examCenter?.code || '___________'}
@@ -36,7 +38,8 @@ function Format4Content({ examCenter }: { examCenter: any }) {
         <div className="space-y-2">
           <div className="flex justify-between">
             <p>
-              <strong>Officer-In-Charge (Name):</strong> {examCenter?.officerIncharge || '____________________'}
+              <strong>Officer-In-Charge (Name):</strong>{' '}
+              {examCenter?.officerIncharge || '____________________'}
             </p>
             <p>
               <strong>Signature:</strong> ____________________

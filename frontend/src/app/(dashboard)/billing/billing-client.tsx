@@ -5,9 +5,9 @@ import { useEffect, useState } from 'react';
 
 import Script from 'next/script';
 
+import pricingPlans from '@/config/pricing.json';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  Infinity,
   AlertCircle,
   ArrowRight,
   Building2,
@@ -17,6 +17,7 @@ import {
   DollarSign,
   Gift,
   History,
+  Infinity,
   Loader2,
   Lock,
   RefreshCw,
@@ -28,11 +29,11 @@ import {
   Zap,
 } from 'lucide-react';
 
+import { cn } from '@/lib/utils';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import pricingPlans from '@/config/pricing.json';
-import { cn } from '@/lib/utils';
 
 // ============================================
 // Types
@@ -122,14 +123,17 @@ function PlanIcon({ planId, isPopular }: { planId: string; isPopular?: boolean }
   return (
     <div
       className={cn(
-        'mb-4 flex h-12 w-12 items-center justify-center rounded-xl transition-all',
+        'mb-4 flex h-12 w-12 items-center justify-center rounded-xl transition-colors',
         isPopular
-          ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-500/25'
-          : 'bg-neutral-100 group-hover:bg-emerald-50 dark:bg-neutral-800 dark:group-hover:bg-emerald-950/30'
+          ? 'bg-emerald-500'
+          : 'bg-neutral-100 group-hover:bg-emerald-50 dark:bg-neutral-800 dark:group-hover:bg-emerald-950/30',
       )}
     >
       <Icon
-        className={cn('h-6 w-6 transition-all', isPopular ? 'text-white' : 'text-emerald-600 dark:text-emerald-400')}
+        className={cn(
+          'h-6 w-6 transition-colors',
+          isPopular ? 'text-white' : 'text-emerald-600 dark:text-emerald-400',
+        )}
       />
     </div>
   );
@@ -142,8 +146,11 @@ function PlanIcon({ planId, isPopular }: { planId: string; isPopular?: boolean }
 function FeatureList({ features, className }: { features: string[]; className?: string }) {
   return (
     <ul className={cn('space-y-2.5', className)}>
-      {features.map(feature => (
-        <li key={feature} className="flex items-start gap-3 text-sm">
+      {features.map((feature) => (
+        <li
+          key={feature}
+          className="flex items-start gap-3 text-sm"
+        >
           <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-500" />
           <span className="text-neutral-600 dark:text-neutral-400">{feature}</span>
         </li>
@@ -181,39 +188,42 @@ function PricingCard({
         className={cn(
           'group flex h-full cursor-pointer flex-col rounded-2xl border bg-white p-6 transition-all duration-300 dark:bg-neutral-900',
           isSelected
-            ? 'border-emerald-500 shadow-xl ring-2 shadow-emerald-500/10 ring-emerald-500'
+            ? 'border-emerald-500 shadow-lg ring-2 ring-emerald-500'
             : isPopular
-              ? 'border-emerald-200 shadow-lg hover:shadow-xl dark:border-emerald-800'
-              : 'border-neutral-200 hover:border-emerald-200 hover:shadow-lg dark:border-neutral-800'
+              ? 'border-emerald-200 shadow-md hover:shadow-lg dark:border-emerald-800'
+              : 'border-neutral-200 hover:border-emerald-200 hover:shadow-md dark:border-neutral-800',
         )}
         onClick={() => onSelect(plan.id)}
       >
-        {/* Popular Badge */}
         {isPopular && (
           <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-            <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-emerald-500 to-emerald-600 px-3 py-1 text-xs font-medium text-white shadow-lg">
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500 px-3 py-1 text-xs font-medium text-white shadow-md">
               <Star className="h-3 w-3 fill-current" />
               Most Popular
             </span>
           </div>
         )}
 
-        {/* Offer Badge */}
         {plan.offer && (
           <div className="absolute top-3 right-0">
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500 px-3 py-1 text-xs font-medium text-white shadow-lg">
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500 px-3 py-1 text-xs font-medium text-white shadow-md">
               <Gift className="h-3 w-3" />
               Limited Offer
             </span>
           </div>
         )}
 
-        <PlanIcon planId={plan.id} isPopular={isPopular} />
+        <PlanIcon
+          planId={plan.id}
+          isPopular={isPopular}
+        />
 
         <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-100">{plan.title}</h3>
 
         <div className="mt-4 flex items-baseline gap-1">
-          <span className="text-4xl font-bold text-neutral-900 dark:text-neutral-100">{plan.price}</span>
+          <span className="text-4xl font-bold text-neutral-900 dark:text-neutral-100">
+            {plan.price}
+          </span>
           <span className="text-sm text-neutral-500">/{plan.period}</span>
         </div>
 
@@ -228,9 +238,13 @@ function PricingCard({
 
         {plan.highlight && (
           <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/20">
-            <p className="text-xs font-medium text-amber-700 dark:text-amber-400">{plan.highlight}</p>
+            <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
+              {plan.highlight}
+            </p>
             {plan.highlightDetail && (
-              <p className="mt-0.5 text-xs text-amber-600 dark:text-amber-500">{plan.highlightDetail}</p>
+              <p className="mt-0.5 text-xs text-amber-600 dark:text-amber-500">
+                {plan.highlightDetail}
+              </p>
             )}
           </div>
         )}
@@ -242,17 +256,17 @@ function PricingCard({
         </div>
 
         <Button
-          onClick={e => {
+          onClick={(e) => {
             e.stopPropagation();
             onSelect(plan.id);
           }}
           disabled={isLoading}
           variant={isSelected ? 'default' : 'outline'}
           className={cn(
-            'mt-6 w-full transition-all',
+            'mt-6 w-full transition-colors',
             isSelected
-              ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/25 hover:from-emerald-600 hover:to-emerald-700'
-              : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-950/30'
+              ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+              : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-950/30',
           )}
         >
           {isLoading ? (
@@ -310,7 +324,9 @@ function CurrentPlanCard({
   const expiresAt = subscription.expiresAt;
   const isExpired = expiresAt ? new Date(expiresAt) < new Date() : false;
   const daysRemaining =
-    expiresAt && !isExpired ? Math.ceil((new Date(expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 0;
+    expiresAt && !isExpired
+      ? Math.ceil((new Date(expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+      : 0;
 
   const getPlanConfig = () => {
     switch (tier) {
@@ -323,7 +339,6 @@ function CurrentPlanCard({
           iconBg: 'bg-amber-100 dark:bg-amber-950/30',
           iconColor: 'text-amber-600',
           badgeColor: 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400',
-          statusColor: 'text-amber-600',
         };
       case 'premium':
         return {
@@ -333,8 +348,8 @@ function CurrentPlanCard({
           bgGradient: 'from-emerald-500/10 to-emerald-600/5',
           iconBg: 'bg-emerald-100 dark:bg-emerald-950/30',
           iconColor: 'text-emerald-600',
-          badgeColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400',
-          statusColor: 'text-emerald-600',
+          badgeColor:
+            'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400',
         };
       case 'trial':
         return {
@@ -345,7 +360,6 @@ function CurrentPlanCard({
           iconBg: 'bg-blue-100 dark:bg-blue-950/30',
           iconColor: 'text-blue-600',
           badgeColor: 'bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400',
-          statusColor: 'text-blue-600',
         };
       default:
         return {
@@ -356,27 +370,39 @@ function CurrentPlanCard({
           iconBg: 'bg-neutral-100 dark:bg-neutral-800',
           iconColor: 'text-neutral-600',
           badgeColor: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-400',
-          statusColor: 'text-neutral-600',
         };
     }
   };
 
   const planConfig = getPlanConfig();
   const Icon = planConfig.icon;
-  const isActivePlan = tier === 'premium' || tier === 'enterprise' || (tier === 'trial' && !isExpired);
+  const isActivePlan =
+    tier === 'premium' || tier === 'enterprise' || (tier === 'trial' && !isExpired);
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+    >
       <Card className="overflow-hidden border-0 shadow-lg">
         <div className={cn('bg-gradient-to-r p-6', planConfig.bgGradient)}>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className={cn('flex h-12 w-12 items-center justify-center rounded-xl', planConfig.iconBg)}>
+              <div
+                className={cn(
+                  'flex h-12 w-12 items-center justify-center rounded-xl',
+                  planConfig.iconBg,
+                )}
+              >
                 <Icon className={cn('h-6 w-6', planConfig.iconColor)} />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-100">{subscription.planName}</h3>
-                <p className="mt-0.5 text-sm text-neutral-500">{organization?.name || 'Your Organization'}</p>
+                <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-100">
+                  {subscription.planName}
+                </h3>
+                <p className="mt-0.5 text-sm text-neutral-500">
+                  {organization?.name || 'Your Organization'}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -389,7 +415,7 @@ function CurrentPlanCard({
                       ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400'
                       : tier === 'inactive'
                         ? 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-400'
-                        : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
+                        : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400',
                 )}
               >
                 {isExpired
@@ -416,13 +442,20 @@ function CurrentPlanCard({
           <div className="grid gap-4 sm:grid-cols-2">
             {expiresAt && !isExpired && tier !== 'enterprise' && (
               <div className="flex items-center gap-3 rounded-lg bg-neutral-50 p-4 dark:bg-neutral-900/50">
-                <Timer className={cn('h-5 w-5', daysRemaining <= 7 ? 'text-orange-500' : 'text-emerald-500')} />
+                <Timer
+                  className={cn(
+                    'h-5 w-5',
+                    daysRemaining <= 7 ? 'text-orange-500' : 'text-emerald-500',
+                  )}
+                />
                 <div>
                   <p className="text-xs text-neutral-500">Time Remaining</p>
                   <p
                     className={cn(
                       'font-semibold',
-                      daysRemaining <= 7 ? 'text-orange-600' : 'text-neutral-900 dark:text-neutral-100'
+                      daysRemaining <= 7
+                        ? 'text-orange-600'
+                        : 'text-neutral-900 dark:text-neutral-100',
                     )}
                   >
                     {daysRemaining} days left
@@ -437,7 +470,9 @@ function CurrentPlanCard({
                 <User className="h-5 w-5 text-neutral-500" />
                 <div>
                   <p className="text-xs text-neutral-500">Account Owner</p>
-                  <p className="font-semibold text-neutral-900 dark:text-neutral-100">{user.name}</p>
+                  <p className="font-semibold text-neutral-900 dark:text-neutral-100">
+                    {user.name}
+                  </p>
                   <p className="text-xs text-neutral-400">{user.email}</p>
                 </div>
               </div>
@@ -448,7 +483,9 @@ function CurrentPlanCard({
                 <Building2 className="h-5 w-5 text-neutral-500" />
                 <div>
                   <p className="text-xs text-neutral-500">Exam Center</p>
-                  <p className="font-semibold text-neutral-900 dark:text-neutral-100">{examCenter.name}</p>
+                  <p className="font-semibold text-neutral-900 dark:text-neutral-100">
+                    {examCenter.name}
+                  </p>
                   <p className="text-xs text-neutral-400">Code: {examCenter.code}</p>
                 </div>
               </div>
@@ -456,10 +493,12 @@ function CurrentPlanCard({
           </div>
 
           {tier === 'enterprise' && (
-            <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-gradient-to-r from-amber-50 to-amber-100/50 p-4 dark:border-amber-800 dark:from-amber-950/20 dark:to-amber-950/10">
+            <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/20">
               <Infinity className="h-5 w-5 flex-shrink-0 text-amber-600 dark:text-amber-400" />
               <div>
-                <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Lifetime Access</p>
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                  Lifetime Access
+                </p>
                 <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-400">
                   You have lifetime access to TestForge. No renewal needed.
                 </p>
@@ -471,7 +510,9 @@ function CurrentPlanCard({
             <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950/20">
               <AlertCircle className="h-5 w-5 flex-shrink-0 text-red-600 dark:text-red-400" />
               <div>
-                <p className="text-sm font-medium text-red-800 dark:text-red-300">Subscription Expired</p>
+                <p className="text-sm font-medium text-red-800 dark:text-red-300">
+                  Subscription Expired
+                </p>
                 <p className="mt-0.5 text-xs text-red-700 dark:text-red-400">
                   Please renew to continue using TestForge.
                 </p>
@@ -483,7 +524,9 @@ function CurrentPlanCard({
             <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/20">
               <AlertCircle className="h-5 w-5 flex-shrink-0 text-amber-600 dark:text-amber-400" />
               <div>
-                <p className="text-sm font-medium text-amber-800 dark:text-amber-300">No Active Subscription</p>
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                  No Active Subscription
+                </p>
                 <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-400">
                   Please purchase a plan to continue using TestForge.
                 </p>
@@ -493,9 +536,10 @@ function CurrentPlanCard({
 
           {tier === 'trial' && !isExpired && (
             <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950/20">
-              <Sparkles className="h-5 w-5 flex-shrink-0 text-blue-600 dark:text-blue-400" />
               <div>
-                <p className="text-sm font-medium text-blue-800 dark:text-blue-300">Trial Period Active</p>
+                <p className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                  Trial Period Active
+                </p>
                 <p className="mt-0.5 text-xs text-blue-700 dark:text-blue-400">
                   Upgrade to premium to continue after trial ends.
                 </p>
@@ -507,7 +551,9 @@ function CurrentPlanCard({
             <div className="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-800 dark:bg-emerald-950/20">
               <Crown className="h-5 w-5 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
               <div>
-                <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">Premium Active</p>
+                <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
+                  Premium Active
+                </p>
                 <p className="mt-0.5 text-xs text-emerald-700 dark:text-emerald-400">
                   You have full access to all premium features.
                 </p>
@@ -521,11 +567,15 @@ function CurrentPlanCard({
               className={cn(
                 'flex-1',
                 !isActivePlan || isExpired
-                  ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/25 hover:from-emerald-600 hover:to-emerald-700'
-                  : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700'
+                  ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                  : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700',
               )}
             >
-              {tier === 'inactive' ? 'Purchase a Plan' : isExpired ? 'Renew Subscription' : 'Upgrade / Change Plan'}
+              {tier === 'inactive'
+                ? 'Purchase a Plan'
+                : isExpired
+                  ? 'Renew Subscription'
+                  : 'Upgrade / Change Plan'}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
             <Button
@@ -557,7 +607,13 @@ function CurrentPlanCard({
 // Payment History Component
 // ============================================
 
-function PaymentHistory({ payments, refreshTrigger }: { payments: Payment[]; refreshTrigger: number }) {
+function PaymentHistory({
+  payments,
+  refreshTrigger,
+}: {
+  payments: Payment[];
+  refreshTrigger: number;
+}) {
   const [loading, setLoading] = useState(true);
   const [localPayments, setLocalPayments] = useState<Payment[]>(payments);
 
@@ -585,15 +641,21 @@ function PaymentHistory({ payments, refreshTrigger }: { payments: Payment[]; ref
     );
   }
 
-  const paidPayments = localPayments.filter(p => p.status === 'paid');
+  const paidPayments = localPayments.filter((p) => p.status === 'paid');
 
   if (paidPayments.length === 0) {
     return (
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="py-16 text-center">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="py-16 text-center"
+      >
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-neutral-100 dark:bg-neutral-800">
           <History className="h-8 w-8 text-neutral-400" />
         </div>
-        <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100">No transactions yet</h3>
+        <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100">
+          No transactions yet
+        </h3>
         <p className="mt-1 text-sm text-neutral-500">Your payment history will appear here</p>
       </motion.div>
     );
@@ -614,7 +676,9 @@ function PaymentHistory({ payments, refreshTrigger }: { payments: Payment[]; ref
               <CreditCard className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
-              <p className="font-medium text-neutral-900 dark:text-neutral-100">{payment.planName}</p>
+              <p className="font-medium text-neutral-900 dark:text-neutral-100">
+                {payment.planName}
+              </p>
               <p className="mt-0.5 text-xs text-neutral-400">{formatDate(payment.createdAt)}</p>
               {payment.endDate && (
                 <p className="mt-0.5 text-xs text-emerald-600 dark:text-emerald-400">
@@ -624,7 +688,9 @@ function PaymentHistory({ payments, refreshTrigger }: { payments: Payment[]; ref
             </div>
           </div>
           <div className="w-full text-right sm:w-auto">
-            <p className="text-xl font-bold text-neutral-900 dark:text-neutral-100">{formatCurrency(payment.amount)}</p>
+            <p className="text-xl font-bold text-neutral-900 dark:text-neutral-100">
+              {formatCurrency(payment.amount)}
+            </p>
             <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">Paid</p>
           </div>
         </motion.div>
@@ -677,7 +743,7 @@ function PricingPlansSection({
       const { order } = await response.json();
 
       if (!window.Razorpay) {
-        await new Promise(resolve => {
+        await new Promise((resolve) => {
           const script = document.createElement('script');
           script.src = 'https://checkout.razorpay.com/v1/checkout.js';
           script.onload = () => resolve(true);
@@ -746,14 +812,18 @@ function PricingPlansSection({
       </div>
 
       {selectedPlanId && (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex justify-center">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex justify-center"
+        >
           <Button
             onClick={() => {
               const plan = pricingPlans.find((p: Plan) => p.id === selectedPlanId);
               if (plan) handlePayment(plan);
             }}
             disabled={loading !== null}
-            className="h-12 min-w-[200px] bg-gradient-to-r from-emerald-500 to-emerald-600 text-base text-white shadow-lg shadow-emerald-500/25 hover:from-emerald-600 hover:to-emerald-700"
+            className="h-12 min-w-[200px] bg-emerald-600 text-base text-white hover:bg-emerald-700"
           >
             {loading ? (
               <Loader2 className="h-5 w-5 animate-spin" />
@@ -789,7 +859,13 @@ function PricingPlansSection({
 // Main Billing Client Component
 // ============================================
 
-export function BillingClient({ user, examCenter, subscription, organization, initialPayments }: BillingClientProps) {
+export function BillingClient({
+  user,
+  examCenter,
+  subscription,
+  organization,
+  initialPayments,
+}: BillingClientProps) {
   const [activeTab, setActiveTab] = useState('current');
   const [selectedPlanId, setSelectedPlanId] = useState('');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -806,26 +882,41 @@ export function BillingClient({ user, examCenter, subscription, organization, in
 
   const handlePaymentSuccess = () => {
     setActiveTab('current');
-    setRefreshTrigger(prev => prev + 1);
+    setRefreshTrigger((prev) => prev + 1);
   };
 
   return (
     <>
-      <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
+      <Script
+        src="https://checkout.razorpay.com/v1/checkout.js"
+        strategy="lazyOnload"
+      />
 
-      <div className="min-h-screen bg-gradient-to-b from-neutral-50 to-white dark:from-neutral-950 dark:to-neutral-900">
+      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
         <div className="container mx-auto max-w-7xl px-4 py-8">
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+          <motion.div
+            initial={{ opacity: 0, y: -16 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8"
+          >
             <div className="mb-2 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-500/25">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600">
                 <DollarSign className="h-5 w-5 text-white" />
               </div>
-              <h1 className="text-3xl font-bold text-neutral-900 dark:text-neutral-100">Billing & Subscription</h1>
+              <h1 className="text-3xl font-bold text-neutral-900 dark:text-neutral-100">
+                Billing & Subscription
+              </h1>
             </div>
-            <p className="text-neutral-500">Manage your plan, view payment history, and update billing information</p>
+            <p className="text-neutral-500">
+              Manage your plan, view payment history, and update billing information
+            </p>
           </motion.div>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="space-y-8"
+          >
             <TabsList className="grid w-full max-w-md grid-cols-3 rounded-xl bg-neutral-100 p-1 dark:bg-neutral-800">
               <TabsTrigger
                 value="current"
@@ -848,18 +939,25 @@ export function BillingClient({ user, examCenter, subscription, organization, in
             </TabsList>
 
             <AnimatePresence mode="wait">
-              <TabsContent value="current" className="mt-0" key={`current-${refreshTrigger}`}>
+              <TabsContent
+                value="current"
+                className="mt-0"
+                key={`current-${refreshTrigger}`}
+              >
                 <CurrentPlanCard
                   subscription={subscription}
                   organization={organization}
                   examCenter={examCenter}
                   user={user}
                   onUpgrade={() => setActiveTab('plans')}
-                  onRefresh={() => setRefreshTrigger(prev => prev + 1)}
+                  onRefresh={() => setRefreshTrigger((prev) => prev + 1)}
                 />
               </TabsContent>
 
-              <TabsContent value="plans" className="mt-0">
+              <TabsContent
+                value="plans"
+                className="mt-0"
+              >
                 <PricingPlansSection
                   user={user}
                   selectedPlanId={selectedPlanId}
@@ -868,8 +966,15 @@ export function BillingClient({ user, examCenter, subscription, organization, in
                 />
               </TabsContent>
 
-              <TabsContent value="history" className="mt-0" key={`history-${refreshTrigger}`}>
-                <PaymentHistory payments={payments} refreshTrigger={refreshTrigger} />
+              <TabsContent
+                value="history"
+                className="mt-0"
+                key={`history-${refreshTrigger}`}
+              >
+                <PaymentHistory
+                  payments={payments}
+                  refreshTrigger={refreshTrigger}
+                />
               </TabsContent>
             </AnimatePresence>
           </Tabs>

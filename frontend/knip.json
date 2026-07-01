@@ -1,6 +1,10 @@
 {
   "$schema": "https://unpkg.com/knip@latest/schema.json",
-  "entry": ["src/app/**/*.{ts,tsx}", "src/modules/**/*.{ts,tsx}", "src/components/**/*.{ts,tsx}"],
+  "entry": [
+    "src/app/**/*.{ts,tsx}",
+    "src/modules/**/*.{ts,tsx}",
+    "src/components/**/*.{ts,tsx}"
+  ],
   "project": ["src/**/*.{ts,tsx}"],
   "ignore": ["src/modules/**", "src/app/**", ".next/**", "src/scripts/**"]
 }

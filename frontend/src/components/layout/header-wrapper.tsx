@@ -15,7 +15,9 @@ export async function HeaderWrapper() {
     <Header
       user={user ? { ...user, image: user.image ?? undefined } : null}
       examCenter={examCenter ?? null}
-      subscription={subscription ? { ...subscription, isActive: subscription.isActive ?? false } : null}
+      subscription={
+        subscription ? { ...subscription, isActive: subscription.isActive ?? false } : null
+      }
     />
   );
 }

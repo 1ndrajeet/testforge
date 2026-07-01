@@ -7,7 +7,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { db } from '@/lib/db';
-import { blockAllocations, timetable } from '@/lib/db/schema';
+import { blockAllocations, students, timetable } from '@/lib/db/schema';
 import { logger } from '@/lib/misc/logger';
 import { getExamCenterId, requireExamCenter } from '@/lib/session';
 
@@ -107,7 +107,7 @@ export async function getTimetable(params?: {
         where: and(
           eq(blockAllocations.examCenterId, examCenterId),
           eq(blockAllocations.date, new Date(params.date)),
-          eq(blockAllocations.session, params.session)
+          eq(blockAllocations.session, params.session),
         ),
         limit: 1,
       });
@@ -184,7 +184,7 @@ export async function getUniqueDates() {
       .where(eq(timetable.examCenterId, examCenterId))
       .orderBy(timetable.date);
 
-    const dates = results.map(r => r.date);
+    const dates = results.map((r) => r.date);
 
     logger.debug(MODULE_FN, `Fetched ${dates.length} unique dates`);
     return { success: true, data: dates };
@@ -213,7 +213,7 @@ export async function getUniqueSessions() {
       .from(timetable)
       .where(eq(timetable.examCenterId, examCenterId));
 
-    const sessions = results.map(r => r.session);
+    const sessions = results.map((r) => r.session);
 
     logger.debug(MODULE_FN, `Fetched ${sessions.length} unique sessions`);
     return { success: true, data: sessions };
@@ -242,7 +242,7 @@ export async function importTimetable(data: z.infer<typeof BulkImportSchema>) {
     }
 
     // Start transaction
-    const result = await db.transaction(async tx => {
+    const result = await db.transaction(async (tx) => {
       // If overwrite is true, delete existing entries for this exam center
       if (validated.overwrite) {
         await tx.delete(timetable).where(eq(timetable.examCenterId, examCenter.id));
@@ -252,7 +252,7 @@ export async function importTimetable(data: z.infer<typeof BulkImportSchema>) {
       }
 
       // Prepare values
-      const values = validated.entries.map(entry => ({
+      const values = validated.entries.map((entry) => ({
         examCenterId: examCenter.id,
         examDay: entry.examDay,
         date: entry.date,
@@ -374,7 +374,10 @@ export async function deleteAllTimetable() {
   try {
     const examCenter = await requireExamCenter();
 
-    const deleted = await db.delete(timetable).where(eq(timetable.examCenterId, examCenter.id)).returning();
+    const deleted = await db
+      .delete(timetable)
+      .where(eq(timetable.examCenterId, examCenter.id))
+      .returning();
 
     logger.warn(MODULE_FN, 'Deleted all timetable entries', {
       examCenterId: examCenter.id,
@@ -410,7 +413,7 @@ export async function markAbsent(data: z.infer<typeof MarkAbsentSchema>) {
         eq(timetable.subjectCode, validated.subjectCode),
         eq(timetable.scheme, validated.scheme),
         eq(timetable.date, validated.date),
-        eq(timetable.session, validated.session)
+        eq(timetable.session, validated.session),
       ),
     });
 
@@ -525,7 +528,7 @@ export async function markCopyCase(data: z.infer<typeof MarkCopyCaseSchema>) {
         eq(timetable.subjectCode, validated.subjectCode),
         eq(timetable.scheme, validated.scheme),
         eq(timetable.date, validated.date),
-        eq(timetable.session, validated.session)
+        eq(timetable.session, validated.session),
       ),
     });
 
@@ -585,7 +588,7 @@ export async function exportTimetable() {
     });
 
     // Convert dates to ISO strings for JSON export
-    const exportData = entries.map(entry => ({
+    const exportData = entries.map((entry) => ({
       ...entry,
       date: entry.date.toISOString(),
       createdAt: entry.createdAt.toISOString(),
@@ -611,6 +614,8 @@ export async function exportTimetable() {
 // Statistics / Analytics
 // ============================================
 
+// lib/actions/timetable.ts or wherever getTimetableStats is defined
+
 export async function getTimetableStats() {
   const MODULE_FN = `${MODULE}.getTimetableStats`;
 
@@ -625,7 +630,8 @@ export async function getTimetableStats() {
           totalEntries: 0,
           uniqueSubjects: 0,
           uniqueSchemes: 0,
-          totalStudents: 0,
+          examinees: 0, // unique seat numbers
+          students: 0, // unique enrollment numbers
           dateRange: null,
           totalAbsent: 0,
           totalCps: 0,
@@ -633,31 +639,47 @@ export async function getTimetableStats() {
       };
     }
 
-    const stats = await db
-      .select({
-        totalEntries: sql<number>`count(*)`,
-        uniqueSubjects: sql<number>`count(DISTINCT ${timetable.subjectCode})`,
-        uniqueSchemes: sql<number>`count(DISTINCT ${timetable.scheme})`,
-        totalStudents: sql<number>`COALESCE(sum(${timetable.totalStudents}), 0)`,
-        totalAbsent: sql<number>`COALESCE(sum(jsonb_array_length(${timetable.absentNumbers})), 0)`,
-        totalCps: sql<number>`COALESCE(sum(jsonb_array_length(${timetable.cpsStudents})), 0)`,
-        minDate: sql<Date | null>`min(${timetable.date})`,
-        maxDate: sql<Date | null>`max(${timetable.date})`,
-      })
-      .from(timetable)
-      .where(eq(timetable.examCenterId, examCenterId));
+    // Run queries in parallel for performance
+    const [timetableStats, studentStats] = await Promise.all([
+      // Timetable stats (entries, subjects, schemes, absent, cps)
+      db
+        .select({
+          totalEntries: sql<number>`count(*)`,
+          uniqueSubjects: sql<number>`count(DISTINCT ${timetable.subjectCode})`,
+          uniqueSchemes: sql<number>`count(DISTINCT ${timetable.scheme})`,
+          totalAbsent: sql<number>`COALESCE(sum(jsonb_array_length(${timetable.absentNumbers})), 0)`,
+          totalCps: sql<number>`COALESCE(sum(jsonb_array_length(${timetable.cpsStudents})), 0)`,
+          minDate: sql<Date | null>`min(${timetable.date})`,
+          maxDate: sql<Date | null>`max(${timetable.date})`,
+        })
+        .from(timetable)
+        .where(eq(timetable.examCenterId, examCenterId)),
 
-    const result = stats[0];
+      // Student stats (unique examinees and students)
+      db
+        .select({
+          examinees: sql<number>`count(DISTINCT ${students.seatNumber})`,
+          students: sql<number>`count(DISTINCT ${students.enrollmentNumber})`,
+        })
+        .from(students)
+        .where(and(eq(students.examCenterId, examCenterId), eq(students.isDeleted, false))),
+    ]);
+
+    const ttResult = timetableStats[0];
+    const stResult = studentStats[0];
 
     const statsData = {
-      totalEntries: Number(result?.totalEntries) || 0,
-      uniqueSubjects: Number(result?.uniqueSubjects) || 0,
-      uniqueSchemes: Number(result?.uniqueSchemes) || 0,
-      totalStudents: Number(result?.totalStudents) || 0,
-      totalAbsent: Number(result?.totalAbsent) || 0,
-      totalCps: Number(result?.totalCps) || 0,
+      totalEntries: Number(ttResult?.totalEntries) || 0,
+      uniqueSubjects: Number(ttResult?.uniqueSubjects) || 0,
+      uniqueSchemes: Number(ttResult?.uniqueSchemes) || 0,
+      examinees: Number(stResult?.examinees) || 0,
+      students: Number(stResult?.students) || 0,
+      totalAbsent: Number(ttResult?.totalAbsent) || 0,
+      totalCps: Number(ttResult?.totalCps) || 0,
       dateRange:
-        result?.minDate && result?.maxDate ? { min: new Date(result.minDate), max: new Date(result.maxDate) } : null,
+        ttResult?.minDate && ttResult?.maxDate
+          ? { min: new Date(ttResult.minDate), max: new Date(ttResult.maxDate) }
+          : null,
     };
 
     logger.debug(MODULE_FN, 'Timetable stats calculated', statsData);
@@ -671,7 +693,9 @@ export async function getTimetableStats() {
   }
 }
 
-export async function hasTimetable(): Promise<{ success: true; data: boolean } | { success: false; error: string }> {
+export async function hasTimetable(): Promise<
+  { success: true; data: boolean } | { success: false; error: string }
+> {
   const MODULE_FN = `${MODULE}.hasTimetable`;
 
   try {
@@ -711,7 +735,10 @@ export async function getTimetableBySubject(subjectCode: string, scheme?: string
       return { success: true, data: [] };
     }
 
-    const conditions = [eq(timetable.examCenterId, examCenterId), eq(timetable.subjectCode, subjectCode)];
+    const conditions = [
+      eq(timetable.examCenterId, examCenterId),
+      eq(timetable.subjectCode, subjectCode),
+    ];
 
     if (scheme) {
       conditions.push(eq(timetable.scheme, scheme));
@@ -761,7 +788,7 @@ export async function resolveCopyCase(data: z.infer<typeof ResolveCopyCaseSchema
         eq(timetable.subjectCode, validated.subjectCode),
         eq(timetable.scheme, validated.scheme),
         eq(timetable.date, validated.date),
-        eq(timetable.session, validated.session)
+        eq(timetable.session, validated.session),
       ),
     });
 

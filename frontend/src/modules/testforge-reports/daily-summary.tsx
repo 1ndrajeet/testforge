@@ -1,4 +1,5 @@
-// modules/testforge-reports/daily-summary.tsx
+// modules/testforge-reports/daily-summary.tsx - FIXED pagination
+
 'use client';
 
 import { ReactNode, useCallback, useEffect, useState } from 'react';
@@ -6,15 +7,25 @@ import { ReactNode, useCallback, useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { AlertCircle } from 'lucide-react';
 
-import { MultiPageReport, ReportPageData } from '@/components/layout/testforge-report-layout';
-import { SessionSelector } from '@/components/shared/date-selector';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useUserInfo } from '@/hooks/useUserInfo';
 import { getAllocationsByDateSession } from '@/lib/actions/allocation';
 import { getQPInventory } from '@/lib/actions/inventory';
 import { getTimetableEntries, getUniqueDates } from '@/lib/actions/timetable';
 import { cn } from '@/lib/utils';
+
+import { useUserInfo } from '@/hooks/useUserInfo';
+
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
+
+import { MultiPageReport, ReportPageData } from '@/components/layout/testforge-report-layout';
+
+import { SessionSelector } from '@/components/shared/date-selector';
+
+// ============================================================
+// Constants
+// ============================================================
+
+const MAX_ROWS_PER_PAGE = 8;
 
 // ============================================================
 // Types
@@ -48,6 +59,8 @@ interface DailySummaryPageData extends ReportPageData {
   totalSubjects: number;
   attendanceRate: number;
   packetDiscrepancy: number;
+  pageNumber: number;
+  totalPages: number;
 }
 
 // ============================================================
@@ -55,8 +68,18 @@ interface DailySummaryPageData extends ReportPageData {
 // ============================================================
 
 const renderDailySummaryTable = (pageData: DailySummaryPageData) => {
-  const { rows, totalBlocks, totalStudents, totalPresent, totalAbsent, totalCopyCases, totalSubjects, attendanceRate } =
-    pageData;
+  const {
+    rows,
+    totalBlocks,
+    totalStudents,
+    totalPresent,
+    totalAbsent,
+    totalCopyCases,
+    totalSubjects,
+    attendanceRate,
+    pageNumber,
+    totalPages,
+  } = pageData;
 
   return (
     <div className="flex h-full flex-col">
@@ -72,7 +95,9 @@ const renderDailySummaryTable = (pageData: DailySummaryPageData) => {
               <th className="w-[10%] border border-black p-1.5 text-center font-bold">Total</th>
               <th className="w-[10%] border border-black p-1.5 text-center font-bold">Present</th>
               <th className="w-[10%] border border-black p-1.5 text-center font-bold">Absent</th>
-              <th className="w-[10%] border border-black p-1.5 text-center font-bold">Copy Cases</th>
+              <th className="w-[10%] border border-black p-1.5 text-center font-bold">
+                Copy Cases
+              </th>
               <th className="w-[8%] border border-black p-1.5 text-center font-bold">Remarks</th>
             </tr>
           </thead>
@@ -80,10 +105,8 @@ const renderDailySummaryTable = (pageData: DailySummaryPageData) => {
             {rows.map((row, index) => {
               const present = row.totalStudents - row.absentCount - row.copyCaseCount;
 
-              // Check if this is the first row of a new block
               const isFirstBlockRow = index === 0 || rows[index - 1].blockNo !== row.blockNo;
 
-              // Count how many rows belong to this block
               let blockRowCount = 0;
               if (isFirstBlockRow) {
                 for (let i = index; i < rows.length && rows[i].blockNo === row.blockNo; i++) {
@@ -92,7 +115,10 @@ const renderDailySummaryTable = (pageData: DailySummaryPageData) => {
               }
 
               return (
-                <tr key={`${row.subjectCode}-${row.scheme}-${index}`} className={cn('border-b border-black')}>
+                <tr
+                  key={`${row.subjectCode}-${row.scheme}-${index}`}
+                  className={cn('border-b border-black')}
+                >
                   <td className="border border-black p-1.5 text-center font-mono">{index + 1}</td>
                   {isFirstBlockRow && (
                     <td
@@ -101,7 +127,9 @@ const renderDailySummaryTable = (pageData: DailySummaryPageData) => {
                     >
                       {row.blockNo}
                       <br />
-                      <span className="text-xs font-medium text-neutral-700">Block {row.location}</span>
+                      <span className="text-xs font-medium text-neutral-700">
+                        Block {row.location}
+                      </span>
                     </td>
                   )}
 
@@ -111,12 +139,18 @@ const renderDailySummaryTable = (pageData: DailySummaryPageData) => {
                       <span className="text-[9px] text-neutral-600">{row.subjectName}</span>
                     </div>
                   </td>
-                  <td className="border border-black p-1.5 pl-2 text-left font-mono text-[10px]">{row.scheme}</td>
+                  <td className="border border-black p-1.5 pl-2 text-left font-mono text-[10px]">
+                    {row.scheme}
+                  </td>
                   <td className="border border-black p-1.5 pl-2 text-left text-[10px]">
                     {row.supervisorName || 'Not Assigned'}
                   </td>
-                  <td className="border border-black p-1.5 text-center font-semibold">{row.totalStudents}</td>
-                  <td className="border border-black p-1.5 text-center font-semibold text-emerald-600">{present}</td>
+                  <td className="border border-black p-1.5 text-center font-semibold">
+                    {row.totalStudents}
+                  </td>
+                  <td className="border border-black p-1.5 text-center font-semibold text-emerald-600">
+                    {present}
+                  </td>
                   <td className="border border-black p-1.5 text-center font-semibold text-rose-600">
                     {row.absentCount}
                   </td>
@@ -132,22 +166,30 @@ const renderDailySummaryTable = (pageData: DailySummaryPageData) => {
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-black bg-neutral-200 font-bold print:bg-neutral-200">
-              <td colSpan={5} className="border border-black p-1.5 pr-4 text-right">
+              <td
+                colSpan={5}
+                className="border border-black p-1.5 pr-4 text-right"
+              >
                 GRAND TOTAL
               </td>
               <td className="border border-black p-1.5 text-center">{totalStudents}</td>
-              <td className="border border-black p-1.5 text-center text-emerald-600">{totalPresent}</td>
+              <td className="border border-black p-1.5 text-center text-emerald-600">
+                {totalPresent}
+              </td>
               <td className="border border-black p-1.5 text-center text-rose-600">{totalAbsent}</td>
-              <td className="border border-black p-1.5 text-center text-amber-600">{totalCopyCases}</td>
+              <td className="border border-black p-1.5 text-center text-amber-600">
+                {totalCopyCases}
+              </td>
               <td className="border border-black p-1.5 text-center">
-                <span className="text-[10px] text-neutral-600">{attendanceRate.toFixed(1)}% attendance</span>
+                <span className="text-[10px] text-neutral-600">
+                  {attendanceRate.toFixed(1)}% attendance
+                </span>
               </td>
             </tr>
           </tfoot>
         </table>
       </div>
 
-      {/* Footer Info */}
       <div className="mt-2 border-t border-black pt-1.5 text-[9px]">
         <div className="flex justify-between">
           <span>
@@ -156,6 +198,11 @@ const renderDailySummaryTable = (pageData: DailySummaryPageData) => {
           </span>
           <span>
             <span className="font-medium">Attendance:</span> {attendanceRate.toFixed(1)}%
+            {totalPages > 1 && (
+              <span className="ml-2">
+                | Page {pageNumber} of {totalPages}
+              </span>
+            )}
           </span>
         </div>
       </div>
@@ -180,18 +227,6 @@ export default function DailySummaryReport() {
   const [showReport, setShowReport] = useState(false);
   const [numberOfCopies, setNumberOfCopies] = useState(1);
 
-  // Stats summary
-  const [stats, setStats] = useState<{
-    totalStudents: number;
-    totalPresent: number;
-    totalAbsent: number;
-    totalCopyCases: number;
-    totalSubjects: number;
-    totalBlocks: number;
-    attendanceRate: number;
-    packetDiscrepancy: number;
-  } | null>(null);
-
   // Fetch available dates
   useEffect(() => {
     const fetchDates = async () => {
@@ -213,23 +248,24 @@ export default function DailySummaryReport() {
     setError(null);
 
     try {
-      // Get allocations for the session
       const allocationsResult = await getAllocationsByDateSession(new Date(date), session);
 
-      if (!allocationsResult.success || !allocationsResult.data || allocationsResult.data.length === 0) {
+      if (
+        !allocationsResult.success ||
+        !allocationsResult.data ||
+        allocationsResult.data.length === 0
+      ) {
         setError('No allocation data found for the selected session');
         setRows([]);
         setShowReport(false);
         return;
       }
 
-      // Get timetable entries to fetch absent and copy case data
       const timetableResult = await getTimetableEntries({
         date: new Date(date),
         session: session as 'Morning' | 'Afternoon',
       });
 
-      // Build a map of (subjectCode + scheme) -> { absentNumbers, cpsStudents }
       const absentMap = new Map<string, { absent: number[]; cps: number[] }>();
       if (timetableResult.success && timetableResult.data) {
         timetableResult.data.forEach((entry: any) => {
@@ -241,7 +277,6 @@ export default function DailySummaryReport() {
         });
       }
 
-      // Get QP inventory for packet data
       const inventoryResult = await getQPInventory(new Date(date));
       const packetMap = new Map<string, { expected: number; received: number }>();
       if (inventoryResult.success && inventoryResult.data) {
@@ -254,7 +289,6 @@ export default function DailySummaryReport() {
         });
       }
 
-      // Build rows from allocations
       const summaryRows: DailySummaryRow[] = [];
       let totalStudents = 0;
       let totalAbsent = 0;
@@ -268,7 +302,6 @@ export default function DailySummaryReport() {
         const copyCaseCount = absentData?.cps?.length || 0;
         const totalStudentsCount = alloc.assignedCount || alloc.seatNumbers?.length || 0;
 
-        // Determine status
         let status: 'complete' | 'pending' | 'discrepancy' = 'pending';
         const packetKey = `${alloc.subjectCode}_${alloc.session}`;
         const packetData = packetMap.get(packetKey);
@@ -303,29 +336,11 @@ export default function DailySummaryReport() {
         totalCopyCases += copyCaseCount;
       });
 
-      // Sort rows by block number then subject code
       summaryRows.sort((a, b) => {
         const blockA = parseInt(a.blockNo) || 0;
         const blockB = parseInt(b.blockNo) || 0;
         if (blockA !== blockB) return blockA - blockB;
         return a.subjectCode.localeCompare(b.subjectCode);
-      });
-
-      // Calculate stats
-      const totalPresent = totalStudents - totalAbsent - totalCopyCases;
-      const attendanceRate = totalStudents > 0 ? (totalPresent / totalStudents) * 100 : 0;
-      const uniqueBlocks = new Set(summaryRows.map(r => r.blockNo));
-      const uniqueSubjects = new Set(summaryRows.map(r => r.subjectCode));
-
-      setStats({
-        totalStudents,
-        totalPresent,
-        totalAbsent,
-        totalCopyCases,
-        totalSubjects: uniqueSubjects.size,
-        totalBlocks: uniqueBlocks.size,
-        attendanceRate,
-        packetDiscrepancy: totalPacketDiscrepancy,
       });
 
       if (summaryRows.length === 0) {
@@ -353,74 +368,50 @@ export default function DailySummaryReport() {
       setSelectedSession(session.session);
       await fetchData(session.date, session.session);
     },
-    [fetchData]
+    [fetchData],
   );
 
   const handleReset = useCallback(() => {
     setShowReport(false);
     setRows([]);
     setError(null);
-    setStats(null);
   }, []);
 
-  // Build pages
+  // ✅ FIX: Build pages - count ACTUAL rows (without rowspan)
   const buildPages = useCallback((): DailySummaryPageData[] => {
     if (rows.length === 0) return [];
+
+    // Count actual visible rows (each row is a TR, regardless of rowspan)
+    const totalActualRows = rows.length;
 
     const totalStudents = rows.reduce((sum, r) => sum + r.totalStudents, 0);
     const totalPresent = rows.reduce((sum, r) => sum + r.presentCount, 0);
     const totalAbsent = rows.reduce((sum, r) => sum + r.absentCount, 0);
     const totalCopyCases = rows.reduce((sum, r) => sum + r.copyCaseCount, 0);
-    const uniqueBlocks = new Set(rows.map(r => r.blockNo));
-    const uniqueSubjects = new Set(rows.map(r => r.subjectCode));
+    const uniqueBlocks = new Set(rows.map((r) => r.blockNo));
+    const uniqueSubjects = new Set(rows.map((r) => r.subjectCode));
     const attendanceRate = totalStudents > 0 ? (totalPresent / totalStudents) * 100 : 0;
-    const packetDiscrepancy = rows.reduce((sum, r) => sum + (r.packetsExpected - r.packetsReceived), 0);
 
-    const MAX_ROWS_PER_PAGE = 20;
-
-    if (rows.length <= MAX_ROWS_PER_PAGE) {
-      return [
-        {
-          id: 'daily-summary',
-          rows: rows,
-          date: new Date(selectedDate),
-          session: selectedSession,
-          totalBlocks: uniqueBlocks.size,
-          totalStudents: totalStudents,
-          totalPresent: totalPresent,
-          totalAbsent: totalAbsent,
-          totalCopyCases: totalCopyCases,
-          totalSubjects: uniqueSubjects.size,
-          attendanceRate: attendanceRate,
-          packetDiscrepancy: Math.max(0, packetDiscrepancy),
-          metadata: {
-            'Total Students': totalStudents,
-            Present: totalPresent,
-            Absent: totalAbsent,
-            'Copy Cases': totalCopyCases,
-            Attendance: `${attendanceRate.toFixed(1)}%`,
-          },
-        },
-      ];
-    }
-
-    // Split into multiple pages
     const pages: DailySummaryPageData[] = [];
     let startIdx = 0;
+    let pageCounter = 0;
 
-    while (startIdx < rows.length) {
-      const chunk = rows.slice(startIdx, startIdx + MAX_ROWS_PER_PAGE);
+    // ✅ Paginate by ACTUAL rows (each row is 1 count, regardless of rowspan)
+    while (startIdx < totalActualRows) {
+      const endIdx = Math.min(startIdx + MAX_ROWS_PER_PAGE, totalActualRows);
+      const chunk = rows.slice(startIdx, endIdx);
+      pageCounter++;
+
       const chunkStudents = chunk.reduce((sum, r) => sum + r.totalStudents, 0);
       const chunkPresent = chunk.reduce((sum, r) => sum + r.presentCount, 0);
       const chunkAbsent = chunk.reduce((sum, r) => sum + r.absentCount, 0);
       const chunkCopyCases = chunk.reduce((sum, r) => sum + r.copyCaseCount, 0);
-      const chunkBlocks = new Set(chunk.map(r => r.blockNo));
-      const chunkSubjects = new Set(chunk.map(r => r.subjectCode));
+      const chunkBlocks = new Set(chunk.map((r) => r.blockNo));
+      const chunkSubjects = new Set(chunk.map((r) => r.subjectCode));
       const chunkAttend = chunkStudents > 0 ? (chunkPresent / chunkStudents) * 100 : 0;
-      const chunkPacketDisc = chunk.reduce((sum, r) => sum + (r.packetsExpected - r.packetsReceived), 0);
 
       pages.push({
-        id: `daily-summary-${pages.length + 1}`,
+        id: `daily-summary-${pageCounter}`,
         rows: chunk,
         date: new Date(selectedDate),
         session: selectedSession,
@@ -431,16 +422,23 @@ export default function DailySummaryReport() {
         totalCopyCases: chunkCopyCases,
         totalSubjects: chunkSubjects.size,
         attendanceRate: chunkAttend,
-        packetDiscrepancy: Math.max(0, chunkPacketDisc),
+        packetDiscrepancy: 0,
+        pageNumber: pageCounter,
+        totalPages: 0,
         metadata: {
-          Page: String(pages.length + 1),
+          Page: String(pageCounter),
           Students: chunkStudents,
           Attendance: `${chunkAttend.toFixed(1)}%`,
         },
       });
 
-      startIdx += MAX_ROWS_PER_PAGE;
+      startIdx = endIdx;
     }
+
+    const totalPages = pages.length;
+    pages.forEach((page) => {
+      page.totalPages = totalPages;
+    });
 
     return pages;
   }, [rows, selectedDate, selectedSession]);
@@ -482,7 +480,10 @@ export default function DailySummaryReport() {
             compact
           />
           {!dates.length && !error && (
-            <Alert variant="default" className="border-amber-200 bg-amber-50">
+            <Alert
+              variant="default"
+              className="border-amber-200 bg-amber-50"
+            >
               <AlertCircle className="h-4 w-4 text-amber-600" />
               <AlertDescription>Upload timetable first.</AlertDescription>
             </Alert>

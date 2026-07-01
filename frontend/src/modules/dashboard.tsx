@@ -2,8 +2,6 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-import { useTheme } from 'next-themes';
-
 import {
   ArcElement,
   BarElement,
@@ -11,8 +9,8 @@ import {
   Chart as ChartJS,
   Filler,
   Legend,
-  LineElement,
   LinearScale,
+  LineElement,
   PointElement,
   Title,
   Tooltip,
@@ -38,17 +36,21 @@ import {
   UserCheck,
   Users,
 } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { Bar, Doughnut, Line } from 'react-chartjs-2';
 import { toast } from 'sonner';
 
-import { PageEmpty, PageHeader, PageToolbar } from '@/components/layout/page-layout';
+import { type ExamOfficerDashboardData, getExamOfficerDashboard } from '@/lib/actions/dashboard';
+import { cn } from '@/lib/utils';
+
+import { useUserInfo } from '@/hooks/useUserInfo';
+
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useUserInfo } from '@/hooks/useUserInfo';
-import { type ExamOfficerDashboardData, getExamOfficerDashboard } from '@/lib/actions/dashboard';
-import { cn } from '@/lib/utils';
+
+import { PageEmpty, PageHeader, PageToolbar } from '@/components/layout/page-layout';
 
 ChartJS.register(
   CategoryScale,
@@ -60,7 +62,7 @@ ChartJS.register(
   ArcElement,
   PointElement,
   LineElement,
-  Filler
+  Filler,
 );
 
 // ============================================================================
@@ -79,7 +81,18 @@ const COLORS = {
     destructive: '#EF4444',
     info: '#3B82F6',
   },
-  chart: ['#10B981', '#34D399', '#6EE7B7', '#3B82F6', '#60A5FA', '#8B5CF6', '#A78BFA', '#F59E0B', '#FBBF24', '#EF4444'],
+  chart: [
+    '#10B981',
+    '#34D399',
+    '#6EE7B7',
+    '#3B82F6',
+    '#60A5FA',
+    '#8B5CF6',
+    '#A78BFA',
+    '#F59E0B',
+    '#FBBF24',
+    '#EF4444',
+  ],
 };
 
 // ============================================================================
@@ -188,13 +201,18 @@ function StatsCard({ label, value, icon, color = COLORS.brand[500], subtitle }: 
             <p className="mt-1 text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
               {typeof value === 'number' ? value.toLocaleString() : value}
             </p>
-            {subtitle && <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">{subtitle}</p>}
+            {subtitle && (
+              <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">{subtitle}</p>
+            )}
           </div>
           <div
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
             style={{ backgroundColor: `${color}15` }}
           >
-            <div className="text-base" style={{ color }}>
+            <div
+              className="text-base"
+              style={{ color }}
+            >
               {icon}
             </div>
           </div>
@@ -209,8 +227,20 @@ function StatsCard({ label, value, icon, color = COLORS.brand[500], subtitle }: 
 // ============================================================================
 
 const QUICK_LINKS = [
-  { id: 'timetable', name: 'Timetable', icon: Calendar, route: '/exam-setup/timetable', color: COLORS.brand[500] },
-  { id: 'blocks', name: 'Blocks', icon: Blocks, route: '/exam-setup/block', color: COLORS.semantic.info },
+  {
+    id: 'timetable',
+    name: 'Timetable',
+    icon: Calendar,
+    route: '/exam-setup/timetable',
+    color: COLORS.brand[500],
+  },
+  {
+    id: 'blocks',
+    name: 'Blocks',
+    icon: Blocks,
+    route: '/exam-setup/block',
+    color: COLORS.semantic.info,
+  },
   {
     id: 'supervisors',
     name: 'Staff',
@@ -232,13 +262,19 @@ const QUICK_LINKS = [
     route: '/exam-day/absent',
     color: COLORS.semantic.destructive,
   },
-  { id: 'reports', name: 'Reports', icon: FileText, route: '/msbte-reports/f1', color: COLORS.semantic.info },
+  {
+    id: 'reports',
+    name: 'Reports',
+    icon: FileText,
+    route: '/msbte-reports/f1',
+    color: COLORS.semantic.info,
+  },
 ];
 
 function QuickLinks({ onNavigate }: { onNavigate: (route: string) => void }) {
   return (
     <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-      {QUICK_LINKS.map(link => {
+      {QUICK_LINKS.map((link) => {
         const Icon = link.icon;
         return (
           <button
@@ -250,9 +286,14 @@ function QuickLinks({ onNavigate }: { onNavigate: (route: string) => void }) {
               className="flex h-8 w-8 items-center justify-center rounded-lg transition-transform group-hover:scale-105"
               style={{ backgroundColor: `${link.color}15` }}
             >
-              <Icon className="h-4 w-4" style={{ color: link.color }} />
+              <Icon
+                className="h-4 w-4"
+                style={{ color: link.color }}
+              />
             </div>
-            <span className="text-[11px] font-medium text-neutral-700 dark:text-neutral-300">{link.name}</span>
+            <span className="text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
+              {link.name}
+            </span>
           </button>
         );
       })}
@@ -273,7 +314,10 @@ function DashboardSkeleton() {
       </div>
       <div className="grid grid-cols-3 gap-4 sm:grid-cols-6">
         {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-24 w-full rounded-lg" />
+          <Skeleton
+            key={i}
+            className="h-24 w-full rounded-lg"
+          />
         ))}
       </div>
       <Skeleton className="h-16 w-full rounded-lg" />
@@ -357,7 +401,11 @@ export default function Dashboard() {
         title="Failed to load dashboard"
         description="Please try again or contact support."
         action={
-          <Button onClick={handleRefresh} variant="outline" size="sm">
+          <Button
+            onClick={handleRefresh}
+            variant="outline"
+            size="sm"
+          >
             <RefreshCw className="mr-2 h-4 w-4" /> Retry
           </Button>
         }
@@ -383,10 +431,10 @@ export default function Dashboard() {
 
   // Chart Data
   const deptChartData = {
-    labels: departmentDistribution.map(d => d.department),
+    labels: departmentDistribution.map((d) => d.department),
     datasets: [
       {
-        data: departmentDistribution.map(d => d.staffCount),
+        data: departmentDistribution.map((d) => d.staffCount),
         backgroundColor: COLORS.chart.slice(0, departmentDistribution.length),
         borderWidth: 0,
       },
@@ -394,17 +442,17 @@ export default function Dashboard() {
   };
 
   const sessionBarData = {
-    labels: sessionDistribution.map(d => d.date),
+    labels: sessionDistribution.map((d) => d.date),
     datasets: [
       {
         label: 'Morning',
-        data: sessionDistribution.map(d => d.morning),
+        data: sessionDistribution.map((d) => d.morning),
         backgroundColor: COLORS.brand[400],
         borderRadius: 4,
       },
       {
         label: 'Afternoon',
-        data: sessionDistribution.map(d => d.afternoon),
+        data: sessionDistribution.map((d) => d.afternoon),
         backgroundColor: COLORS.semantic.warning,
         borderRadius: 4,
       },
@@ -412,17 +460,17 @@ export default function Dashboard() {
   };
 
   const blockBarData = {
-    labels: blockUtilization.map(d => `Block ${d.blockNo}`),
+    labels: blockUtilization.map((d) => `Block ${d.blockNo}`),
     datasets: [
       {
         label: 'Utilization %',
-        data: blockUtilization.map(d => d.utilization),
-        backgroundColor: blockUtilization.map(d =>
+        data: blockUtilization.map((d) => d.utilization),
+        backgroundColor: blockUtilization.map((d) =>
           d.utilization > 80
             ? COLORS.semantic.success
             : d.utilization > 50
               ? COLORS.semantic.warning
-              : COLORS.semantic.destructive
+              : COLORS.semantic.destructive,
         ),
         borderRadius: 4,
       },
@@ -430,11 +478,11 @@ export default function Dashboard() {
   };
 
   const malpracticeLineData = {
-    labels: malpracticeCases.byDate.map(d => d.date),
+    labels: malpracticeCases.byDate.map((d) => d.date),
     datasets: [
       {
         label: 'Cases',
-        data: malpracticeCases.byDate.map(d => d.count),
+        data: malpracticeCases.byDate.map((d) => d.count),
         borderColor: COLORS.semantic.destructive,
         backgroundColor: `${COLORS.semantic.destructive}20`,
         fill: true,
@@ -462,7 +510,12 @@ export default function Dashboard() {
       />
 
       {/* ==================== TOOLBAR ==================== */}
-      <PageToolbar actions={toolbarActions} searchValue="" onSearchChange={() => {}} searchPlaceholder="" />
+      <PageToolbar
+        actions={toolbarActions}
+        searchValue=""
+        onSearchChange={() => {}}
+        searchPlaceholder=""
+      />
 
       {/* ==================== QUICK STATS ==================== */}
       <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
@@ -478,14 +531,28 @@ export default function Dashboard() {
           icon={<UserCheck className="h-4 w-4" />}
           subtitle={`${staffDuty.totalSupervisors} supervisors`}
         />
-        <StatsCard label="Blocks" value={metrics.totalBlocks} icon={<Building2 className="h-4 w-4" />} />
-        <StatsCard label="Subjects" value={metrics.totalSubjects} icon={<BookOpen className="h-4 w-4" />} />
-        <StatsCard label="Exam Days" value={metrics.totalExamDays} icon={<Calendar className="h-4 w-4" />} />
+        <StatsCard
+          label="Blocks"
+          value={metrics.totalBlocks}
+          icon={<Building2 className="h-4 w-4" />}
+        />
+        <StatsCard
+          label="Subjects"
+          value={metrics.totalSubjects}
+          icon={<BookOpen className="h-4 w-4" />}
+        />
+        <StatsCard
+          label="Exam Days"
+          value={metrics.totalExamDays}
+          icon={<Calendar className="h-4 w-4" />}
+        />
         <StatsCard
           label="Inventory"
           value={`${qpInventoryStatus.completion}%`}
           icon={<FileText className="h-4 w-4" />}
-          color={qpInventoryStatus.completion > 80 ? COLORS.semantic.success : COLORS.semantic.warning}
+          color={
+            qpInventoryStatus.completion > 80 ? COLORS.semantic.success : COLORS.semantic.warning
+          }
           subtitle={`${qpInventoryStatus.totalReceived}/${qpInventoryStatus.totalExpected}`}
         />
       </div>
@@ -497,11 +564,15 @@ export default function Dashboard() {
             <div className="grid grid-cols-2 gap-4 text-xs sm:grid-cols-3 lg:grid-cols-4">
               <div>
                 <p className="text-neutral-500 dark:text-neutral-400">Officer Incharge</p>
-                <p className="truncate font-medium text-neutral-900 dark:text-neutral-50">{center.officerIncharge}</p>
+                <p className="truncate font-medium text-neutral-900 dark:text-neutral-50">
+                  {center.officerIncharge}
+                </p>
               </div>
               <div>
                 <p className="text-neutral-500 dark:text-neutral-400">Sealing Supervisor</p>
-                <p className="truncate font-medium text-neutral-900 dark:text-neutral-50">{center.sealingSupervisor}</p>
+                <p className="truncate font-medium text-neutral-900 dark:text-neutral-50">
+                  {center.sealingSupervisor}
+                </p>
               </div>
               <div>
                 <p className="text-neutral-500 dark:text-neutral-400">Distribution Center</p>
@@ -512,7 +583,8 @@ export default function Dashboard() {
               <div>
                 <p className="text-neutral-500 dark:text-neutral-400">Exam Duration</p>
                 <p className="font-medium text-neutral-900 dark:text-neutral-50">
-                  {format(new Date(center.startDate), 'dd MMM')} - {format(new Date(center.endDate), 'dd MMM yyyy')}
+                  {format(new Date(center.startDate), 'dd MMM')} -{' '}
+                  {format(new Date(center.endDate), 'dd MMM yyyy')}
                 </p>
               </div>
             </div>
@@ -533,9 +605,14 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent className="h-56">
             {departmentDistribution.length > 0 ? (
-              <Doughnut data={deptChartData} options={getDoughnutOptions(isDark)} />
+              <Doughnut
+                data={deptChartData}
+                options={getDoughnutOptions(isDark)}
+              />
             ) : (
-              <div className="flex h-full items-center justify-center text-sm text-neutral-500">No data available</div>
+              <div className="flex h-full items-center justify-center text-sm text-neutral-500">
+                No data available
+              </div>
             )}
           </CardContent>
         </Card>
@@ -547,7 +624,10 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent className="h-56">
             {sessionDistribution.length > 0 ? (
-              <Bar data={sessionBarData} options={getBarOptions(isDark)} />
+              <Bar
+                data={sessionBarData}
+                options={getBarOptions(isDark)}
+              />
             ) : (
               <div className="flex h-full items-center justify-center text-sm text-neutral-500">
                 No session data available
@@ -561,14 +641,20 @@ export default function Dashboard() {
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-medium">
               Malpractice Cases Trend
-              <Badge variant="destructive" className="text-[10px]">
+              <Badge
+                variant="destructive"
+                className="text-[10px]"
+              >
                 {malpracticeCases.total} total
               </Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="h-56">
             {malpracticeCases.byDate.length > 0 ? (
-              <Line data={malpracticeLineData} options={getLineOptions(isDark)} />
+              <Line
+                data={malpracticeLineData}
+                options={getLineOptions(isDark)}
+              />
             ) : (
               <div className="flex h-full items-center justify-center text-sm text-neutral-500">
                 No malpractice cases reported
@@ -590,14 +676,18 @@ export default function Dashboard() {
                   className="flex items-center justify-between rounded-lg border border-neutral-200 bg-white p-2.5 dark:border-neutral-800 dark:bg-neutral-950"
                 >
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-neutral-900 dark:text-neutral-50">{day.date}</p>
+                    <p className="text-sm font-medium text-neutral-900 dark:text-neutral-50">
+                      {day.date}
+                    </p>
                     <p className="text-xs text-neutral-500 dark:text-neutral-400">{day.session}</p>
                   </div>
                   <div className="shrink-0 text-right">
                     <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">
                       {day.students} students
                     </p>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400">{day.subjects} subjects</p>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                      {day.subjects} subjects
+                    </p>
                   </div>
                 </div>
               ))
@@ -627,13 +717,19 @@ export default function Dashboard() {
                   className="flex items-center justify-between border-b border-neutral-100 py-1.5 last:border-0 dark:border-neutral-800"
                 >
                   <div className="flex min-w-0 items-center gap-2">
-                    <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">#{idx + 1}</span>
+                    <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                      #{idx + 1}
+                    </span>
                     <code className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-xs dark:bg-neutral-800">
                       {subj.code}
                     </code>
-                    <span className="truncate text-sm text-neutral-700 dark:text-neutral-300">{subj.name}</span>
+                    <span className="truncate text-sm text-neutral-700 dark:text-neutral-300">
+                      {subj.name}
+                    </span>
                   </div>
-                  <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{subj.students}</span>
+                  <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                    {subj.students}
+                  </span>
                 </div>
               ))}
               {subjectEnrollment.highest.length === 0 && (
@@ -658,13 +754,19 @@ export default function Dashboard() {
                   className="flex items-center justify-between border-b border-neutral-100 py-1.5 last:border-0 dark:border-neutral-800"
                 >
                   <div className="flex min-w-0 items-center gap-2">
-                    <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">#{idx + 1}</span>
+                    <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                      #{idx + 1}
+                    </span>
                     <code className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-xs dark:bg-neutral-800">
                       {subj.code}
                     </code>
-                    <span className="truncate text-sm text-neutral-700 dark:text-neutral-300">{subj.name}</span>
+                    <span className="truncate text-sm text-neutral-700 dark:text-neutral-300">
+                      {subj.name}
+                    </span>
                   </div>
-                  <span className="text-sm font-semibold text-rose-600 dark:text-rose-400">{subj.students}</span>
+                  <span className="text-sm font-semibold text-rose-600 dark:text-rose-400">
+                    {subj.students}
+                  </span>
                 </div>
               ))}
               {subjectEnrollment.lowest.length === 0 && (
@@ -681,7 +783,10 @@ export default function Dashboard() {
           <CardTitle className="flex items-center gap-2 text-sm font-medium">
             <Building2 className="h-4 w-4 text-neutral-500" />
             Connected Institutes
-            <Badge variant="secondary" className="text-[10px]">
+            <Badge
+              variant="secondary"
+              className="text-[10px]"
+            >
               {connectedInstitutes.length}
             </Badge>
           </CardTitle>
@@ -694,16 +799,25 @@ export default function Dashboard() {
                 className="flex items-center justify-between rounded-lg border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-950"
               >
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-neutral-900 dark:text-neutral-50">{inst.code}</p>
-                  <p className="max-w-[120px] truncate text-xs text-neutral-500 dark:text-neutral-400">{inst.name}</p>
+                  <p className="text-sm font-medium text-neutral-900 dark:text-neutral-50">
+                    {inst.code}
+                  </p>
+                  <p className="max-w-[120px] truncate text-xs text-neutral-500 dark:text-neutral-400">
+                    {inst.name}
+                  </p>
                 </div>
-                <Badge variant={inst.isActive ? 'default' : 'destructive'} className="shrink-0 text-[10px]">
+                <Badge
+                  variant={inst.isActive ? 'default' : 'destructive'}
+                  className="shrink-0 text-[10px]"
+                >
                   {inst.students}
                 </Badge>
               </div>
             ))}
             {connectedInstitutes.length === 0 && (
-              <div className="col-span-full py-4 text-center text-sm text-neutral-500">No institutes connected</div>
+              <div className="col-span-full py-4 text-center text-sm text-neutral-500">
+                No institutes connected
+              </div>
             )}
           </div>
         </CardContent>

@@ -1,11 +1,25 @@
 // src/app/(dashboard)/layout.tsx
+import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
+
+import { auth } from '@/lib/auth';
+
+import { TooltipProvider } from '@/components/ui/tooltip';
+
 import { DashboardShell } from '@/components/layout/dashboard-shell';
 import { HeaderWrapper } from '@/components/layout/header-wrapper';
 import { Sidebar } from '@/components/layout/sidebar';
-import { TutorialProvider } from '@/components/tutorial/TutorialProvider';
-import { TooltipProvider } from '@/components/ui/tooltip';
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+import { TutorialProvider } from '@/components/tutorial/TutorialProvider';
+
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+  if (!session) {
+    redirect('/login');
+  }
+
   return (
     <TooltipProvider>
       <TutorialProvider>

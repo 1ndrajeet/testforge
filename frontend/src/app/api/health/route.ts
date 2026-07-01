@@ -17,7 +17,7 @@ export async function GET() {
         database: 'failed',
         error: String(error),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

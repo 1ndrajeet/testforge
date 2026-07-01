@@ -3,11 +3,27 @@
 
 import { memo, useEffect, useState } from 'react';
 
-import { useTheme } from 'next-themes';
 import Link from 'next/link';
 
+import modulesConfig from '@/config/modules.json';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Bell, Building2, DollarSign, LogOut, Menu, Moon, Settings, Sun, User, X } from 'lucide-react';
+import {
+  Bell,
+  Building2,
+  DollarSign,
+  LogOut,
+  Menu,
+  Moon,
+  Settings,
+  Sun,
+  User,
+  X,
+} from 'lucide-react';
+import { useTheme } from 'next-themes';
+
+import { cn } from '@/lib/utils';
+
+import { useSidebar } from '@/hooks/useSidebar';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 // ADD AvatarImage
@@ -22,9 +38,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import modulesConfig from '@/config/modules.json';
-import { useSidebar } from '@/hooks/useSidebar';
-import { cn } from '@/lib/utils';
 
 interface HeaderProps {
   user: { id: string; name: string; email: string; image?: string } | null;
@@ -43,7 +56,11 @@ const NotificationBell = memo(() => {
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className="relative rounded-full">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="relative rounded-full"
+          >
             <Bell className="h-4 w-4" />
             {hasNotifications && (
               <span className="absolute top-1.5 right-1.5 h-2 w-2 animate-pulse rounded-full bg-red-500 ring-2 ring-white dark:ring-neutral-950" />
@@ -92,8 +109,16 @@ const HamburgerButton = memo(() => {
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" onClick={toggle} className="rounded-full">
-            <AnimatePresence mode="wait" initial={false}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggle}
+            className="rounded-full"
+          >
+            <AnimatePresence
+              mode="wait"
+              initial={false}
+            >
               {isOpen ? (
                 <motion.div
                   key="close"
@@ -125,7 +150,13 @@ const HamburgerButton = memo(() => {
 });
 HamburgerButton.displayName = 'HamburgerButton';
 
-function UserMenu({ user, subscription }: { user: HeaderProps['user']; subscription: HeaderProps['subscription'] }) {
+function UserMenu({
+  user,
+  subscription,
+}: {
+  user: HeaderProps['user'];
+  subscription: HeaderProps['subscription'];
+}) {
   const [isOpen, setIsOpen] = useState(false);
 
   const handleSignOut = async () => {
@@ -138,7 +169,7 @@ function UserMenu({ user, subscription }: { user: HeaderProps['user']; subscript
     if (!user?.name) return 'U';
     return user.name
       .split(' ')
-      .map(n => n[0])
+      .map((n) => n[0])
       .join('')
       .toUpperCase()
       .slice(0, 2);
@@ -151,18 +182,26 @@ function UserMenu({ user, subscription }: { user: HeaderProps['user']; subscript
   const getStatus = () => {
     if (!subscription || subscription.tier === 'inactive')
       return { text: 'No Plan', color: 'bg-neutral-100 text-neutral-600' };
-    if (subscription.tier === 'enterprise') return { text: 'Lifetime', color: 'bg-amber-100 text-amber-700' };
+    if (subscription.tier === 'enterprise')
+      return { text: 'Lifetime', color: 'bg-amber-100 text-amber-700' };
     if (daysLeft <= 0) return { text: 'Expired', color: 'bg-red-100 text-red-700' };
-    if (subscription.tier === 'trial') return { text: `${daysLeft} days left`, color: 'bg-blue-100 text-blue-700' };
+    if (subscription.tier === 'trial')
+      return { text: `${daysLeft} days left`, color: 'bg-blue-100 text-blue-700' };
     return { text: `${daysLeft} days left`, color: 'bg-emerald-100 text-emerald-700' };
   };
 
   const status = getStatus();
 
   return (
-    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+    <DropdownMenu
+      open={isOpen}
+      onOpenChange={setIsOpen}
+    >
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-8 w-8 rounded-full p-0">
+        <Button
+          variant="ghost"
+          className="relative h-8 w-8 rounded-full p-0"
+        >
           <Avatar className="h-8 w-8">
             <AvatarImage src={user?.image || ''} /> {/* ADD THIS */}
             <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white">
@@ -171,7 +210,11 @@ function UserMenu({ user, subscription }: { user: HeaderProps['user']; subscript
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-72" sideOffset={8}>
+      <DropdownMenuContent
+        align="end"
+        className="w-72"
+        sideOffset={8}
+      >
         <DropdownMenuLabel className="p-0">
           <div className="border-b p-3">
             <div className="flex items-center gap-3">
@@ -189,7 +232,9 @@ function UserMenu({ user, subscription }: { user: HeaderProps['user']; subscript
             {subscription && subscription.tier !== 'inactive' && (
               <div className="mt-3 flex items-center justify-between pt-2">
                 <span className="text-xs font-medium">{subscription.planName}</span>
-                <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium', status.color)}>
+                <span
+                  className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium', status.color)}
+                >
                   {status.text}
                 </span>
               </div>
@@ -222,7 +267,10 @@ function UserMenu({ user, subscription }: { user: HeaderProps['user']; subscript
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-red-600 focus:bg-red-50">
+        <DropdownMenuItem
+          onClick={handleSignOut}
+          className="cursor-pointer text-red-600 focus:bg-red-50"
+        >
           <LogOut className="mr-2 h-4 w-4" /> Log out
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -233,17 +281,27 @@ export function Logo({ theme = 'light', compact = true }: { theme?: string; comp
   const isDark = theme === 'dark';
 
   return (
-    <a href="#top" className="group flex items-center gap-2" aria-label="TestForge home">
+    <a
+      href="/exam-center/dashboard"
+      className="group flex items-center gap-2"
+      aria-label="TestForge home"
+    >
       <span
         className={`grid h-8 w-8 place-items-center rounded-lg font-bold text-white transition-transform duration-300 group-hover:scale-105 ${isDark ? 'bg-emerald-500 shadow-lg shadow-emerald-500/25' : 'bg-emerald-600'}`}
       >
         TF
       </span>
       <span className="flex flex-col leading-tight">
-        <span className={`font-semibold text-neutral-900 dark:text-white ${!compact ? 'text-sm' : 'text-lg'}`}>
+        <span
+          className={`font-semibold text-neutral-900 dark:text-white ${!compact ? 'text-sm' : 'text-lg'}`}
+        >
           TestForge
         </span>
-        {!compact && <span className={`text-xs text-neutral-500 dark:text-neutral-400`}>by Acharya Technologies</span>}
+        {!compact && (
+          <span className={`text-xs text-neutral-500 dark:text-neutral-400`}>
+            by Acharya Technologies
+          </span>
+        )}
       </span>
     </a>
   );
@@ -259,7 +317,10 @@ export function Header({ user, subscription }: HeaderProps) {
       <div className="flex items-center gap-1">
         <ThemeToggle />
         <NotificationBell />
-        <UserMenu user={user} subscription={subscription} />
+        <UserMenu
+          user={user}
+          subscription={subscription}
+        />
       </div>
     </header>
   );

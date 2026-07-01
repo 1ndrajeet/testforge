@@ -70,9 +70,9 @@ export async function getEMarksheets(): Promise<{
     });
 
     // Calculate stats
-    const uniqueSchemes = new Set(records.map(r => r.scheme).filter(Boolean));
-    const uniqueSubjects = new Set(records.map(r => r.subjectName).filter(Boolean));
-    const processedCount = records.filter(r => r.processedAt).length;
+    const uniqueSchemes = new Set(records.map((r) => r.scheme).filter(Boolean));
+    const uniqueSubjects = new Set(records.map((r) => r.subjectName).filter(Boolean));
+    const processedCount = records.filter((r) => r.processedAt).length;
 
     const stats: EMarksheetStats = {
       totalRecords: records.length,
@@ -151,7 +151,10 @@ export async function deleteAllEMarksheets(): Promise<{
       return { success: false, error: 'Exam center not found', data: 0 };
     }
 
-    const deleted = await db.delete(eMarksheets).where(eq(eMarksheets.examCenterId, examCenterId)).returning();
+    const deleted = await db
+      .delete(eMarksheets)
+      .where(eq(eMarksheets.examCenterId, examCenterId))
+      .returning();
 
     logger.warn(MODULE_FN, 'Deleted all e-marksheet data', {
       examCenterId,

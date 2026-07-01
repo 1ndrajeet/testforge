@@ -1,4 +1,5 @@
 // modules/testforge-reports/block-allocation.tsx
+
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
@@ -6,16 +7,27 @@ import { useEffect, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { AlertCircle } from 'lucide-react';
 
-import { MultiPageReport, ReportPageData } from '@/components/layout/testforge-report-layout';
-import { SessionSelector } from '@/components/shared/date-selector';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useUserInfo } from '@/hooks/useUserInfo';
 import { getAllocationsByDateSession } from '@/lib/actions/allocation';
 import { getBlocks } from '@/lib/actions/block';
 import { getTimetableEntries } from '@/lib/actions/timetable';
 import { Block } from '@/lib/types';
 import { cn } from '@/lib/utils';
+
+import { useUserInfo } from '@/hooks/useUserInfo';
+
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
+
+import { MultiPageReport, ReportPageData } from '@/components/layout/testforge-report-layout';
+
+import { SessionSelector } from '@/components/shared/date-selector';
+
+// ============================================================
+// Constants
+// ============================================================
+
+const MAX_ROWS_PER_PAGE = 8;
+const MAX_SEATS_PER_PAGE = 50;
 
 // ============================================================
 // Types
@@ -42,6 +54,8 @@ interface AllotmentSummaryPageData extends ReportPageData {
   totalBlocks: number;
   totalStudents: number;
   totalSubjects: number;
+  pageNumber: number;
+  totalPages: number;
 }
 
 interface BlockAllocationPageData extends ReportPageData {
@@ -55,13 +69,20 @@ interface BlockAllocationPageData extends ReportPageData {
   distribution: number[];
   instituteName: string;
   template: number;
+  pageNumber: number;
+  totalPages: number;
 }
 
 // ============================================================
 // Seating Templates (1-4)
 // ============================================================
 
-const generateSeating = (seats: number[], dist: number[], maxRows: number, template: number): (number | null)[][] => {
+const generateSeating = (
+  seats: number[],
+  dist: number[],
+  maxRows: number,
+  template: number,
+): (number | null)[][] => {
   const cols = dist.length;
   const grid: (number | null)[][] = Array(cols)
     .fill(null)
@@ -139,16 +160,18 @@ const generateSeating = (seats: number[], dist: number[], maxRows: number, templ
 // ============================================================
 
 const renderAllotmentSummary = (pageData: AllotmentSummaryPageData) => {
-  const { rows, totalBlocks, totalStudents, totalSubjects } = pageData;
+  const { rows, totalBlocks, totalStudents, totalSubjects, pageNumber, totalPages } = pageData;
 
   const blockMap = new Map<string, AllocationRow[]>();
-  rows.forEach(row => {
+  rows.forEach((row) => {
     const key = row.blockNo;
     if (!blockMap.has(key)) blockMap.set(key, []);
     blockMap.get(key)!.push(row);
   });
 
-  const groupedRows = Array.from(blockMap.entries()).sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
+  const groupedRows = Array.from(blockMap.entries()).sort(
+    (a, b) => parseInt(a[0]) - parseInt(b[0]),
+  );
 
   return (
     <div className="flex h-full flex-col">
@@ -191,7 +214,10 @@ const renderAllotmentSummary = (pageData: AllotmentSummaryPageData) => {
                 return (
                   <tr
                     key={`${blockNo}-${rowIndex}`}
-                    className={cn('border-b border-neutral-200', isLast && 'border-b-2 border-neutral-300')}
+                    className={cn(
+                      'border-b border-neutral-200',
+                      isLast && 'border-b-2 border-neutral-300',
+                    )}
                   >
                     {isFirst && (
                       <td
@@ -200,17 +226,24 @@ const renderAllotmentSummary = (pageData: AllotmentSummaryPageData) => {
                       >
                         <div className="font-semibold text-neutral-800">{blockNo}</div>
                         {rowCount > 1 && (
-                          <div className="mt-0.5 text-[10px] text-neutral-500">{blockTotal} students</div>
+                          <div className="mt-0.5 text-[10px] text-neutral-500">
+                            {blockTotal} students
+                          </div>
                         )}
                       </td>
                     )}
                     {isFirst && (
-                      <td rowSpan={rowCount} className="border border-neutral-300 px-3 py-2 align-middle">
+                      <td
+                        rowSpan={rowCount}
+                        className="border border-neutral-300 px-3 py-2 align-middle"
+                      >
                         <div className="font-medium text-neutral-800">{row.location}</div>
                         <div className="text-[10px] text-neutral-500">{row.supervisorName}</div>
                       </td>
                     )}
-                    <td className="border border-neutral-300 px-3 py-2 font-mono text-xs">{row.scheme}</td>
+                    <td className="border border-neutral-300 px-3 py-2 font-mono text-xs">
+                      {row.scheme}
+                    </td>
                     <td className="border border-neutral-300 px-3 py-2">
                       <div className="flex items-center gap-1">
                         <span className="font-mono text-xs font-medium">{row.subjectCode}</span>
@@ -232,7 +265,10 @@ const renderAllotmentSummary = (pageData: AllotmentSummaryPageData) => {
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-neutral-400 bg-neutral-100">
-              <td colSpan={3} className="border border-neutral-300 px-3 py-2 text-right font-bold text-neutral-800">
+              <td
+                colSpan={3}
+                className="border border-neutral-300 px-3 py-2 text-right font-bold text-neutral-800"
+              >
                 GRAND TOTAL
               </td>
               <td className="border border-neutral-300 px-3 py-2 text-center font-mono text-xs text-neutral-600">
@@ -251,26 +287,51 @@ const renderAllotmentSummary = (pageData: AllotmentSummaryPageData) => {
           </tfoot>
         </table>
       </div>
+
+      {totalPages > 1 && (
+        <div className="mt-2 border-t border-black pt-1 text-[10px]">
+          <div className="flex justify-between">
+            <span className="font-medium">Block Allotment Summary</span>
+            <span>
+              Page {pageNumber} of {totalPages}
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 const renderAllotmentTable = (pageData: BlockAllocationPageData) => {
-  const { rows, seatNumbers, distribution, template } = pageData;
+  const { rows, seatNumbers, distribution, template, pageNumber, totalPages } = pageData;
 
   const seats = seatNumbers || [];
   const dist = distribution || [10, 10, 10, 10];
   const maxRows = Math.max(...dist);
 
-  const seatArrangement = seats.length > 0 ? generateSeating(seats, dist, maxRows, template || 1) : [];
+  const seatArrangement =
+    seats.length > 0 ? generateSeating(seats, dist, maxRows, template || 1) : [];
 
-  // Build scheme map by seat index
   const schemeMap = new Map<number, string>();
   let idx = 0;
-  rows.forEach(row => {
+  rows.forEach((row) => {
     (row.seatNumbers || []).forEach(() => {
       schemeMap.set(idx++, row.scheme);
     });
+  });
+
+  const firstSeatOfScheme = new Set<number>();
+  const seenSchemes = new Set<string>();
+  const sortedRows = [...rows].sort((a, b) => a.scheme.localeCompare(b.scheme));
+  sortedRows.forEach((row) => {
+    const scheme = row.scheme;
+    if (scheme && !seenSchemes.has(scheme)) {
+      seenSchemes.add(scheme);
+      const seatIndex = seats.indexOf(row.seatNumbers[0]);
+      if (seatIndex !== -1) {
+        firstSeatOfScheme.add(seatIndex);
+      }
+    }
   });
 
   return (
@@ -302,8 +363,11 @@ const renderAllotmentTable = (pageData: BlockAllocationPageData) => {
         <table className="w-full border-collapse border border-neutral-300">
           <thead>
             <tr className="bg-neutral-100">
-              {['Scheme', 'Subject', 'Seat Range', 'Students', 'Timeslot'].map(h => (
-                <th key={h} className="border border-neutral-300 px-2 py-1 text-left font-medium">
+              {['Scheme', 'Subject', 'Seat Range', 'Students', 'Timeslot'].map((h) => (
+                <th
+                  key={h}
+                  className="border border-neutral-300 px-2 py-1 text-left font-medium"
+                >
                   {h}
                 </th>
               ))}
@@ -312,7 +376,9 @@ const renderAllotmentTable = (pageData: BlockAllocationPageData) => {
           <tbody>
             {rows.map((row, idx) => (
               <tr key={idx}>
-                <td className="border border-neutral-300 px-2 py-1 font-mono text-xs">{row.scheme}</td>
+                <td className="border border-neutral-300 px-2 py-1 font-mono text-xs">
+                  {row.scheme}
+                </td>
                 <td className="border border-neutral-300 px-2 py-1">
                   <span className="font-mono text-xs">{row.subjectCode}</span>
                   <span className="ml-1 text-neutral-400">-</span>
@@ -321,7 +387,9 @@ const renderAllotmentTable = (pageData: BlockAllocationPageData) => {
                 <td className="border border-neutral-300 px-2 py-1 text-center font-mono text-xs">
                   {row.firstSeat && row.lastSeat ? `${row.firstSeat} - ${row.lastSeat}` : '—'}
                 </td>
-                <td className="border border-neutral-300 px-2 py-1 text-center font-bold">{row.students}</td>
+                <td className="border border-neutral-300 px-2 py-1 text-center font-bold">
+                  {row.students}
+                </td>
                 <td className="border border-neutral-300 px-2 py-1 text-xs">{row.timeslot}</td>
               </tr>
             ))}
@@ -332,27 +400,42 @@ const renderAllotmentTable = (pageData: BlockAllocationPageData) => {
       {/* Seat Arrangement */}
       {seats.length > 0 && (
         <div className="flex-1 overflow-hidden">
-          <div className="grid w-full gap-1" style={{ gridTemplateColumns: `repeat(${dist.length}, minmax(0, 1fr))` }}>
+          <div
+            className="grid w-full gap-1"
+            style={{ gridTemplateColumns: `repeat(${dist.length}, minmax(0, 1fr))` }}
+          >
             {seatArrangement.map((column, colIdx) => {
-              let lastScheme = '';
               return (
-                <div key={colIdx} className="flex flex-col gap-1">
+                <div
+                  key={colIdx}
+                  className="flex flex-col gap-1"
+                >
                   {column.map((seat, rowIdx) => {
-                    if (seat === null) return <div key={rowIdx} className="h-8" />;
+                    if (seat === null)
+                      return (
+                        <div
+                          key={rowIdx}
+                          className="h-8"
+                        />
+                      );
 
                     const seatIndex = seats.indexOf(seat);
                     const scheme = schemeMap.get(seatIndex) || '';
-                    const showScheme = scheme && scheme !== lastScheme;
-                    lastScheme = scheme;
+                    const showScheme = firstSeatOfScheme.has(seatIndex);
 
                     return (
-                      <div key={rowIdx} className="h-9 overflow-hidden rounded border border-neutral-300">
+                      <div
+                        key={rowIdx}
+                        className="h-9 overflow-hidden rounded border border-neutral-300"
+                      >
                         <div className="flex h-full">
                           <div className="flex w-1/2 items-center justify-center bg-white font-mono text-sm font-semibold">
                             {seat}
                           </div>
                           <div className="flex w-1/2 flex-col items-center justify-center border-l border-neutral-300 bg-neutral-50">
-                            <span className="text-xs font-bold text-neutral-800">B{seatIndex + 1}</span>
+                            <span className="text-xs font-bold text-neutral-800">
+                              B{seatIndex + 1}
+                            </span>
                             {showScheme && (
                               <span className="font-mono text-[9px] leading-tight font-medium text-blue-700">
                                 {scheme}
@@ -366,6 +449,17 @@ const renderAllotmentTable = (pageData: BlockAllocationPageData) => {
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div className="mt-2 border-t border-black pt-1 text-[10px]">
+          <div className="flex justify-between">
+            <span className="font-medium">Block {pageData.blockNo} - Seat Plan</span>
+            <span>
+              Page {pageNumber} of {totalPages}
+            </span>
           </div>
         </div>
       )}
@@ -397,17 +491,17 @@ export default function BlockAllocationReport() {
 
   // Fetch dates
   useEffect(() => {
-    getTimetableEntries().then(result => {
+    getTimetableEntries().then((result) => {
       if (result.success && result.data) {
         const unique = [...new Set(result.data.map((r: any) => r.date))];
-        setState(prev => ({
+        setState((prev) => ({
           ...prev,
           dates: unique,
           selectedDate: unique.length ? format(unique[0], 'yyyy-MM-dd') : '',
           loadingDates: false,
         }));
       } else {
-        setState(prev => ({ ...prev, loadingDates: false }));
+        setState((prev) => ({ ...prev, loadingDates: false }));
       }
     });
   }, []);
@@ -415,16 +509,16 @@ export default function BlockAllocationReport() {
   // Fetch blocks
   useEffect(() => {
     const fetchBlocks = async () => {
-      setState(prev => ({ ...prev, loadingBlocks: true }));
+      setState((prev) => ({ ...prev, loadingBlocks: true }));
       try {
         const result = await getBlocks();
         if (result.success && result.data) {
-          setState(prev => ({ ...prev, blocks: result.data }));
+          setState((prev) => ({ ...prev, blocks: result.data }));
         }
       } catch (error) {
         console.error('Failed to fetch blocks:', error);
       } finally {
-        setState(prev => ({ ...prev, loadingBlocks: false }));
+        setState((prev) => ({ ...prev, loadingBlocks: false }));
       }
     };
     fetchBlocks();
@@ -432,12 +526,17 @@ export default function BlockAllocationReport() {
 
   // Fetch data
   const fetchData = async (date: string, session: string) => {
-    setState(prev => ({ ...prev, loading: true, error: null }));
+    setState((prev) => ({ ...prev, loading: true, error: null }));
 
     try {
       const result = await getAllocationsByDateSession(new Date(date), session);
       if (!result.success || !result.data?.length) {
-        setState(prev => ({ ...prev, loading: false, error: 'No allocation data found', showReport: false }));
+        setState((prev) => ({
+          ...prev,
+          loading: false,
+          error: 'No allocation data found',
+          showReport: false,
+        }));
         return;
       }
 
@@ -462,93 +561,140 @@ export default function BlockAllocationReport() {
         });
       });
 
-      setState(prev => ({ ...prev, allocations, showReport: true, loading: false }));
+      setState((prev) => ({ ...prev, allocations, showReport: true, loading: false }));
     } catch (err) {
-      setState(prev => ({ ...prev, loading: false, error: err instanceof Error ? err.message : 'Failed to load' }));
+      setState((prev) => ({
+        ...prev,
+        loading: false,
+        error: err instanceof Error ? err.message : 'Failed to load',
+      }));
     }
   };
 
   const handleSelect = (s: { date: string; session: 'Morning' | 'Afternoon' | 'All' }) => {
-    setState(prev => ({ ...prev, selectedDate: s.date, selectedSession: s.session }));
+    setState((prev) => ({ ...prev, selectedDate: s.date, selectedSession: s.session }));
     fetchData(s.date, s.session);
   };
 
-  const reset = () => setState(prev => ({ ...prev, showReport: false, allocations: [], error: null }));
+  const reset = () =>
+    setState((prev) => ({ ...prev, showReport: false, allocations: [], error: null }));
 
   // Build ALL pages
   const buildAllPages = (): ReportPageData[] => {
     if (state.allocations.length === 0) return [];
 
-    const totalBlocks = new Set(state.allocations.map(r => r.blockNo)).size;
-    const totalSubjects = new Set(state.allocations.map(r => r.subjectCode)).size;
+    const totalBlocks = new Set(state.allocations.map((r) => r.blockNo)).size;
+    const totalSubjects = new Set(state.allocations.map((r) => r.subjectCode)).size;
     const totalStudents = state.allocations.reduce((sum, r) => sum + r.students, 0);
 
     const allPages: ReportPageData[] = [];
+    let pageCounter = 0;
 
-    // 1. Summary Page (1 copy only)
-    const summaryPage: AllotmentSummaryPageData = {
-      id: 'allotment-summary',
-      rows: state.allocations,
-      date: new Date(state.selectedDate),
-      session: state.selectedSession,
-      totalBlocks,
-      totalStudents,
-      totalSubjects,
-      metadata: {
-        Blocks: String(totalBlocks),
-        Subjects: String(totalSubjects),
-        Students: String(totalStudents),
-      },
-    };
-    allPages.push(summaryPage);
+    // 1. Summary Pages (paginated by MAX_ROWS_PER_PAGE)
+    const sortedAllocations = [...state.allocations].sort((a, b) => {
+      const blockCompare = a.blockNo.localeCompare(b.blockNo);
+      if (blockCompare !== 0) return blockCompare;
+      return a.scheme.localeCompare(b.scheme);
+    });
+
+    for (let i = 0; i < sortedAllocations.length; i += MAX_ROWS_PER_PAGE) {
+      const chunk = sortedAllocations.slice(i, i + MAX_ROWS_PER_PAGE);
+      pageCounter++;
+      const chunkTotalBlocks = new Set(chunk.map((r) => r.blockNo)).size;
+      const chunkTotalSubjects = new Set(chunk.map((r) => r.subjectCode)).size;
+      const chunkTotalStudents = chunk.reduce((sum, r) => sum + r.students, 0);
+
+      const summaryPage: AllotmentSummaryPageData = {
+        id: `summary-${pageCounter}`,
+        rows: chunk,
+        date: new Date(state.selectedDate),
+        session: state.selectedSession,
+        totalBlocks: chunkTotalBlocks,
+        totalStudents: chunkTotalStudents,
+        totalSubjects: chunkTotalSubjects,
+        pageNumber: pageCounter,
+        totalPages: 0, // Will be updated after all pages are built
+        metadata: {
+          Blocks: String(chunkTotalBlocks),
+          Subjects: String(chunkTotalSubjects),
+          Students: String(chunkTotalStudents),
+          Page: String(pageCounter),
+        },
+      };
+      allPages.push(summaryPage);
+    }
+
+    // Update totalPages for summary pages
+    const totalSummaryPages = allPages.length;
+    allPages.forEach((page, index) => {
+      if ('pageNumber' in page) {
+        (page as AllotmentSummaryPageData).totalPages = totalSummaryPages;
+      }
+    });
 
     // 2. Block Detail Pages
     const blockMap = new Map<string, AllocationRow[]>();
-    state.allocations.forEach(row => {
+    state.allocations.forEach((row) => {
       const key = row.blockNo;
       if (!blockMap.has(key)) blockMap.set(key, []);
       blockMap.get(key)!.push(row);
     });
 
+    let blockPageCounter = 0;
     blockMap.forEach((rows, blockNo) => {
       const firstRow = rows[0];
-      const allSeatNumbers = rows.flatMap(r => r.seatNumbers || []).sort((a, b) => a - b);
+      const allSeatNumbers = rows.flatMap((r) => r.seatNumbers || []).sort((a, b) => a - b);
 
-      const block = state.blocks.find(b => b.location === firstRow.location);
+      const block = state.blocks.find((b) => b.location === firstRow.location);
       const distribution = block?.distribution || [10, 10, 10, 10];
       const template = block?.template ?? 1;
 
-      const blockPage: BlockAllocationPageData = {
-        id: `block-${blockNo}`,
-        blockNo: blockNo,
-        location: firstRow.location || '',
-        supervisorName: firstRow.supervisorName || '',
-        date: new Date(state.selectedDate),
-        session: state.selectedSession,
-        rows: rows.sort((a, b) => a.scheme.localeCompare(b.scheme)),
-        seatNumbers: allSeatNumbers,
-        distribution: distribution,
-        template: template,
-        instituteName: examCenter?.name || 'Examination Center',
-        metadata: {
-          Block: blockNo,
-          Location: firstRow.location || '',
-          Students: allSeatNumbers.length,
-          Subjects: rows.length,
-          Supervisor: firstRow.supervisorName || '',
-        },
-      };
+      // Paginate seat numbers if too many
+      const totalSeatPages = Math.ceil(allSeatNumbers.length / MAX_SEATS_PER_PAGE);
+      const blockRows = rows.sort((a, b) => a.scheme.localeCompare(b.scheme));
 
-      // Add block page for each copy
-      for (let copyIdx = 0; copyIdx < state.copies; copyIdx++) {
-        allPages.push({
-          ...blockPage,
-          id: `block-${blockNo}-copy-${copyIdx}`,
+      for (let seatPage = 0; seatPage < totalSeatPages; seatPage++) {
+        blockPageCounter++;
+        const start = seatPage * MAX_SEATS_PER_PAGE;
+        const end = Math.min(start + MAX_SEATS_PER_PAGE, allSeatNumbers.length);
+        const pageSeats = allSeatNumbers.slice(start, end);
+
+        const blockPage: BlockAllocationPageData = {
+          id: `block-${blockNo}-${seatPage + 1}`,
+          blockNo: blockNo,
+          location: firstRow.location || '',
+          supervisorName: firstRow.supervisorName || '',
+          date: new Date(state.selectedDate),
+          session: state.selectedSession,
+          rows: blockRows,
+          seatNumbers: pageSeats,
+          distribution: distribution,
+          template: template,
+          instituteName: examCenter?.name || 'Examination Center',
+          pageNumber: blockPageCounter,
+          totalPages: totalSeatPages,
           metadata: {
-            ...blockPage.metadata,
-            Copy: `${copyIdx + 1} of ${state.copies}`,
+            Block: blockNo,
+            Location: firstRow.location || '',
+            Students: pageSeats.length,
+            Subjects: rows.length,
+            Supervisor: firstRow.supervisorName || '',
+            SeatPage: `${seatPage + 1} of ${totalSeatPages}`,
+            Copy: `1 of ${state.copies}`,
           },
-        });
+        };
+
+        // Add block page for each copy
+        for (let copyIdx = 0; copyIdx < state.copies; copyIdx++) {
+          allPages.push({
+            ...blockPage,
+            id: `block-${blockNo}-${seatPage + 1}-copy-${copyIdx}`,
+            metadata: {
+              ...blockPage.metadata,
+              Copy: `${copyIdx + 1} of ${state.copies}`,
+            },
+          });
+        }
       }
     });
 

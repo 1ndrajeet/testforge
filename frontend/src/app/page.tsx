@@ -1,8 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
 
-import { useTheme } from 'next-themes';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 
 import {
   Activity,
@@ -28,10 +28,20 @@ import {
   Users,
   X,
 } from 'lucide-react';
+import { useTheme } from 'next-themes';
+import { toast } from 'sonner';
 
-import { Logo } from '@/components/layout/header';
-import DashboardMockup from '@/components/misc/DesktopMockup';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { cn } from '@/lib/utils';
+
+// Import user info hook
+import { useUserInfo } from '@/hooks/useUserInfo';
+
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -45,9 +55,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-// Import user info hook
-import { useUserInfo } from '@/hooks/useUserInfo';
-import { cn } from '@/lib/utils';
+
+import { Logo } from '@/components/layout/header';
+
+import DashboardMockup from '@/components/misc/DesktopMockup';
 
 const navLinks = [
   { href: '#problem', label: 'Problem' },
@@ -57,6 +68,20 @@ const navLinks = [
 ];
 
 export default function LandingPage() {
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('verified') === 'true' || window.location.pathname.includes('verify-email')) {
+      toast.success('Email verified successfully', {
+        description: 'You can now sign in to your account.',
+      });
+
+      // Clean URL
+      const url = new URL(window.location.href);
+      url.searchParams.delete('verified');
+      url.searchParams.delete('token');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, []);
   return (
     <div className="min-h-screen bg-white text-neutral-900 dark:bg-[#0a0a0a] dark:text-white">
       <Nav />
@@ -109,7 +134,7 @@ function Nav() {
     if (!user?.name) return 'U';
     return user.name
       .split(' ')
-      .map(n => n[0])
+      .map((n) => n[0])
       .join('')
       .toUpperCase()
       .slice(0, 2);
@@ -128,11 +153,20 @@ function Nav() {
 
   const getStatus = () => {
     if (!subscription || subscription.tier === 'inactive')
-      return { text: 'No Plan', color: 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400' };
+      return {
+        text: 'No Plan',
+        color: 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400',
+      };
     if (subscription.tier === 'enterprise')
-      return { text: 'Lifetime', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' };
+      return {
+        text: 'Lifetime',
+        color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+      };
     if (daysLeft <= 0)
-      return { text: 'Expired', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' };
+      return {
+        text: 'Expired',
+        color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+      };
     if (subscription.tier === 'trial')
       return {
         text: `${daysLeft} days left`,
@@ -169,15 +203,23 @@ function Nav() {
       )}
 
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-        <Logo compact={false} theme={theme} />
+        <Logo
+          compact={false}
+          theme={theme}
+        />
 
-        <nav className="hidden items-center gap-8 md:flex" aria-label="Primary">
-          {navLinks.map(l => (
+        <nav
+          className="hidden items-center gap-8 md:flex"
+          aria-label="Primary"
+        >
+          {navLinks.map((l) => (
             <a
               key={l.href}
               href={l.href}
               className={`group relative text-sm transition-colors ${
-                theme === 'dark' ? 'text-neutral-400 hover:text-white' : 'text-neutral-500 hover:text-neutral-900'
+                theme === 'dark'
+                  ? 'text-neutral-400 hover:text-white'
+                  : 'text-neutral-500 hover:text-neutral-900'
               }`}
             >
               {l.label}
@@ -218,7 +260,10 @@ function Nav() {
           {!isLoading && user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full p-0">
+                <Button
+                  variant="ghost"
+                  className="relative h-8 w-8 rounded-full p-0"
+                >
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={user.image || ''} />
                     <AvatarFallback
@@ -237,7 +282,9 @@ function Nav() {
                 sideOffset={8}
               >
                 <DropdownMenuLabel className="p-0">
-                  <div className={`p-3 ${theme === 'dark' ? 'border-b border-white/5' : 'border-b'}`}>
+                  <div
+                    className={`p-3 ${theme === 'dark' ? 'border-b border-white/5' : 'border-b'}`}
+                  >
                     <div className="flex items-center gap-3">
                       <Avatar className="h-10 w-10">
                         <AvatarImage src={user.image || ''} />
@@ -246,18 +293,29 @@ function Nav() {
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className={`font-semibold ${theme === 'dark' ? 'text-white' : ''}`}>{user.name || 'User'}</p>
-                        <p className={`text-xs ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-500'}`}>
+                        <p className={`font-semibold ${theme === 'dark' ? 'text-white' : ''}`}>
+                          {user.name || 'User'}
+                        </p>
+                        <p
+                          className={`text-xs ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-500'}`}
+                        >
                           {user.email || ''}
                         </p>
                       </div>
                     </div>
                     {subscription && subscription.tier !== 'inactive' && (
                       <div className="mt-3 flex items-center justify-between border-t border-neutral-200/60 pt-2 dark:border-white/5">
-                        <span className={`text-xs font-medium ${theme === 'dark' ? 'text-neutral-300' : ''}`}>
+                        <span
+                          className={`text-xs font-medium ${theme === 'dark' ? 'text-neutral-300' : ''}`}
+                        >
                           {subscription.planName || subscription.tier}
                         </span>
-                        <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium', status.color)}>
+                        <span
+                          className={cn(
+                            'rounded-full px-2 py-0.5 text-[10px] font-medium',
+                            status.color,
+                          )}
+                        >
                           {status.text}
                         </span>
                       </div>
@@ -268,7 +326,9 @@ function Nav() {
                 <DropdownMenuItem
                   asChild
                   className={
-                    theme === 'dark' ? 'text-neutral-300 hover:bg-white/5 hover:text-white focus:bg-white/5' : ''
+                    theme === 'dark'
+                      ? 'text-neutral-300 hover:bg-white/5 hover:text-white focus:bg-white/5'
+                      : ''
                   }
                 >
                   <Link href="/exam-center/settings/profile">
@@ -279,7 +339,9 @@ function Nav() {
                 <DropdownMenuItem
                   asChild
                   className={
-                    theme === 'dark' ? 'text-neutral-300 hover:bg-white/5 hover:text-white focus:bg-white/5' : ''
+                    theme === 'dark'
+                      ? 'text-neutral-300 hover:bg-white/5 hover:text-white focus:bg-white/5'
+                      : ''
                   }
                 >
                   <Link href="/exam-center/dashboard">
@@ -290,7 +352,9 @@ function Nav() {
                 <DropdownMenuItem
                   asChild
                   className={
-                    theme === 'dark' ? 'text-neutral-300 hover:bg-white/5 hover:text-white focus:bg-white/5' : ''
+                    theme === 'dark'
+                      ? 'text-neutral-300 hover:bg-white/5 hover:text-white focus:bg-white/5'
+                      : ''
                   }
                 >
                   <Link href="/billing">
@@ -328,13 +392,18 @@ function Nav() {
         </div>
 
         {/* Mobile menu */}
-        <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+        <Sheet
+          open={isMenuOpen}
+          onOpenChange={setIsMenuOpen}
+        >
           <SheetTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
               className={`rounded-full md:hidden ${
-                theme === 'dark' ? 'text-white hover:bg-white/10' : 'text-neutral-600 hover:bg-neutral-100'
+                theme === 'dark'
+                  ? 'text-white hover:bg-white/10'
+                  : 'text-neutral-600 hover:bg-neutral-100'
               }`}
               aria-label="Open menu"
             >
@@ -346,12 +415,14 @@ function Nav() {
             className={`w-72 ${theme === 'dark' ? 'border-l border-white/5 bg-[#121212] text-white' : ''}`}
           >
             <div className="mt-8 flex flex-col gap-6">
-              {navLinks.map(l => (
+              {navLinks.map((l) => (
                 <a
                   key={l.href}
                   href={l.href}
                   className={`group relative text-base font-medium transition-colors ${
-                    theme === 'dark' ? 'text-white/70 hover:text-white' : 'text-neutral-600 hover:text-neutral-900'
+                    theme === 'dark'
+                      ? 'text-white/70 hover:text-white'
+                      : 'text-neutral-600 hover:text-neutral-900'
                   }`}
                   onClick={() => setIsMenuOpen(false)}
                 >
@@ -366,7 +437,9 @@ function Nav() {
 
               {/* Mobile user info */}
               {!isLoading && user && (
-                <div className={`border-t pt-4 ${theme === 'dark' ? 'border-white/5' : 'border-neutral-200'}`}>
+                <div
+                  className={`border-t pt-4 ${theme === 'dark' ? 'border-white/5' : 'border-neutral-200'}`}
+                >
                   <div className="flex items-center gap-3">
                     <Avatar className="h-10 w-10">
                       <AvatarImage src={user.image || ''} />
@@ -375,18 +448,29 @@ function Nav() {
                       </AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className={`font-semibold ${theme === 'dark' ? 'text-white' : ''}`}>{user.name || 'User'}</p>
-                      <p className={`text-xs ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-500'}`}>
+                      <p className={`font-semibold ${theme === 'dark' ? 'text-white' : ''}`}>
+                        {user.name || 'User'}
+                      </p>
+                      <p
+                        className={`text-xs ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-500'}`}
+                      >
                         {user.email || ''}
                       </p>
                     </div>
                   </div>
                   {subscription && subscription.tier !== 'inactive' && (
                     <div className="mt-2 flex items-center justify-between">
-                      <span className={`text-xs ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-500'}`}>
+                      <span
+                        className={`text-xs ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-500'}`}
+                      >
                         {subscription.planName || subscription.tier}
                       </span>
-                      <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium', status.color)}>
+                      <span
+                        className={cn(
+                          'rounded-full px-2 py-0.5 text-[10px] font-medium',
+                          status.color,
+                        )}
+                      >
                         {status.text}
                       </span>
                     </div>
@@ -400,7 +484,9 @@ function Nav() {
                   variant="ghost"
                   onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
                   className={`justify-start gap-2 px-0 ${
-                    theme === 'dark' ? 'text-white/70 hover:text-white' : 'text-neutral-600 hover:text-neutral-900'
+                    theme === 'dark'
+                      ? 'text-white/70 hover:text-white'
+                      : 'text-neutral-600 hover:text-neutral-900'
                   }`}
                 >
                   {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -435,7 +521,10 @@ function Nav() {
                 asChild
                 className="group mt-4 overflow-hidden rounded-full bg-gradient-to-r from-emerald-500 to-emerald-600 font-semibold text-white shadow-lg shadow-emerald-500/30 transition-all duration-300 hover:scale-[1.02] hover:from-emerald-400 hover:to-emerald-500"
               >
-                <a href="#pricing" onClick={() => setIsMenuOpen(false)}>
+                <a
+                  href="#pricing"
+                  onClick={() => setIsMenuOpen(false)}
+                >
                   <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-1000 group-hover:translate-x-full" />
                   Get ₹1 Trial
                 </a>
@@ -455,13 +544,14 @@ function Hero() {
         aria-hidden
         className="pointer-events-none absolute inset-0 -z-10"
         style={{
-          background: 'radial-gradient(60% 60% at 50% 0%, rgba(5, 150, 105, 0.12), transparent 70%)',
+          background:
+            'radial-gradient(60% 60% at 50% 0%, rgba(5, 150, 105, 0.12), transparent 70%)',
         }}
       />
       <div className="mx-auto max-w-6xl px-4 pt-16 pb-20 sm:px-6">
         <div className="flex flex-col items-center text-center">
           <div className="inline-flex animate-[fade-up_0.6s_ease-out_both] items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-400">
-            ₹1 first month · Launching Winter 2026
+            ₹1 first semester · Launching Winter 2026
           </div>
           <h1
             className="mt-6 max-w-4xl text-4xl font-extrabold tracking-tight text-balance sm:text-5xl lg:text-6xl"
@@ -477,8 +567,8 @@ function Hero() {
             className="mt-5 max-w-2xl text-base text-balance text-neutral-500 sm:text-lg dark:text-neutral-400"
             style={{ animation: 'fade-up 0.7s 0.15s ease-out both' }}
           >
-            TestForge automates MSBTE Formats 1–22, block allocation, staff orders, and exam-day reporting — so your
-            team stops drowning in spreadsheets and runs flawless exams.
+            TestForge automates MSBTE Formats 1–22, block allocation, staff orders, and exam-day
+            reporting — so your team stops drowning in spreadsheets and runs flawless exams.
           </p>
           <div
             className="mt-8 flex flex-col items-center gap-3 sm:flex-row"
@@ -507,14 +597,17 @@ function Hero() {
           </p>
         </div>
 
-        <div className="relative mx-auto mt-14 max-w-5xl" style={{ animation: 'fade-up 0.8s 0.35s ease-out both' }}>
+        <div
+          className="relative mx-auto mt-14 max-w-5xl"
+          style={{ animation: 'fade-up 0.8s 0.35s ease-out both' }}
+        >
           <DashboardMockup />
-          <div className="absolute -top-3 -right-3 hidden rotate-12 rounded-2xl border border-emerald-200 bg-white px-4 py-3 text-left shadow-lg sm:block dark:border-emerald-500/30 dark:bg-[#121212] dark:shadow-emerald-500/20">
+          <div className="absolute -top-9 -right-9 hidden rotate-12 rounded-2xl border border-emerald-500 bg-white px-4 py-3 text-left shadow-lg sm:block dark:border-emerald-500/30 dark:bg-[#121212] dark:shadow-emerald-500/20">
             <div className="text-[10px] tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
               Launch offer
             </div>
             <div className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">₹1</div>
-            <div className="text-[10px] text-neutral-500 dark:text-neutral-400">first month</div>
+            <div className="text-[10px] text-neutral-500 dark:text-neutral-400">first semester</div>
           </div>
         </div>
       </div>
@@ -524,20 +617,35 @@ function Hero() {
 
 function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
   return (
-    <div className="opacity-0" style={{ animation: `fade-up 0.7s ${delay}ms ease-out both` }}>
+    <div
+      className="opacity-0"
+      style={{ animation: `fade-up 0.7s ${delay}ms ease-out both` }}
+    >
       {children}
     </div>
   );
 }
 
-function SectionHeader({ eyebrow, title, subtitle }: { eyebrow: string; title: string; subtitle?: string }) {
+function SectionHeader({
+  eyebrow,
+  title,
+  subtitle,
+}: {
+  eyebrow: string;
+  title: string;
+  subtitle?: string;
+}) {
   return (
     <div className="mx-auto max-w-2xl text-center">
       <div className="inline-flex items-center gap-2 rounded-full border border-neutral-200/60 bg-neutral-50 px-3 py-1 text-xs font-medium text-neutral-500 dark:border-white/5 dark:bg-white/5 dark:text-neutral-400">
         {eyebrow}
       </div>
-      <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl dark:text-white">{title}</h2>
-      {subtitle && <p className="mt-3 text-base text-neutral-500 dark:text-neutral-400">{subtitle}</p>}
+      <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl dark:text-white">
+        {title}
+      </h2>
+      {subtitle && (
+        <p className="mt-3 text-base text-neutral-500 dark:text-neutral-400">{subtitle}</p>
+      )}
     </div>
   );
 }
@@ -573,13 +681,18 @@ function Problem() {
         />
         <div className="mt-12 grid gap-5 md:grid-cols-3">
           {pains.map((p, i) => (
-            <Reveal key={p.title} delay={i * 90}>
+            <Reveal
+              key={p.title}
+              delay={i * 90}
+            >
               <div className="group h-full rounded-2xl border border-neutral-200/60 bg-white p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg dark:border-white/5 dark:bg-[#121212] dark:hover:border-white/10 dark:hover:shadow-emerald-500/5">
                 <div className="grid h-11 w-11 place-items-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400">
                   <p.icon className="h-5 w-5" />
                 </div>
                 <h3 className="mt-4 text-lg font-semibold dark:text-white">{p.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-neutral-500 dark:text-neutral-400">{p.desc}</p>
+                <p className="mt-2 text-sm leading-relaxed text-neutral-500 dark:text-neutral-400">
+                  {p.desc}
+                </p>
               </div>
             </Reveal>
           ))}
@@ -607,7 +720,10 @@ function Comparison() {
   return (
     <section className="py-20 sm:py-28">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <SectionHeader eyebrow="Old way vs new way" title="Stop fighting spreadsheets. Start running exams." />
+        <SectionHeader
+          eyebrow="Old way vs new way"
+          title="Stop fighting spreadsheets. Start running exams."
+        />
         <div className="mt-12 grid gap-5 md:grid-cols-2">
           <Reveal>
             <div className="h-full rounded-2xl border border-neutral-200/60 bg-white p-6 transition-all duration-300 hover:shadow-lg dark:border-white/5 dark:bg-[#0d0d0d] dark:hover:border-white/10 dark:hover:shadow-emerald-500/5">
@@ -682,7 +798,10 @@ function Benefits() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-4">
           {stats.map((s, i) => (
-            <Reveal key={s.l} delay={i * 80}>
+            <Reveal
+              key={s.l}
+              delay={i * 80}
+            >
               <div className="text-center">
                 <div className="bg-gradient-to-r from-emerald-600 to-emerald-400 bg-clip-text text-4xl font-extrabold tracking-tight text-transparent sm:text-5xl dark:from-emerald-400 dark:to-emerald-300">
                   {s.v}
@@ -731,7 +850,10 @@ function Features() {
     },
   ];
   return (
-    <section id="features" className="py-20 sm:py-28">
+    <section
+      id="features"
+      className="py-20 sm:py-28"
+    >
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeader
           eyebrow="What you actually get"
@@ -740,13 +862,18 @@ function Features() {
         />
         <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
           {items.map((f, i) => (
-            <Reveal key={f.title} delay={(i % 3) * 80}>
+            <Reveal
+              key={f.title}
+              delay={(i % 3) * 80}
+            >
               <div className="group h-full rounded-2xl border border-neutral-200/60 bg-white p-6 transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-lg dark:border-white/5 dark:bg-[#121212] dark:hover:border-white/10 dark:hover:shadow-emerald-500/5">
                 <div className="grid h-11 w-11 place-items-center rounded-xl bg-emerald-100 text-emerald-700 transition-transform duration-300 group-hover:scale-110 dark:bg-emerald-500/20 dark:text-emerald-400">
                   <f.icon className="h-5 w-5" />
                 </div>
                 <h3 className="mt-4 text-lg font-semibold dark:text-white">{f.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-neutral-500 dark:text-neutral-400">{f.desc}</p>
+                <p className="mt-2 text-sm leading-relaxed text-neutral-500 dark:text-neutral-400">
+                  {f.desc}
+                </p>
               </div>
             </Reveal>
           ))}
@@ -761,11 +888,16 @@ function Pricing() {
     {
       name: 'Launch Offer',
       price: '₹1',
-      cadence: 'first month',
+      cadence: 'first semester',
       desc: 'First 10 institutes only. Full access, zero risk.',
       cta: 'Claim ₹1 Trial',
       badge: 'Launch offer',
-      features: ['All 22 MSBTE formats', 'Up to 500 students', 'Email support', 'Onboarding included'],
+      features: [
+        'All 22 MSBTE formats',
+        'Up to 500 students',
+        'Email support',
+        'Onboarding included',
+      ],
       highlight: false,
     },
     {
@@ -798,7 +930,12 @@ function Pricing() {
       cadence: 'annual',
       desc: 'For multi-campus groups and university affiliations.',
       cta: 'Talk to sales',
-      features: ['Everything in Institute', 'Multi-campus', 'SLA & dedicated CSM', 'Custom integrations'],
+      features: [
+        'Everything in Institute',
+        'Multi-campus',
+        'SLA & dedicated CSM',
+        'Custom integrations',
+      ],
       highlight: false,
     },
   ];
@@ -815,7 +952,10 @@ function Pricing() {
         />
         <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {plans.map((p, i) => (
-            <Reveal key={p.name} delay={i * 80}>
+            <Reveal
+              key={p.name}
+              delay={i * 80}
+            >
               <div
                 className={`relative flex h-full flex-col rounded-2xl border bg-white p-6 transition-all duration-300 dark:bg-[#121212] ${
                   p.highlight
@@ -836,13 +976,20 @@ function Pricing() {
                 )}
                 <div className="text-sm font-semibold dark:text-white/60">{p.name}</div>
                 <div className="mt-3 flex items-baseline gap-1">
-                  <span className="text-3xl font-extrabold tracking-tight dark:text-white">{p.price}</span>
-                  <span className="text-xs text-neutral-500 dark:text-neutral-400">/ {p.cadence}</span>
+                  <span className="text-3xl font-extrabold tracking-tight dark:text-white">
+                    {p.price}
+                  </span>
+                  <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                    / {p.cadence}
+                  </span>
                 </div>
                 <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">{p.desc}</p>
                 <ul className="mt-5 space-y-2">
-                  {p.features.map(f => (
-                    <li key={f} className="flex items-start gap-2 text-sm dark:text-white/70">
+                  {p.features.map((f) => (
+                    <li
+                      key={f}
+                      className="flex items-start gap-2 text-sm dark:text-white/70"
+                    >
                       <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
                       <span>{f}</span>
                     </li>
@@ -874,7 +1021,10 @@ function Proof() {
   return (
     <section className="py-20 sm:py-24">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <SectionHeader eyebrow="Built with exam officers" title="From pilot exam centers running real MSBTE cycles." />
+        <SectionHeader
+          eyebrow="Built with exam officers"
+          title="From pilot exam centers running real MSBTE cycles."
+        />
         <div className="mt-12 grid gap-5 md:grid-cols-2">
           {[
             {
@@ -886,9 +1036,14 @@ function Proof() {
               who: 'Principal · Pilot Polytechnic, Maharashtra',
             },
           ].map((t, i) => (
-            <Reveal key={t.who} delay={i * 100}>
+            <Reveal
+              key={t.who}
+              delay={i * 100}
+            >
               <figure className="h-full rounded-2xl border border-neutral-200/60 bg-white p-6 dark:border-white/5 dark:bg-[#121212] dark:hover:border-white/10 dark:hover:shadow-emerald-500/5">
-                <blockquote className="text-base leading-relaxed dark:text-white/90">"{t.q}"</blockquote>
+                <blockquote className="text-base leading-relaxed dark:text-white/90">
+                  "{t.q}"
+                </blockquote>
                 <figcaption className="mt-4 text-xs font-medium text-neutral-500 dark:text-neutral-400">
                   {t.who}
                 </figcaption>
@@ -903,7 +1058,10 @@ function Proof() {
 
 function FinalCta() {
   return (
-    <section id="cta" className="px-4 pb-20 sm:px-6">
+    <section
+      id="cta"
+      className="px-4 pb-20 sm:px-6"
+    >
       <div className="mx-auto max-w-6xl overflow-hidden rounded-3xl border border-emerald-300 bg-gradient-to-r from-emerald-600 to-emerald-400 p-10 text-center shadow-lg sm:p-14 dark:border-emerald-500/20 dark:from-emerald-600 dark:via-emerald-500 dark:to-emerald-600 dark:shadow-emerald-500/20">
         <h2 className="mx-auto max-w-2xl text-3xl font-extrabold tracking-tight text-balance text-white sm:text-4xl">
           Get your exam center ready for Winter 2026.
@@ -933,13 +1091,6 @@ function FinalCta() {
             </a>
           </Button>
         </div>
-        <p className="mt-4 flex items-center justify-center gap-2 text-xs text-white/70">
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75"></span>
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-white"></span>
-          </span>
-          Only 8 of 10 slots remaining for ₹1 offer
-        </p>
       </div>
     </section>
   );
@@ -952,8 +1103,8 @@ function Faq() {
       a: 'All 22 official MSBTE formats — instructions, receipts (Formats 2–9), malpractice report (Format 13), Panchnama (Format 22), and everything in between. We track MSBTE changes and ship updates within the same cycle.',
     },
     {
-      q: 'How does the ₹1 first month offer work?',
-      a: 'The first 10 MSBTE-affiliated institutes that sign up pay ₹1 for their first month of full access. No hidden fees, no contract, cancel anytime.',
+      q: 'How does the ₹1 first semester offer work?',
+      a: 'The first 10 MSBTE-affiliated institutes that sign up pay ₹1 for their first semester of full access. No hidden fees, no contract, cancel anytime.',
     },
     {
       q: 'When does TestForge launch?',
@@ -978,9 +1129,16 @@ function Faq() {
       className="border-t border-neutral-200/60 bg-neutral-50 py-20 sm:py-28 dark:border-white/5 dark:bg-[#0d0d0d]"
     >
       <div className="mx-auto max-w-3xl px-4 sm:px-6">
-        <SectionHeader eyebrow="FAQ" title="Questions, answered." />
+        <SectionHeader
+          eyebrow="FAQ"
+          title="Questions, answered."
+        />
         <div className="mt-10">
-          <Accordion type="single" collapsible className="w-full">
+          <Accordion
+            type="single"
+            collapsible
+            className="w-full"
+          >
             {items.map((it, i) => (
               <AccordionItem
                 key={it.q}
@@ -1011,7 +1169,8 @@ function Footer() {
         <div className="md:col-span-2">
           <Logo theme={theme} />
           <p className="mt-4 max-w-sm text-sm text-neutral-500 dark:text-neutral-400">
-            Complete MSBTE exam management platform. Built by Acharya Technologies for MSBTE-affiliated institutes.
+            Complete MSBTE exam management platform. Built by Acharya Technologies for
+            MSBTE-affiliated institutes.
           </p>
         </div>
         <div>

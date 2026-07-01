@@ -62,7 +62,7 @@ const BulkUpdateInventorySchema = z.object({
       id: z.string(),
       receivedPackets: z.number().int().min(0),
       qpPerPacket: z.number().int().min(0),
-    })
+    }),
   ),
 });
 
@@ -72,7 +72,7 @@ const BulkUpdateInventorySchema = z.object({
 
 export async function getQPInventory(
   date: Date,
-  session?: string
+  session?: string,
 ): Promise<{
   success: boolean;
   data?: QPInventoryRecord[];
@@ -163,13 +163,13 @@ async function processInventoryRecords(records: any[]): Promise<{
   stats: QPInventoryStats;
 }> {
   // Get subject codes from records
-  const subjectCodes = records.map(r => r.subjectCode);
+  const subjectCodes = records.map((r) => r.subjectCode);
 
   // Fetch subject info from subjects table
   const subjectRecords = await db.query.subjects.findMany({
     where: sql`${subjects.code} IN (${sql.join(
-      subjectCodes.map(c => sql`${c}`),
-      sql`, `
+      subjectCodes.map((c) => sql`${c}`),
+      sql`, `,
     )})`,
     columns: {
       code: true,
@@ -188,7 +188,7 @@ async function processInventoryRecords(records: any[]): Promise<{
   }
 
   // Convert to QPInventoryRecord format with subject info
-  const mappedRecords: QPInventoryRecord[] = records.map(record => {
+  const mappedRecords: QPInventoryRecord[] = records.map((record) => {
     const subjectInfo = subjectInfoMap.get(record.subjectCode) || {
       subjectName: record.subjectCode,
       scheme: '',
@@ -225,7 +225,7 @@ async function processInventoryRecords(records: any[]): Promise<{
   const totalReceivedQps = mappedRecords.reduce((sum, r) => sum + r.receivedQps, 0);
   const totalPacketsDiscrepancy = Math.abs(totalExpectedPackets - totalReceivedPackets);
   const totalQpsDiscrepancy = Math.abs(totalReceivedPackets * 50 - totalReceivedQps);
-  const completed = mappedRecords.filter(r => r.isComplete).length;
+  const completed = mappedRecords.filter((r) => r.isComplete).length;
   const completionRate = totalSubjects > 0 ? Math.round((completed / totalSubjects) * 100) : 0;
 
   const stats: QPInventoryStats = {
@@ -256,7 +256,7 @@ export async function getQPInventoryByDateRange(startDate: Date, endDate: Date) 
     const records = await db.query.qpInventory.findMany({
       where: and(
         eq(qpInventory.examCenterId, examCenterId),
-        sql`${qpInventory.date} >= ${startDate} AND ${qpInventory.date} <= ${endDate}`
+        sql`${qpInventory.date} >= ${startDate} AND ${qpInventory.date} <= ${endDate}`,
       ),
       orderBy: [qpInventory.date, qpInventory.session, qpInventory.subjectCode],
     });
@@ -324,7 +324,7 @@ export async function bulkUpdateQPInventory(data: z.infer<typeof BulkUpdateInven
     const examCenter = await requireExamCenter();
 
     // Start transaction
-    const results = await db.transaction(async tx => {
+    const results = await db.transaction(async (tx) => {
       const updatedRecords = [];
 
       for (const record of validated.records) {
@@ -339,8 +339,8 @@ export async function bulkUpdateQPInventory(data: z.infer<typeof BulkUpdateInven
             and(
               eq(qpInventory.id, record.id),
               eq(qpInventory.examCenterId, examCenter.id),
-              eq(qpInventory.date, validated.date)
-            )
+              eq(qpInventory.date, validated.date),
+            ),
           )
           .returning();
 
@@ -400,7 +400,10 @@ export async function generateQPInventoryFromTimetable(date: Date, session?: str
     }
 
     // Delete existing inventory for this date
-    const deleteConditions = [eq(qpInventory.examCenterId, examCenter.id), eq(qpInventory.date, date)];
+    const deleteConditions = [
+      eq(qpInventory.examCenterId, examCenter.id),
+      eq(qpInventory.date, date),
+    ];
 
     if (session) {
       deleteConditions.push(eq(qpInventory.session, session));
@@ -409,7 +412,7 @@ export async function generateQPInventoryFromTimetable(date: Date, session?: str
     await db.delete(qpInventory).where(and(...deleteConditions));
 
     // Generate inventory records from timetable - FIX: Use INSERT with ON CONFLICT DO NOTHING
-    const inventoryRecords = timetableEntries.map(entry => ({
+    const inventoryRecords = timetableEntries.map((entry) => ({
       examCenterId: examCenter.id,
       date: entry.date,
       session: entry.session,
@@ -471,7 +474,7 @@ export async function getAvailableInventoryDates() {
       .where(eq(qpInventory.examCenterId, examCenterId))
       .orderBy(desc(qpInventory.date));
 
-    const dates = results.map(r => r.date);
+    const dates = results.map((r) => r.date);
 
     logger.debug(MODULE_FN, `Fetched ${dates.length} available inventory dates`);
     return { success: true, data: dates };
@@ -496,7 +499,7 @@ export async function processInventoryData(
     date: Date;
     session: 'Morning' | 'Afternoon' | 'All';
     day: number;
-  }>
+  }>,
 ) {
   const MODULE_FN = `${MODULE}.processInventoryData`;
 
@@ -508,13 +511,15 @@ export async function processInventoryData(
     }
 
     // Delete existing inventory for this date
-    const dates = [...new Set(inventoryRecords.map(r => r.date))];
+    const dates = [...new Set(inventoryRecords.map((r) => r.date))];
     for (const date of dates) {
-      await db.delete(qpInventory).where(and(eq(qpInventory.examCenterId, examCenter.id), eq(qpInventory.date, date)));
+      await db
+        .delete(qpInventory)
+        .where(and(eq(qpInventory.examCenterId, examCenter.id), eq(qpInventory.date, date)));
     }
 
     // Prepare records for insertion
-    const recordsToInsert = inventoryRecords.map(record => ({
+    const recordsToInsert = inventoryRecords.map((record) => ({
       examCenterId: examCenter.id,
       date: record.date,
       session: record.session,
@@ -671,14 +676,16 @@ export async function getInventorySummary(): Promise<{
       .groupBy(qpInventory.day)
       .orderBy(qpInventory.day);
 
-    const data = results.map(r => ({
+    const data = results.map((r) => ({
       day: r.day || 0,
       totalExpected: Number(r.totalExpected) || 0,
       totalReceived: Number(r.totalReceived) || 0,
       totalStudents: Number(r.totalStudents) || 0,
       subjects: Number(r.subjects) || 0,
       completionRate:
-        Number(r.totalExpected) > 0 ? Math.round((Number(r.totalReceived) / Number(r.totalExpected)) * 100) : 0,
+        Number(r.totalExpected) > 0
+          ? Math.round((Number(r.totalReceived) / Number(r.totalExpected)) * 100)
+          : 0,
     }));
 
     logger.debug(MODULE_FN, `Fetched inventory summary for ${data.length} days`);
@@ -749,7 +756,10 @@ export async function deleteAllInventoryData(): Promise<{
       return { success: false, error: 'Exam center not found', data: 0 };
     }
 
-    const deleted = await db.delete(qpInventory).where(eq(qpInventory.examCenterId, examCenterId)).returning();
+    const deleted = await db
+      .delete(qpInventory)
+      .where(eq(qpInventory.examCenterId, examCenterId))
+      .returning();
 
     logger.warn(MODULE_FN, 'Deleted all inventory data', {
       examCenterId,

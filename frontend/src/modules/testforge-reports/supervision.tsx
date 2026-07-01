@@ -1,4 +1,5 @@
 // modules/testforge-reports/supervision.tsx
+
 'use client';
 
 import { ReactNode, useEffect, useState } from 'react';
@@ -6,18 +7,24 @@ import { ReactNode, useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { AlertCircle } from 'lucide-react';
 
-import { MultiPageReport, ReportPageData } from '@/components/layout/testforge-report-layout';
-import { SessionSelector } from '@/components/shared/date-selector';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useUserInfo } from '@/hooks/useUserInfo';
 import { getAllocationsByDateSession } from '@/lib/actions/allocation';
 import { getTimetableEntries } from '@/lib/actions/timetable';
 import { cn } from '@/lib/utils';
 
+import { useUserInfo } from '@/hooks/useUserInfo';
+
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
+
+import { MultiPageReport, ReportPageData } from '@/components/layout/testforge-report-layout';
+
+import { SessionSelector } from '@/components/shared/date-selector';
+
 // ============================================================
 // Types
 // ============================================================
+
+const MAX_ROWS_PER_PAGE = 8;
 
 interface SupervisionRow {
   blockNo: string;
@@ -38,6 +45,8 @@ interface SupervisionPageData extends ReportPageData {
   totalBlocks: number;
   totalSupervisors: number;
   totalStudents: number;
+  pageNumber: number;
+  totalPages: number;
 }
 
 // ============================================================
@@ -45,11 +54,11 @@ interface SupervisionPageData extends ReportPageData {
 // ============================================================
 
 const renderSupervisionTable = (pageData: SupervisionPageData) => {
-  const { rows, totalBlocks, totalSupervisors, totalStudents } = pageData;
+  const { rows, totalBlocks, totalSupervisors, totalStudents, pageNumber, totalPages } = pageData;
 
   // Group by supervisor
   const supervisorMap = new Map<string, SupervisionRow[]>();
-  rows.forEach(row => {
+  rows.forEach((row) => {
     const key = row.supervisorUid || row.supervisorName;
     if (!supervisorMap.has(key)) {
       supervisorMap.set(key, []);
@@ -69,16 +78,30 @@ const renderSupervisionTable = (pageData: SupervisionPageData) => {
         <table className="w-full border-collapse border border-black text-xs">
           <thead>
             <tr className="bg-neutral-100 print:bg-neutral-100">
-              <th className="w-[16%] border border-black px-3 py-2 text-left font-bold text-neutral-700">Supervisor</th>
+              <th className="w-[16%] border border-black px-3 py-2 text-left font-bold text-neutral-700">
+                Supervisor
+              </th>
               <th className="w-[10%] border border-black px-3 py-2 text-center font-bold text-neutral-700">
                 Block No.
               </th>
-              <th className="w-[14%] border border-black px-3 py-2 text-left font-bold text-neutral-700">Location</th>
-              <th className="w-[10%] border border-black px-3 py-2 text-left font-bold text-neutral-700">Scheme</th>
-              <th className="w-[16%] border border-black px-3 py-2 text-left font-bold text-neutral-700">Subject</th>
-              <th className="w-[8%] border border-black px-3 py-2 text-center font-bold text-neutral-700">Students</th>
-              <th className="w-[14%] border border-black px-3 py-2 text-left font-bold text-neutral-700">Timeslot</th>
-              <th className="w-[12%] border border-black px-3 py-2 text-left font-bold text-neutral-700">Remarks</th>
+              <th className="w-[14%] border border-black px-3 py-2 text-left font-bold text-neutral-700">
+                Location
+              </th>
+              <th className="w-[10%] border border-black px-3 py-2 text-left font-bold text-neutral-700">
+                Scheme
+              </th>
+              <th className="w-[16%] border border-black px-3 py-2 text-left font-bold text-neutral-700">
+                Subject
+              </th>
+              <th className="w-[8%] border border-black px-3 py-2 text-center font-bold text-neutral-700">
+                Students
+              </th>
+              <th className="w-[14%] border border-black px-3 py-2 text-left font-bold text-neutral-700">
+                Timeslot
+              </th>
+              <th className="w-[12%] border border-black px-3 py-2 text-left font-bold text-neutral-700">
+                Remarks
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -97,7 +120,7 @@ const renderSupervisionTable = (pageData: SupervisionPageData) => {
                     className={cn(
                       'border-b border-black',
                       rowIndex % 2 === 0 ? 'bg-white' : 'bg-neutral-50/50',
-                      isLast && 'border-b border-black'
+                      isLast && 'border-b border-black',
                     )}
                   >
                     {isFirst && (
@@ -108,21 +131,33 @@ const renderSupervisionTable = (pageData: SupervisionPageData) => {
                         <div className="font-semibold text-neutral-800">{supervisorName}</div>
                         <div className="text-[9px] text-neutral-500">{row.supervisorUid}</div>
                         {rowCount > 1 && (
-                          <div className="mt-0.5 text-[9px] text-neutral-500">{supervisorTotal} students</div>
+                          <div className="mt-0.5 text-[9px] text-neutral-500">
+                            {supervisorTotal} students
+                          </div>
                         )}
                       </td>
                     )}
                     {isFirst && (
-                      <td rowSpan={rowCount} className="border border-black px-3 py-2 text-center align-middle">
-                        <span className="text-lg font-bold text-neutral-900">{row.blockNo}</span>
+                      <td
+                        rowSpan={rowCount}
+                        className="border border-black px-3 py-2 text-center align-middle"
+                      >
+                        <span className="font-mono text-lg font-semibold text-neutral-900">
+                          {row.blockNo}
+                        </span>
                       </td>
                     )}
                     {isFirst && (
-                      <td rowSpan={rowCount} className="border border-black px-3 py-2 align-middle text-sm">
+                      <td
+                        rowSpan={rowCount}
+                        className="border border-black px-3 py-2 align-middle text-sm"
+                      >
                         {row.location}
                       </td>
                     )}
-                    <td className="border border-black px-3 py-2 font-mono text-xs">{row.scheme}</td>
+                    <td className="border border-black px-3 py-2 font-mono text-xs">
+                      {row.scheme}
+                    </td>
                     <td className="border border-black px-3 py-2">
                       <div className="flex flex-col">
                         <span className="font-mono text-xs font-medium">{row.subjectCode}</span>
@@ -141,13 +176,25 @@ const renderSupervisionTable = (pageData: SupervisionPageData) => {
           </tbody>
           <tfoot>
             <tr className="border-t border-black bg-neutral-200 font-bold print:bg-neutral-200">
-              <td colSpan={3} className="border border-black px-3 py-2 text-right text-sm">
+              <td
+                colSpan={3}
+                className="border border-black px-3 py-2 text-right text-sm"
+              >
                 GRAND TOTAL
               </td>
-              <td className="border border-black px-3 py-2 text-center text-sm">{totalSupervisors}</td>
-              <td className="border border-black px-3 py-2 text-center text-sm">{totalBlocks} Blocks</td>
-              <td className="border border-black px-3 py-2 text-center text-sm text-neutral-900">{totalStudents}</td>
-              <td className="border border-black px-3 py-2 text-center text-sm" colSpan={2}>
+              <td className="border border-black px-3 py-2 text-center text-sm">
+                {totalSupervisors}
+              </td>
+              <td className="border border-black px-3 py-2 text-center text-sm">
+                {totalBlocks} Blocks
+              </td>
+              <td className="border border-black px-3 py-2 text-center text-sm text-neutral-900">
+                {totalStudents}
+              </td>
+              <td
+                className="border border-black px-3 py-2 text-center text-sm"
+                colSpan={2}
+              >
                 &nbsp;
               </td>
             </tr>
@@ -155,11 +202,12 @@ const renderSupervisionTable = (pageData: SupervisionPageData) => {
         </table>
       </div>
 
-      {/* Footer Info - For display at exam center */}
       <div className="mt-2 border-t border-black pt-2 text-[10px]">
         <div className="flex justify-between">
           <span className="font-medium">Display at Examination Center</span>
-          <span>Page {pageData.metadata?.Page || 1}</span>
+          <span>
+            Page {pageNumber} of {totalPages}
+          </span>
         </div>
       </div>
     </div>
@@ -217,7 +265,6 @@ export default function SupervisionReport() {
       const supervisionRows: SupervisionRow[] = [];
 
       result.data.forEach((alloc: any) => {
-        // Only include allocations with supervisors assigned
         if (!alloc.supervisorUid && !alloc.supervisorName) return;
 
         supervisionRows.push({
@@ -251,7 +298,10 @@ export default function SupervisionReport() {
     }
   };
 
-  const handleSessionSelect = async (session: { date: string; session: 'Morning' | 'Afternoon' | 'All' }) => {
+  const handleSessionSelect = async (session: {
+    date: string;
+    session: 'Morning' | 'Afternoon' | 'All';
+  }) => {
     setSelectedDate(session.date);
     setSelectedSession(session.session);
     await fetchData(session.date, session.session);
@@ -263,62 +313,101 @@ export default function SupervisionReport() {
     setError(null);
   };
 
-  // Build pages
+  // Build pages with proper supervisor grouping
   const buildPages = (): SupervisionPageData[] => {
     if (rows.length === 0) return [];
 
-    const totalBlocks = rows.length;
     const totalStudents = rows.reduce((sum, r) => sum + r.students, 0);
-    const uniqueSupervisors = new Set(rows.map(r => r.supervisorUid || r.supervisorName));
+    const uniqueSupervisors = new Set(rows.map((r) => r.supervisorUid || r.supervisorName));
     const totalSupervisors = uniqueSupervisors.size;
+    const totalBlocks = rows.length;
 
-    // If rows fit on one page (max 25 for readability at exam center)
-    if (rows.length <= 25) {
-      return [
-        {
-          id: 'supervision-all',
-          rows: rows,
+    // Group by supervisor
+    const supervisorMap = new Map<string, SupervisionRow[]>();
+    rows.forEach((row) => {
+      const key = row.supervisorUid || row.supervisorName;
+      if (!supervisorMap.has(key)) {
+        supervisorMap.set(key, []);
+      }
+      supervisorMap.get(key)!.push(row);
+    });
+
+    const supervisorGroups = Array.from(supervisorMap.entries())
+      .sort((a, b) => {
+        const nameA = a[1][0]?.supervisorName || '';
+        const nameB = b[1][0]?.supervisorName || '';
+        return nameA.localeCompare(nameB);
+      })
+      .map(([key, rows]) => ({ key, rows }));
+
+    // Paginate: count each row individually, but keep supervisor groups intact
+    const pages: SupervisionPageData[] = [];
+    let currentPageRows: SupervisionRow[] = [];
+    let currentRowCount = 0;
+
+    for (const group of supervisorGroups) {
+      const groupSize = group.rows.length;
+
+      if (currentRowCount + groupSize > MAX_ROWS_PER_PAGE && currentPageRows.length > 0) {
+        // Save current page
+        const pageSupervisors = new Set(
+          currentPageRows.map((r) => r.supervisorUid || r.supervisorName),
+        );
+        const pageBlocks = currentPageRows.length;
+        const pageStudents = currentPageRows.reduce((sum, r) => sum + r.students, 0);
+
+        pages.push({
+          id: `supervision-${pages.length + 1}`,
+          rows: [...currentPageRows],
           date: new Date(selectedDate),
           session: selectedSession,
-          totalBlocks,
-          totalSupervisors,
-          totalStudents,
+          totalBlocks: pageBlocks,
+          totalSupervisors: pageSupervisors.size,
+          totalStudents: pageStudents,
+          pageNumber: pages.length + 1,
+          totalPages: 0, // Will be updated after all pages are built
           metadata: {
-            Page: '1',
+            Page: String(pages.length + 1),
           },
-        },
-      ];
+        });
+
+        currentPageRows = [];
+        currentRowCount = 0;
+      }
+
+      currentPageRows.push(...group.rows);
+      currentRowCount += groupSize;
     }
 
-    // Split into multiple pages
-    const MAX_ROWS_PER_PAGE = 25;
-    const pages: SupervisionPageData[] = [];
-    let startIdx = 0;
-
-    while (startIdx < rows.length) {
-      const chunk = rows.slice(startIdx, startIdx + MAX_ROWS_PER_PAGE);
-      const chunkBlocks = chunk.length;
-      const chunkStudents = chunk.reduce((sum, r) => sum + r.students, 0);
-      const chunkSupervisors = new Set(chunk.map(r => r.supervisorUid || r.supervisorName)).size;
+    // Add last page
+    if (currentPageRows.length > 0) {
+      const pageSupervisors = new Set(
+        currentPageRows.map((r) => r.supervisorUid || r.supervisorName),
+      );
+      const pageBlocks = currentPageRows.length;
+      const pageStudents = currentPageRows.reduce((sum, r) => sum + r.students, 0);
 
       pages.push({
         id: `supervision-${pages.length + 1}`,
-        rows: chunk,
+        rows: [...currentPageRows],
         date: new Date(selectedDate),
         session: selectedSession,
-        totalBlocks: chunkBlocks,
-        totalSupervisors: chunkSupervisors,
-        totalStudents: chunkStudents,
+        totalBlocks: pageBlocks,
+        totalSupervisors: pageSupervisors.size,
+        totalStudents: pageStudents,
+        pageNumber: pages.length + 1,
+        totalPages: 0,
         metadata: {
           Page: String(pages.length + 1),
-          Blocks: String(chunkBlocks),
-          Supervisors: String(chunkSupervisors),
-          Students: String(chunkStudents),
         },
       });
-
-      startIdx += MAX_ROWS_PER_PAGE;
     }
+
+    // Update totalPages for all pages
+    const totalPages = pages.length;
+    pages.forEach((page) => {
+      page.totalPages = totalPages;
+    });
 
     return pages;
   };
@@ -356,7 +445,10 @@ export default function SupervisionReport() {
           />
 
           {!dates.length && !error && (
-            <Alert variant="default" className="border-amber-200 bg-amber-50">
+            <Alert
+              variant="default"
+              className="border-amber-200 bg-amber-50"
+            >
               <AlertCircle className="h-4 w-4 text-amber-600" />
               <AlertDescription>Upload timetable first.</AlertDescription>
             </Alert>

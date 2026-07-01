@@ -27,6 +27,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { cn } from '@/lib/utils';
+
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -41,7 +43,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
 
 // ============================================================================
 // Types
@@ -152,7 +153,10 @@ const MOCK_BLOCKS: BlockData[] = [
 const StatsSkeleton = () => (
   <div className="grid grid-cols-4 gap-3">
     {Array.from({ length: 4 }).map((_, i) => (
-      <Skeleton key={i} className="h-[72px] w-full rounded-lg" />
+      <Skeleton
+        key={i}
+        className="h-[72px] w-full rounded-lg"
+      />
     ))}
   </div>
 );
@@ -160,7 +164,10 @@ const StatsSkeleton = () => (
 const BlockNavSkeleton = () => (
   <div className="space-y-2">
     {Array.from({ length: 3 }).map((_, i) => (
-      <Skeleton key={i} className="h-8 w-full rounded-md" />
+      <Skeleton
+        key={i}
+        className="h-8 w-full rounded-md"
+      />
     ))}
   </div>
 );
@@ -168,7 +175,10 @@ const BlockNavSkeleton = () => (
 const SeatGridSkeleton = () => (
   <div className="grid grid-cols-10 gap-1.5">
     {Array.from({ length: 30 }).map((_, i) => (
-      <Skeleton key={i} className="aspect-square w-full rounded-md" />
+      <Skeleton
+        key={i}
+        className="aspect-square w-full rounded-md"
+      />
     ))}
   </div>
 );
@@ -197,17 +207,24 @@ const CompactStats = ({ stats, loading }: { stats: StatsData | null; loading?: b
 
   return (
     <div className="grid grid-cols-4 gap-3">
-      {items.map(item => (
+      {items.map((item) => (
         <div
           key={item.label}
           className="relative overflow-hidden rounded-lg border border-neutral-200/60 bg-white p-3 shadow-sm transition-shadow hover:shadow-md dark:border-neutral-800/60 dark:bg-neutral-950"
         >
           <div className={cn('absolute top-0 right-0 left-0 h-0.5 rounded-t-lg', item.color)} />
-          <p className={cn('mt-1 text-2xl font-semibold tracking-tight', item.label === 'Absent' && 'text-rose-600')}>
+          <p
+            className={cn(
+              'mt-1 text-2xl font-semibold tracking-tight',
+              item.label === 'Absent' && 'text-rose-600',
+            )}
+          >
             {item.value}
             {item.suffix || ''}
           </p>
-          <p className="mt-0.5 text-[10px] font-medium tracking-wider text-neutral-400 uppercase">{item.label}</p>
+          <p className="mt-0.5 text-[10px] font-medium tracking-wider text-neutral-400 uppercase">
+            {item.label}
+          </p>
         </div>
       ))}
     </div>
@@ -227,12 +244,19 @@ interface BlockNavProps {
   loading?: boolean;
 }
 
-function BlockNav({ blocks, expandedBlock, selectedSchemeId, onToggleBlock, onSelectScheme, loading }: BlockNavProps) {
+function BlockNav({
+  blocks,
+  expandedBlock,
+  selectedSchemeId,
+  onToggleBlock,
+  onSelectScheme,
+  loading,
+}: BlockNavProps) {
   if (loading) return <BlockNavSkeleton />;
 
   return (
     <div className="space-y-0.5">
-      {blocks.map(block => {
+      {blocks.map((block) => {
         const isExpanded = expandedBlock === block.blockNo;
         const totalAbsent = block.schemes.reduce((sum, s) => sum + s.savedAbsent.length, 0);
         const totalStudents = block.schemes.reduce((sum, s) => sum + s.total, 0);
@@ -245,7 +269,7 @@ function BlockNav({ blocks, expandedBlock, selectedSchemeId, onToggleBlock, onSe
                 'flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left text-sm transition-all duration-200',
                 isExpanded
                   ? 'bg-emerald-50/80 text-emerald-700 shadow-sm dark:bg-emerald-950/30'
-                  : 'hover:bg-neutral-100/70 dark:hover:bg-neutral-800/70'
+                  : 'hover:bg-neutral-100/70 dark:hover:bg-neutral-800/70',
               )}
             >
               <div className="flex items-center gap-2">
@@ -253,21 +277,24 @@ function BlockNav({ blocks, expandedBlock, selectedSchemeId, onToggleBlock, onSe
                 <span className="text-xs text-neutral-400">{block.location}</span>
               </div>
               {totalAbsent > 0 && (
-                <Badge variant="destructive" className="h-5 px-1.5 text-[10px] font-medium">
+                <Badge
+                  variant="destructive"
+                  className="h-5 px-1.5 text-[10px] font-medium"
+                >
                   {totalAbsent}/{totalStudents}
                 </Badge>
               )}
               <ChevronRight
                 className={cn(
                   'h-3.5 w-3.5 text-neutral-400 transition-transform duration-300',
-                  isExpanded && 'rotate-90'
+                  isExpanded && 'rotate-90',
                 )}
               />
             </button>
 
             {isExpanded && (
               <div className="ml-4 space-y-0.5 border-l-2 border-emerald-200/60 pl-1 dark:border-emerald-800/30">
-                {block.schemes.map(scheme => {
+                {block.schemes.map((scheme) => {
                   const isSelected = selectedSchemeId === scheme.id;
                   const absentCount = scheme.savedAbsent.length;
                   const percent = scheme.total > 0 ? (absentCount / scheme.total) * 100 : 0;
@@ -280,7 +307,7 @@ function BlockNav({ blocks, expandedBlock, selectedSchemeId, onToggleBlock, onSe
                         'relative my-1 w-full rounded-md px-2.5 py-2 text-left text-sm transition-all duration-200',
                         isSelected
                           ? 'bg-emerald-100/60 text-emerald-800 shadow-sm dark:bg-emerald-900/30'
-                          : 'hover:bg-neutral-100/60 dark:hover:bg-neutral-800/60'
+                          : 'hover:bg-neutral-100/60 dark:hover:bg-neutral-800/60',
                       )}
                     >
                       <div className="flex items-center justify-between gap-2">
@@ -295,7 +322,9 @@ function BlockNav({ blocks, expandedBlock, selectedSchemeId, onToggleBlock, onSe
                         </div>
                         {absentCount > 0 && (
                           <div className="shrink-0 text-right">
-                            <span className="text-xs font-semibold text-rose-600">{absentCount}</span>
+                            <span className="text-xs font-semibold text-rose-600">
+                              {absentCount}
+                            </span>
                             <span className="text-[10px] text-neutral-400">/{scheme.total}</span>
                           </div>
                         )}
@@ -342,7 +371,10 @@ function SubjectHeader({ scheme, markedCount }: SubjectHeaderProps) {
             {scheme.code}
           </code>
           <span className="text-sm font-semibold">{scheme.name}</span>
-          <Badge variant="outline" className="border-neutral-300 font-mono text-[10px] dark:border-neutral-700">
+          <Badge
+            variant="outline"
+            className="border-neutral-300 font-mono text-[10px] dark:border-neutral-700"
+          >
             {scheme.scheme}
           </Badge>
         </div>
@@ -375,17 +407,17 @@ function SeatGrid({ scheme, markedSeats, onToggleSeat, loading }: SeatGridProps)
   const filteredSeats = useMemo(() => {
     if (!scheme) return [];
     if (!searchTerm) return scheme.seats;
-    return scheme.seats.filter(seat => seat.toString().includes(searchTerm));
+    return scheme.seats.filter((seat) => seat.toString().includes(searchTerm));
   }, [scheme, searchTerm]);
 
   const handleMarkAll = () => {
     if (!scheme) return;
-    const eligible = scheme.seats.filter(n => !markedSeats.includes(n));
+    const eligible = scheme.seats.filter((n) => !markedSeats.includes(n));
     if (eligible.length === 0) {
       toast.warning('No seats to mark');
       return;
     }
-    eligible.forEach(n => onToggleSeat(n));
+    eligible.forEach((n) => onToggleSeat(n));
     toast.success(`Marked ${eligible.length} students absent`);
   };
 
@@ -393,7 +425,7 @@ function SeatGrid({ scheme, markedSeats, onToggleSeat, loading }: SeatGridProps)
     if (!scheme) return;
 
     // Get seats that were newly marked (not saved)
-    const newlyMarked = markedSeats.filter(seat => !scheme.savedAbsent.includes(seat));
+    const newlyMarked = markedSeats.filter((seat) => !scheme.savedAbsent.includes(seat));
 
     if (newlyMarked.length === 0) {
       toast.warning('No newly marked seats to clear');
@@ -401,7 +433,7 @@ function SeatGrid({ scheme, markedSeats, onToggleSeat, loading }: SeatGridProps)
     }
 
     // Remove only newly marked seats
-    newlyMarked.forEach(seat => onToggleSeat(seat));
+    newlyMarked.forEach((seat) => onToggleSeat(seat));
     toast.success(`Cleared ${newlyMarked.length} newly marked seats`);
   };
 
@@ -438,7 +470,7 @@ function SeatGrid({ scheme, markedSeats, onToggleSeat, loading }: SeatGridProps)
             type="text"
             placeholder="Search seat…"
             value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
+            onChange={(e) => setSearchTerm(e.target.value)}
             className="h-8 w-36 border-neutral-200/80 pl-8 text-sm transition-all focus:border-emerald-300 focus:ring-emerald-300/30"
           />
           {searchTerm && (
@@ -487,7 +519,7 @@ function SeatGrid({ scheme, markedSeats, onToggleSeat, loading }: SeatGridProps)
                   isMarked
                     ? 'border-rose-400 bg-rose-50 text-rose-700 shadow-[0_0_0_1px_rgba(244,63,94,0.2)] hover:bg-rose-100/80'
                     : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:scale-[1.04] hover:bg-emerald-100/80 hover:shadow-md',
-                  !isMarked && 'hover:scale-[1.04] hover:shadow-md'
+                  !isMarked && 'hover:scale-[1.04] hover:shadow-md',
                 )}
               >
                 {seatNo}
@@ -509,7 +541,8 @@ function SeatGrid({ scheme, markedSeats, onToggleSeat, loading }: SeatGridProps)
           </div>
         </div>
         <p className="font-medium text-neutral-400">
-          <span className="font-semibold text-rose-600">{markedSeats.length}</span> of {scheme.total} marked absent
+          <span className="font-semibold text-rose-600">{markedSeats.length}</span> of{' '}
+          {scheme.total} marked absent
         </p>
       </div>
     </div>
@@ -529,14 +562,24 @@ interface ConfirmDialogProps {
   isSubmitting: boolean;
 }
 
-function ConfirmDialog({ open, onOpenChange, onConfirm, scheme, count, isSubmitting }: ConfirmDialogProps) {
+function ConfirmDialog({
+  open,
+  onOpenChange,
+  onConfirm,
+  scheme,
+  count,
+  isSubmitting,
+}: ConfirmDialogProps) {
   if (!scheme) return null;
 
   const pct = scheme.total > 0 ? Math.round((count / scheme.total) * 100) : 0;
   const isHigh = pct > 30;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+    >
       <DialogContent className="max-w-sm border-0 bg-white/90 shadow-2xl backdrop-blur-xl dark:bg-neutral-950/90">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
@@ -577,7 +620,11 @@ function ConfirmDialog({ open, onOpenChange, onConfirm, scheme, count, isSubmitt
         </div>
 
         <DialogFooter className="gap-2">
-          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onOpenChange(false)}
+          >
             Cancel
           </Button>
           <Button
@@ -626,7 +673,10 @@ function Sidebar() {
       {SIDEBAR_ITEMS.map((item, idx) => {
         if (item.separator) {
           return (
-            <div key={`sep-${idx}`} className="my-2 px-2">
+            <div
+              key={`sep-${idx}`}
+              className="my-2 px-2"
+            >
               <span className="text-[9px] font-semibold tracking-wider text-neutral-400 uppercase">
                 {idx === 3 ? 'Exam Day' : 'Reports'}
               </span>
@@ -643,7 +693,7 @@ function Sidebar() {
               'flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-xs font-medium transition-all duration-200',
               item.active
                 ? 'bg-emerald-50 text-emerald-700 shadow-sm dark:bg-emerald-950/30'
-                : 'text-neutral-500 hover:bg-neutral-100/70 hover:text-neutral-800 dark:hover:bg-neutral-800/50'
+                : 'text-neutral-500 hover:bg-neutral-100/70 hover:text-neutral-800 dark:hover:bg-neutral-800/50',
             )}
           >
             {Icon ? <Icon className="h-4 w-4" /> : <span className="inline-block h-4 w-4" />}
@@ -724,7 +774,9 @@ export default function ExamDayAbsentMockup() {
   };
 
   const handleToggleSeat = (seatNo: number) => {
-    setMarkedSeats(prev => (prev.includes(seatNo) ? prev.filter(s => s !== seatNo) : [...prev, seatNo]));
+    setMarkedSeats((prev) =>
+      prev.includes(seatNo) ? prev.filter((s) => s !== seatNo) : [...prev, seatNo],
+    );
   };
 
   const handleSave = () => {
@@ -733,15 +785,17 @@ export default function ExamDayAbsentMockup() {
 
     setTimeout(() => {
       // Update the saved absent in the scheme
-      const updatedBlocks = blocks.map(block => ({
+      const updatedBlocks = blocks.map((block) => ({
         ...block,
-        schemes: block.schemes.map(scheme =>
-          scheme.id === selectedScheme.id ? { ...scheme, savedAbsent: [...markedSeats] } : scheme
+        schemes: block.schemes.map((scheme) =>
+          scheme.id === selectedScheme.id ? { ...scheme, savedAbsent: [...markedSeats] } : scheme,
         ),
       }));
       setBlocks(updatedBlocks);
 
-      toast.success(`${markedSeats.length} student${markedSeats.length !== 1 ? 's' : ''} marked absent`);
+      toast.success(
+        `${markedSeats.length} student${markedSeats.length !== 1 ? 's' : ''} marked absent`,
+      );
       setDialogOpen(false);
       setSaving(false);
     }, 900);
@@ -827,7 +881,10 @@ export default function ExamDayAbsentMockup() {
           </div>
 
           {/* Stats - Real-time */}
-          <CompactStats stats={stats} loading={loading} />
+          <CompactStats
+            stats={stats}
+            loading={loading}
+          />
 
           {/* Content Grid */}
           <div className="grid flex-1 grid-cols-[260px_1fr] gap-4">
@@ -850,7 +907,10 @@ export default function ExamDayAbsentMockup() {
 
             {/* Seat Panel */}
             <div className="flex flex-col gap-3">
-              <SubjectHeader scheme={selectedScheme} markedCount={markedSeats.length} />
+              <SubjectHeader
+                scheme={selectedScheme}
+                markedCount={markedSeats.length}
+              />
 
               <SeatGrid
                 scheme={selectedScheme}
@@ -865,7 +925,11 @@ export default function ExamDayAbsentMockup() {
                   disabled={markedSeats.length === 0 || saving}
                   className="h-8 gap-1.5 bg-gradient-to-r from-emerald-500 to-emerald-600 text-xs text-white shadow-md shadow-emerald-500/25 transition-all hover:scale-[1.02] hover:shadow-emerald-500/40 active:scale-[0.98]"
                 >
-                  {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                  {saving ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Save className="h-3.5 w-3.5" />
+                  )}
                   Save Absent List
                 </Button>
               </div>

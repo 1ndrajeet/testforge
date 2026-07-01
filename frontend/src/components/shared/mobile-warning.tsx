@@ -33,9 +33,13 @@ export function MobileWarning({ onProceed }: MobileWarningProps) {
         </div>
         <h2 className="mb-2 text-xl font-bold text-white">Desktop Recommended</h2>
         <p className="mb-6 text-sm text-neutral-400">
-          TestForge is optimized for larger screens. Some features may not work properly on mobile devices.
+          TestForge is optimized for larger screens. Some features may not work properly on mobile
+          devices.
         </p>
-        <Button onClick={onProceed} className="bg-primary hover:bg-primary gap-2">
+        <Button
+          onClick={onProceed}
+          className="bg-primary hover:bg-primary gap-2"
+        >
           <Maximize2 className="h-4 w-4" />
           Proceed Anyway
         </Button>

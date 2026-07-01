@@ -7,9 +7,15 @@ import { format } from 'date-fns';
 import { AlertTriangle, ChevronLeft, Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { MSBTEContextBar } from '@/components/layout/msbte-context-bar';
-import { PageEmpty, PageHeader } from '@/components/layout/page-layout';
-import { SessionSelector } from '@/components/shared/date-selector';
+import {
+  clearAllocationsForSession,
+  getAllocations,
+  getUniqueDates,
+  getUniqueSessions,
+} from '@/lib/actions/allocation';
+
+import { useUserInfo } from '@/hooks/useUserInfo';
+
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -22,14 +28,19 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useUserInfo } from '@/hooks/useUserInfo';
 import {
-  clearAllocationsForSession,
-  getAllocations,
-  getUniqueDates,
-  getUniqueSessions,
-} from '@/lib/actions/allocation';
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+
+import { MSBTEContextBar } from '@/components/layout/msbte-context-bar';
+import { PageEmpty, PageHeader } from '@/components/layout/page-layout';
+
+import { SessionSelector } from '@/components/shared/date-selector';
 
 interface Allocation {
   id: string;
@@ -128,10 +139,13 @@ export default function ClearSessionPage() {
         setLoading(false);
       }
     },
-    [groupAllocationsByBlock]
+    [groupAllocationsByBlock],
   );
 
-  const handleSessionSelect = async (session: { date: string; session: 'Morning' | 'Afternoon' | 'All' }) => {
+  const handleSessionSelect = async (session: {
+    date: string;
+    session: 'Morning' | 'Afternoon' | 'All';
+  }) => {
     setSelectedDate(session.date);
     setSelectedSession(session.session);
     await loadAllocations(session.date, session.session);
@@ -144,7 +158,7 @@ export default function ClearSessionPage() {
       const res = await clearAllocationsForSession(new Date(selectedDate), selectedSession);
       if (res.success) {
         toast.success(
-          `Cleared ${res.data?.length || 0} allocation(s) for ${format(new Date(selectedDate), 'dd MMM yyyy')} · ${selectedSession}`
+          `Cleared ${res.data?.length || 0} allocation(s) for ${format(new Date(selectedDate), 'dd MMM yyyy')} · ${selectedSession}`,
         );
         setStep('select');
         setDialogOpen(false);
@@ -182,7 +196,7 @@ export default function ClearSessionPage() {
 
   const totalStudents = groupedBlocks.reduce(
     (sum, block) => sum + block.subjects.reduce((s, sub) => s + sub.assignedCount, 0),
-    0
+    0,
   );
   const totalSubjects = groupedBlocks.reduce((sum, block) => sum + block.subjects.length, 0);
 
@@ -193,35 +207,53 @@ export default function ClearSessionPage() {
         description={`${format(new Date(selectedDate), 'dd MMM yyyy')} · ${selectedSession}`}
         icon={Trash2}
         actions={
-          <Button variant="ghost" size="sm" onClick={() => setStep('select')} className="gap-1.5">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setStep('select')}
+            className="gap-1.5"
+          >
             <ChevronLeft className="h-4 w-4" />
             Change Session
           </Button>
         }
       />
 
-      <MSBTEContextBar season={examCenter?.season as 'Summer' | 'Winter'} year={examCenter?.examYear!} />
+      <MSBTEContextBar
+        season={examCenter?.season as 'Summer' | 'Winter'}
+        year={examCenter?.examYear!}
+      />
 
       {/* Warning Alert */}
-      <Alert variant="destructive" className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30">
+      <Alert
+        variant="destructive"
+        className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30"
+      >
         <AlertTriangle className="h-4 w-4" />
         <AlertDescription className="text-sm">
-          This action will permanently delete all block allocations for this session. This cannot be undone.
+          This action will permanently delete all block allocations for this session. This cannot be
+          undone.
         </AlertDescription>
       </Alert>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-4">
         <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
-          <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">{groupedBlocks.length}</p>
+          <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
+            {groupedBlocks.length}
+          </p>
           <p className="text-xs text-neutral-500">Blocks</p>
         </div>
         <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
-          <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">{totalSubjects}</p>
+          <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
+            {totalSubjects}
+          </p>
           <p className="text-xs text-neutral-500">Subjects</p>
         </div>
         <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
-          <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">{totalStudents}</p>
+          <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
+            {totalStudents}
+          </p>
           <p className="text-xs text-neutral-500">Students</p>
         </div>
       </div>
@@ -231,7 +263,12 @@ export default function ClearSessionPage() {
         <p className="text-xs text-neutral-500">
           {groupedBlocks.length} block{groupedBlocks.length !== 1 ? 's' : ''} to be cleared
         </p>
-        <Button variant="destructive" size="sm" onClick={() => setDialogOpen(true)} className="gap-1.5">
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={() => setDialogOpen(true)}
+          className="gap-1.5"
+        >
           <Trash2 className="h-3.5 w-3.5" />
           Clear All Blocks
         </Button>
@@ -245,24 +282,41 @@ export default function ClearSessionPage() {
           <Skeleton className="h-12 w-full" />
         </div>
       ) : groupedBlocks.length === 0 ? (
-        <PageEmpty title="No allocations found" description="No blocks allocated for this date and session." />
+        <PageEmpty
+          title="No allocations found"
+          description="No blocks allocated for this date and session."
+        />
       ) : (
         <div className="overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-800">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader className="bg-neutral-50 dark:bg-neutral-900">
                 <TableRow>
-                  <TableHead className="w-20 text-xs font-medium tracking-wide uppercase">Block No</TableHead>
-                  <TableHead className="w-28 text-xs font-medium tracking-wide uppercase">Location</TableHead>
-                  <TableHead className="text-xs font-medium tracking-wide uppercase">Subjects</TableHead>
-                  <TableHead className="w-48 text-xs font-medium tracking-wide uppercase">Supervisor</TableHead>
+                  <TableHead className="w-20 text-xs font-medium tracking-wide uppercase">
+                    Block No
+                  </TableHead>
+                  <TableHead className="w-28 text-xs font-medium tracking-wide uppercase">
+                    Location
+                  </TableHead>
+                  <TableHead className="text-xs font-medium tracking-wide uppercase">
+                    Subjects
+                  </TableHead>
+                  <TableHead className="w-48 text-xs font-medium tracking-wide uppercase">
+                    Supervisor
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {groupedBlocks.map((block, idx) => (
-                  <TableRow key={block.blockNo} className="hover:bg-neutral-50 dark:hover:bg-neutral-900">
+                  <TableRow
+                    key={block.blockNo}
+                    className="hover:bg-neutral-50 dark:hover:bg-neutral-900"
+                  >
                     <TableCell className="px-4 py-3 text-center font-mono text-sm">
-                      <Badge variant="secondary" className="text-xs">
+                      <Badge
+                        variant="secondary"
+                        className="text-xs"
+                      >
                         {idx + 1}
                       </Badge>
                     </TableCell>
@@ -270,13 +324,18 @@ export default function ClearSessionPage() {
                     <TableCell className="px-4 py-3">
                       <div className="space-y-1">
                         {block.subjects.map((sub, subIdx) => (
-                          <div key={subIdx} className="text-sm">
+                          <div
+                            key={subIdx}
+                            className="text-sm"
+                          >
                             <code className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-xs dark:bg-neutral-800">
                               {sub.subjectCode}
                             </code>
                             <span className="mx-1">-</span>
                             <span>{sub.subjectName}</span>
-                            <span className="text-muted-foreground ml-2 text-xs">({sub.assignedCount} students)</span>
+                            <span className="text-muted-foreground ml-2 text-xs">
+                              ({sub.assignedCount} students)
+                            </span>
                           </div>
                         ))}
                       </div>
@@ -302,7 +361,10 @@ export default function ClearSessionPage() {
       )}
 
       {/* Confirmation Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-red-600">
@@ -314,7 +376,9 @@ export default function ClearSessionPage() {
 
           <div className="space-y-4 py-4">
             <div className="rounded-lg bg-red-50 p-4 dark:bg-red-950/20">
-              <p className="text-sm font-medium text-red-800 dark:text-red-300">You are about to clear:</p>
+              <p className="text-sm font-medium text-red-800 dark:text-red-300">
+                You are about to clear:
+              </p>
               <ul className="mt-2 space-y-1 text-sm text-red-700 dark:text-red-400">
                 <li>• {groupedBlocks.length} block(s)</li>
                 <li>• {totalSubjects} subject(s)</li>
@@ -327,17 +391,24 @@ export default function ClearSessionPage() {
 
             <div className="bg-muted rounded-lg p-3">
               <p className="text-muted-foreground text-xs">
-                This will permanently delete all block allocations for this session. You will need to re-allocate blocks
-                if you clear them by mistake.
+                This will permanently delete all block allocations for this session. You will need
+                to re-allocate blocks if you clear them by mistake.
               </p>
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setDialogOpen(false)}
+            >
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleClearSession} disabled={deleting}>
+            <Button
+              variant="destructive"
+              onClick={handleClearSession}
+              disabled={deleting}
+            >
               {deleting && (
                 <span className="mr-2 h-4 w-4 animate-spin">
                   <Loader2 />

@@ -18,21 +18,38 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { MSBTEContextBar } from '@/components/layout/msbte-context-bar';
-import { PageEmpty, PageHeader, PageToolbar } from '@/components/layout/page-layout';
-import { UniversalFileUploader } from '@/components/shared/file-uploader';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useUserInfo } from '@/hooks/useUserInfo';
 import {
-  type QPInventoryRecord,
-  type QPInventoryStats,
   getAllInventoryRecords,
   hasInventoryData,
+  type QPInventoryRecord,
+  type QPInventoryStats,
 } from '@/lib/actions/inventory';
+
+import { useUserInfo } from '@/hooks/useUserInfo';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+
+import { MSBTEContextBar } from '@/components/layout/msbte-context-bar';
+import { PageEmpty, PageHeader, PageToolbar } from '@/components/layout/page-layout';
+
+import { UniversalFileUploader } from '@/components/shared/file-uploader';
 
 // ============================================================================
 // Stats Cards Component
@@ -41,19 +58,27 @@ import {
 const StatsCards = ({ stats }: { stats: QPInventoryStats }) => (
   <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
     <div className="rounded-lg border border-neutral-100 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
-      <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">{stats.totalSubjects}</p>
+      <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
+        {stats.totalSubjects}
+      </p>
       <p className="text-xs text-neutral-500">Subjects</p>
     </div>
     <div className="rounded-lg border border-neutral-100 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
-      <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">{stats.totalExpectedPackets}</p>
+      <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
+        {stats.totalExpectedPackets}
+      </p>
       <p className="text-xs text-neutral-500">Expected Packets</p>
     </div>
     <div className="rounded-lg border border-neutral-100 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
-      <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">{stats.totalReceivedPackets}</p>
+      <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
+        {stats.totalReceivedPackets}
+      </p>
       <p className="text-xs text-neutral-500">Received Packets</p>
     </div>
     <div className="rounded-lg border border-neutral-100 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
-      <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">{stats.completionRate}%</p>
+      <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
+        {stats.completionRate}%
+      </p>
       <p className="text-xs text-neutral-500">Completion Rate</p>
     </div>
   </div>
@@ -79,13 +104,17 @@ const InventoryDetailModal = ({
   if (!record) return null;
 
   const isComplete = record.receivedPackets >= record.expectedPackets && record.expectedPackets > 0;
-  const hasDiscrepancy = record.expectedPackets !== record.receivedPackets && record.expectedPackets > 0;
+  const hasDiscrepancy =
+    record.expectedPackets !== record.receivedPackets && record.expectedPackets > 0;
   const discrepancyAmount = record.expectedPackets - record.receivedPackets;
   const isOver = discrepancyAmount < 0;
   const isUnder = discrepancyAmount > 0;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+    >
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Inventory Details</DialogTitle>
@@ -108,13 +137,19 @@ const InventoryDetailModal = ({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-sm font-medium text-neutral-500">Day</p>
-              <Badge variant="outline" className="mt-1">
+              <Badge
+                variant="outline"
+                className="mt-1"
+              >
                 Day {record.day}
               </Badge>
             </div>
             <div>
               <p className="text-sm font-medium text-neutral-500">Session</p>
-              <Badge variant={record.session === 'Morning' ? 'default' : 'secondary'} className="mt-1">
+              <Badge
+                variant={record.session === 'Morning' ? 'default' : 'secondary'}
+                className="mt-1"
+              >
                 {record.session}
               </Badge>
             </div>
@@ -168,7 +203,10 @@ const InventoryDetailModal = ({
                 </Badge>
               )}
               {hasDiscrepancy && (
-                <Badge variant="outline" className="border-amber-500 text-amber-500">
+                <Badge
+                  variant="outline"
+                  className="border-amber-500 text-amber-500"
+                >
                   Discrepancy
                 </Badge>
               )}
@@ -177,34 +215,41 @@ const InventoryDetailModal = ({
             {/* Discrepancy Details */}
             {hasDiscrepancy && (
               <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/20">
-                <p className="text-sm font-medium text-amber-800 dark:text-amber-400">Packet Discrepancy Detected</p>
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-400">
+                  Packet Discrepancy Detected
+                </p>
                 <div className="mt-2 space-y-1 text-sm text-amber-700 dark:text-amber-300">
                   {isUnder && (
                     <>
                       <p>
-                        <span className="font-medium">Shortage:</span> {Math.abs(discrepancyAmount)} packet
+                        <span className="font-medium">Shortage:</span> {Math.abs(discrepancyAmount)}{' '}
+                        packet
                         {Math.abs(discrepancyAmount) !== 1 ? 's' : ''} missing
                       </p>
                       <p className="text-xs text-amber-600 dark:text-amber-400">
-                        Expected {record.expectedPackets} packets but received only {record.receivedPackets} packets
+                        Expected {record.expectedPackets} packets but received only{' '}
+                        {record.receivedPackets} packets
                       </p>
                       <p className="text-xs text-amber-600 dark:text-amber-400">
-                        Estimated QPs shortage: {Math.abs(discrepancyAmount) * (record.qpPerPacket || 50)} question
-                        papers
+                        Estimated QPs shortage:{' '}
+                        {Math.abs(discrepancyAmount) * (record.qpPerPacket || 50)} question papers
                       </p>
                     </>
                   )}
                   {isOver && (
                     <>
                       <p>
-                        <span className="font-medium">Excess:</span> {Math.abs(discrepancyAmount)} extra packet
+                        <span className="font-medium">Excess:</span> {Math.abs(discrepancyAmount)}{' '}
+                        extra packet
                         {Math.abs(discrepancyAmount) !== 1 ? 's' : ''} received
                       </p>
                       <p className="text-xs text-amber-600 dark:text-amber-400">
-                        Expected {record.expectedPackets} packets but received {record.receivedPackets} packets
+                        Expected {record.expectedPackets} packets but received{' '}
+                        {record.receivedPackets} packets
                       </p>
                       <p className="text-xs text-amber-600 dark:text-amber-400">
-                        Estimated excess QPs: {Math.abs(discrepancyAmount) * (record.qpPerPacket || 50)} question papers
+                        Estimated excess QPs:{' '}
+                        {Math.abs(discrepancyAmount) * (record.qpPerPacket || 50)} question papers
                       </p>
                     </>
                   )}
@@ -229,7 +274,9 @@ const InventoryDetailModal = ({
 
             {!isComplete && !hasDiscrepancy && (
               <div className="mt-4 rounded-md border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-900/50">
-                <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Awaiting Packet Receipt</p>
+                <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                  Awaiting Packet Receipt
+                </p>
                 <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
                   Expected {record.expectedPackets} packets for {record.expectedStudents} students
                 </p>
@@ -264,11 +311,20 @@ const DataTable = ({
 }) => {
   const getSortIcon = (column: string) => {
     if (sortColumn !== column) return null;
-    return sortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+    return sortDirection === 'asc' ? (
+      <ArrowUp className="h-3 w-3" />
+    ) : (
+      <ArrowDown className="h-3 w-3" />
+    );
   };
 
   if (entries.length === 0) {
-    return <PageEmpty title="No inventory records" description="Upload inventory data to get started." />;
+    return (
+      <PageEmpty
+        title="No inventory records"
+        description="Upload inventory data to get started."
+      />
+    );
   }
 
   return (
@@ -325,14 +381,20 @@ const DataTable = ({
               >
                 Received {getSortIcon('receivedPackets')}
               </TableHead>
-              <TableHead className="w-24 text-center text-xs font-medium tracking-wide uppercase">Status</TableHead>
-              <TableHead className="w-12 text-right text-xs font-medium tracking-wide uppercase">View</TableHead>
+              <TableHead className="w-24 text-center text-xs font-medium tracking-wide uppercase">
+                Status
+              </TableHead>
+              <TableHead className="w-12 text-right text-xs font-medium tracking-wide uppercase">
+                View
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {entries.map(record => {
-              const isComplete = record.receivedPackets >= record.expectedPackets && record.expectedPackets > 0;
-              const hasDiscrepancy = record.expectedPackets !== record.receivedPackets && record.expectedPackets > 0;
+            {entries.map((record) => {
+              const isComplete =
+                record.receivedPackets >= record.expectedPackets && record.expectedPackets > 0;
+              const hasDiscrepancy =
+                record.expectedPackets !== record.receivedPackets && record.expectedPackets > 0;
 
               return (
                 <TableRow
@@ -341,27 +403,46 @@ const DataTable = ({
                   onClick={() => onRowClick(record)}
                 >
                   <TableCell className="px-4 py-3 text-center font-mono text-sm">
-                    <Badge variant="secondary" className="text-xs">
+                    <Badge
+                      variant="secondary"
+                      className="text-xs"
+                    >
                       Day {record.day}
                     </Badge>
                   </TableCell>
-                  <TableCell className="px-4 py-3 font-mono text-sm">{record.subjectCode}</TableCell>
+                  <TableCell className="px-4 py-3 font-mono text-sm">
+                    {record.subjectCode}
+                  </TableCell>
                   <TableCell className="px-4 py-3 text-sm font-medium">
-                    {record.subjectName?.length > 25 ? `${record.subjectName.slice(0, 25)}...` : record.subjectName}
+                    {record.subjectName?.length > 25
+                      ? `${record.subjectName.slice(0, 25)}...`
+                      : record.subjectName}
                   </TableCell>
                   <TableCell className="px-4 py-3">
-                    <Badge variant="outline" className="font-mono text-xs">
+                    <Badge
+                      variant="outline"
+                      className="font-mono text-xs"
+                    >
                       {record.scheme || '-'}
                     </Badge>
                   </TableCell>
                   <TableCell className="px-4 py-3">
-                    <Badge variant={record.session === 'Morning' ? 'default' : 'secondary'} className="text-[10px]">
+                    <Badge
+                      variant={record.session === 'Morning' ? 'default' : 'secondary'}
+                      className="text-[10px]"
+                    >
                       {record.session}
                     </Badge>
                   </TableCell>
-                  <TableCell className="px-4 py-3 text-right font-mono text-sm">{record.expectedStudents}</TableCell>
-                  <TableCell className="px-4 py-3 text-right font-mono text-sm">{record.expectedPackets}</TableCell>
-                  <TableCell className="px-4 py-3 text-right font-mono text-sm">{record.receivedPackets}</TableCell>
+                  <TableCell className="px-4 py-3 text-right font-mono text-sm">
+                    {record.expectedStudents}
+                  </TableCell>
+                  <TableCell className="px-4 py-3 text-right font-mono text-sm">
+                    {record.expectedPackets}
+                  </TableCell>
+                  <TableCell className="px-4 py-3 text-right font-mono text-sm">
+                    {record.receivedPackets}
+                  </TableCell>
                   <TableCell className="px-4 py-3 text-center">
                     <div className="flex items-center justify-center gap-1">
                       {isComplete ? (
@@ -370,13 +451,19 @@ const DataTable = ({
                           Complete
                         </Badge>
                       ) : (
-                        <Badge variant="destructive" className="text-[10px]">
+                        <Badge
+                          variant="destructive"
+                          className="text-[10px]"
+                        >
                           <XCircle className="mr-0.5 h-3 w-3" />
                           Pending
                         </Badge>
                       )}
                       {hasDiscrepancy && (
-                        <Badge variant="outline" className="border-amber-500 text-[10px] text-amber-500">
+                        <Badge
+                          variant="outline"
+                          className="border-amber-500 text-[10px] text-amber-500"
+                        >
                           Discrepancy
                         </Badge>
                       )}
@@ -387,7 +474,7 @@ const DataTable = ({
                       variant="ghost"
                       size="sm"
                       className="h-7 w-7 p-0"
-                      onClick={e => {
+                      onClick={(e) => {
                         e.stopPropagation();
                         onRowClick(record);
                       }}
@@ -434,7 +521,10 @@ export default function InventoryPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [hasDataResult, recordsResult] = await Promise.all([hasInventoryData(), getAllInventoryRecords()]);
+      const [hasDataResult, recordsResult] = await Promise.all([
+        hasInventoryData(),
+        getAllInventoryRecords(),
+      ]);
 
       if (!hasDataResult.success) throw new Error(hasDataResult.error);
       if (!recordsResult.success) throw new Error(recordsResult.error);
@@ -479,7 +569,7 @@ export default function InventoryPage() {
       'Received Packets',
       'Status',
     ];
-    const rows = filteredEntries.map(entry => [
+    const rows = filteredEntries.map((entry) => [
       entry.day || '',
       entry.subjectCode,
       entry.subjectName,
@@ -491,7 +581,9 @@ export default function InventoryPage() {
       entry.receivedPackets >= entry.expectedPackets ? 'Complete' : 'Pending',
     ]);
 
-    const csv = [headers, ...rows].map(row => row.map(cell => `"${cell ?? ''}"`).join(',')).join('\n');
+    const csv = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${cell ?? ''}"`).join(','))
+      .join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -506,7 +598,7 @@ export default function InventoryPage() {
     const hasActiveFilters = filters.session || filters.search;
     if (!hasActiveFilters) return entries;
 
-    return entries.filter(entry => {
+    return entries.filter((entry) => {
       if (filters.session && entry.session !== filters.session) return false;
       if (filters.search) {
         const search = filters.search.toLowerCase();
@@ -568,11 +660,14 @@ export default function InventoryPage() {
   }, [filteredEntries, sortColumn, sortDirection]);
 
   const totalPages = Math.ceil(sortedEntries.length / pageSize);
-  const paginatedEntries = sortedEntries.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const paginatedEntries = sortedEntries.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
 
   const handleSort = (column: string) => {
     if (sortColumn === column) {
-      setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortColumn(column);
       setSortDirection('asc');
@@ -641,12 +736,19 @@ export default function InventoryPage() {
             icon={Package}
           />
           {hasData && (
-            <Button variant="ghost" size="sm" onClick={() => setShowUpload(false)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowUpload(false)}
+            >
               Cancel
             </Button>
           )}
         </div>
-        <MSBTEContextBar season={examCenter?.season as 'Summer' | 'Winter'} year={examCenter?.examYear!} />
+        <MSBTEContextBar
+          season={examCenter?.season as 'Summer' | 'Winter'}
+          year={examCenter?.examYear!}
+        />
         <div className="rounded-lg border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-950">
           <UniversalFileUploader
             fileType="inventory"
@@ -667,14 +769,22 @@ export default function InventoryPage() {
         description="View and manage question paper inventory."
         icon={Package}
         actions={
-          <Button variant="outline" size="sm" onClick={() => setShowUpload(true)} className="gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowUpload(true)}
+            className="gap-1.5"
+          >
             <Upload className="h-4 w-4" />
             Upload New
           </Button>
         }
       />
 
-      <MSBTEContextBar season={examCenter?.season as 'Summer' | 'Winter'} year={examCenter?.examYear!} />
+      <MSBTEContextBar
+        season={examCenter?.season as 'Summer' | 'Winter'}
+        year={examCenter?.examYear!}
+      />
 
       {stats && <StatsCards stats={stats} />}
 
@@ -682,13 +792,13 @@ export default function InventoryPage() {
         filters={filterOptions}
         onFilterChange={(id, value) => {
           if (id === 'session') {
-            setFilters(prev => ({ ...prev, session: value === 'all' ? '' : value }));
+            setFilters((prev) => ({ ...prev, session: value === 'all' ? '' : value }));
           }
           setCurrentPage(1);
         }}
         searchValue={filters.search}
-        onSearchChange={value => {
-          setFilters(prev => ({ ...prev, search: value }));
+        onSearchChange={(value) => {
+          setFilters((prev) => ({ ...prev, search: value }));
           setCurrentPage(1);
         }}
         searchPlaceholder="Search by subject code, name, or scheme..."
@@ -704,7 +814,7 @@ export default function InventoryPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
               className="h-7 px-2 text-xs"
             >
@@ -716,7 +826,7 @@ export default function InventoryPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
               className="h-7 px-2 text-xs"
             >
@@ -734,15 +844,24 @@ export default function InventoryPage() {
         onRowClick={handleRowClick}
       />
 
-      {Object.values(filters).some(v => v !== '') && (
+      {Object.values(filters).some((v) => v !== '') && (
         <div className="mt-4 flex justify-end">
-          <Button variant="ghost" size="sm" onClick={handleClearFilters} className="text-xs">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleClearFilters}
+            className="text-xs"
+          >
             Clear all filters
           </Button>
         </div>
       )}
 
-      <InventoryDetailModal record={selectedRecord} open={modalOpen} onOpenChange={setModalOpen} />
+      <InventoryDetailModal
+        record={selectedRecord}
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+      />
     </div>
   );
 }

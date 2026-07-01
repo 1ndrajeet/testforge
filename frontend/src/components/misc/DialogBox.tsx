@@ -34,15 +34,24 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
 
   const isError = type === 'error';
   const icon = isError ? (
-    <AlertCircle className="mr-2 h-5 w-5 text-red-500" aria-hidden="true" />
+    <AlertCircle
+      className="mr-2 h-5 w-5 text-red-500"
+      aria-hidden="true"
+    />
   ) : (
-    <CheckCircle className="mr-2 h-5 w-5 text-green-500" aria-hidden="true" />
+    <CheckCircle
+      className="mr-2 h-5 w-5 text-green-500"
+      aria-hidden="true"
+    />
   );
 
   const title = isError ? 'Error' : 'Confirmation';
 
   return (
-    <AlertDialog open={!!message} onOpenChange={onCancel}>
+    <AlertDialog
+      open={!!message}
+      onOpenChange={onCancel}
+    >
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center">

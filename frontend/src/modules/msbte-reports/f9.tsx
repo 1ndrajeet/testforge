@@ -1,4 +1,4 @@
-// modules/formats/format9.tsx - 100% COMPLIANT
+// modules/formats/format9.tsx
 
 'use client';
 
@@ -7,14 +7,24 @@ import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { AlertCircle } from 'lucide-react';
 
-import ReportLayout from '@/components/layout/msbte-report-layout';
-import { SessionSelector } from '@/components/shared/date-selector';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useUserInfo } from '@/hooks/useUserInfo';
 import { getPackingSlip } from '@/lib/actions/allocation';
 import { getTimetableEntries } from '@/lib/actions/timetable';
 import { cn } from '@/lib/utils';
+
+import { useUserInfo } from '@/hooks/useUserInfo';
+
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
+
+import { MultiPageReport, ReportPageData } from '@/components/layout/msbte-report-layout';
+
+import { SessionSelector } from '@/components/shared/date-selector';
+
+// ============================================================
+// Constants
+// ============================================================
+
+const FORMAT_9_MAX_ROWS = 10;
 
 // ============================================================
 // Types
@@ -40,10 +50,10 @@ interface PackingSlipData {
 // ============================================================
 
 function Format9Content({ data }: { data: PackingSlipData[] }) {
-  // Each item is a separate row
-  const rows = data.map(item => ({
+  const rows = data.map((item) => ({
     ...item,
-    answerBooks: item.totalStudents - (item.absentNumbers?.length || 0) - (item.cpsNumbers?.length || 0),
+    answerBooks:
+      item.totalStudents - (item.absentNumbers?.length || 0) - (item.cpsNumbers?.length || 0),
   }));
 
   const totalBundles = rows.length;
@@ -51,22 +61,26 @@ function Format9Content({ data }: { data: PackingSlipData[] }) {
 
   return (
     <>
-      {/* RECEIPT Heading */}
       <div className="mb-2 text-center text-sm font-bold">RECEIPT</div>
 
       <div className="mb-3 text-center text-xs">
-        Received below mentioned sealed packets of written answer books in good and intact condition, from the
-        Officer-in-charge, examination center, Institute Code {firstItem?.instituteCode || ''}.
+        Received below mentioned sealed packets of written answer books in good and intact
+        condition, from the Officer-in-charge, examination center, Institute Code{' '}
+        {firstItem?.instituteCode || ''}.
       </div>
 
       <table className="w-full border-collapse border border-black text-xs">
         <thead>
           <tr>
             <th className="w-[6%] border border-black px-1.5 py-1 text-center">Sr. No.</th>
-            <th className="w-[22%] border border-black px-1.5 py-1 text-center">Course/Sem/Year/Master</th>
+            <th className="w-[22%] border border-black px-1.5 py-1 text-center">
+              Course/Sem/Year/Master
+            </th>
             <th className="w-[24%] border border-black px-1.5 py-1 text-center">Subject Title</th>
             <th className="w-[12%] border border-black px-1.5 py-1 text-center">Subject Code</th>
-            <th className="w-[12%] border border-black px-1.5 py-1 text-center">Number of packets (if sections)</th>
+            <th className="w-[12%] border border-black px-1.5 py-1 text-center">
+              Number of packets (if sections)
+            </th>
             <th className="w-[12%] border border-black px-1.5 py-1 text-center">
               Number of Answer Books in each bundle
             </th>
@@ -82,15 +96,27 @@ function Format9Content({ data }: { data: PackingSlipData[] }) {
             const isMorning = item.session === 'Morning';
 
             return (
-              <tr key={index} className={cn('print:bg-transparent', isMorning && 'bg-blue-50/50 dark:bg-blue-950/20')}>
+              <tr
+                key={index}
+                className={cn(
+                  'print:bg-transparent',
+                  isMorning && 'bg-blue-50/50 dark:bg-blue-950/20',
+                )}
+              >
                 <td className="border border-black px-1.5 py-1 text-center">{index + 1}</td>
                 <td className="border border-black px-1.5 py-1 text-center">
                   {courseName}/{sem}/{master}
                 </td>
-                <td className="border border-black px-1.5 py-1 pl-2 text-left">{item.subjectName}</td>
-                <td className="border border-black px-1.5 py-1 text-center font-mono">{item.subjectCode}</td>
+                <td className="border border-black px-1.5 py-1 pl-2 text-left">
+                  {item.subjectName}
+                </td>
+                <td className="border border-black px-1.5 py-1 text-center font-mono">
+                  {item.subjectCode}
+                </td>
                 <td className="border border-black px-1.5 py-1 text-center">1</td>
-                <td className="border border-black px-1.5 py-1 text-center font-medium">{item.answerBooks}</td>
+                <td className="border border-black px-1.5 py-1 text-center font-medium">
+                  {item.answerBooks}
+                </td>
               </tr>
             );
           })}
@@ -136,6 +162,7 @@ export default function Format9Report() {
   const [dates, setDates] = useState<Date[]>([]);
   const [selected, setSelected] = useState('');
   const [showReport, setShowReport] = useState(false);
+  const [copies, setCopies] = useState(2);
 
   useEffect(() => {
     const fetchDates = async () => {
@@ -150,7 +177,6 @@ export default function Format9Report() {
     fetchDates();
   }, []);
 
-  // Fetch data for BOTH Morning and Afternoon sessions
   const fetchFullDayData = async (date: string) => {
     setLoading(true);
     setError(null);
@@ -199,8 +225,11 @@ export default function Format9Report() {
         allData = [...allData, ...afternoonData];
       }
 
-      if (allData.length > 0) {
-        setData(allData);
+      // Filter out items with 0 total students
+      const filteredData = allData.filter((item) => item.totalStudents > 0);
+
+      if (filteredData.length > 0) {
+        setData(filteredData);
         setShowReport(true);
       } else {
         setError('No packing slip data found for this date');
@@ -221,12 +250,50 @@ export default function Format9Report() {
     await fetchFullDayData(s.date);
   };
 
-  const handleBack = () => {
+  const handleReset = () => {
     setShowReport(false);
     setData([]);
     setError(null);
   };
 
+  // Build pages
+  const buildPages = (): ReportPageData[] => {
+    const pages: ReportPageData[] = [];
+    const sortedData = [...data].sort((a, b) => {
+      if (a.session === 'Morning' && b.session === 'Afternoon') return -1;
+      if (a.session === 'Afternoon' && b.session === 'Morning') return 1;
+      return 0;
+    });
+
+    for (let i = 0; i < sortedData.length; i += FORMAT_9_MAX_ROWS) {
+      const chunk = sortedData.slice(i, i + FORMAT_9_MAX_ROWS);
+      const pageIndex = Math.floor(i / FORMAT_9_MAX_ROWS) + 1;
+      const firstInChunk = chunk[0];
+
+      pages.push({
+        id: `format9-page-${pageIndex}`,
+        blockNo: '',
+        blockLocation: '',
+        supervisorName: '',
+        subjectCode: '',
+        subjectName: '',
+        scheme: '',
+        seatNumbers: [],
+        content: <Format9Content data={chunk} />,
+        date: new Date(firstInChunk?.date || new Date()),
+        session: (firstInChunk?.session as 'Morning' | 'Afternoon') || 'Morning',
+        examCenterCode: examCenter?.code || '',
+        examCenterName: examCenter?.name || '',
+        instituteCode: firstInChunk?.instituteCode || '',
+        instituteName: firstInChunk?.instituteName || '',
+        officerIncharge: examCenter?.officerIncharge || '',
+      });
+    }
+
+    return pages;
+  };
+
+  const allPages = buildPages();
   const firstItem = data.length > 0 ? data[0] : null;
 
   if (loadingDates) {
@@ -238,7 +305,7 @@ export default function Format9Report() {
     );
   }
 
-  if (!showReport) {
+  if (!showReport || allPages.length === 0) {
     return (
       <div className="mx-auto max-w-4xl p-4">
         <div className="space-y-4">
@@ -256,7 +323,10 @@ export default function Format9Report() {
             hideSession={true}
           />
           {!dates.length && !error && (
-            <Alert variant="default" className="border-amber-200 bg-amber-50">
+            <Alert
+              variant="default"
+              className="border-amber-200 bg-amber-50"
+            >
               <AlertCircle className="h-4 w-4 text-amber-600" />
               <AlertTitle>No Data</AlertTitle>
               <AlertDescription>Upload timetable first.</AlertDescription>
@@ -268,7 +338,8 @@ export default function Format9Report() {
   }
 
   return (
-    <ReportLayout
+    <MultiPageReport
+      pages={allPages}
       header={{
         title: 'FORMAT NO. 9',
         subtitle:
@@ -278,16 +349,19 @@ export default function Format9Report() {
         examCenterName: examCenter?.name,
         examCenterCode: examCenter?.code,
         date: firstItem ? new Date(firstItem.date) : new Date(),
+        session: (firstItem?.session as 'Morning' | 'Afternoon') || 'Morning',
+        instituteCode: firstItem?.instituteCode || '',
+        instituteName: firstItem?.instituteName || '',
       }}
       footer={{
         showTimestamp: false,
       }}
-      showBackButton
-      onBack={handleBack}
+      onBack={handleReset}
+      backButtonLabel="Back"
       documentTitle="Format_9_Report"
-      bordered
-    >
-      <Format9Content data={data} />
-    </ReportLayout>
+      numberOfCopies={copies}
+      onCopiesChange={setCopies}
+      renderPageContent={(pageData) => pageData.content}
+    />
   );
 }

@@ -18,9 +18,18 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { MSBTEContextBar } from '@/components/layout/msbte-context-bar';
-import { PageHeader } from '@/components/layout/page-layout';
-import { SessionSelector } from '@/components/shared/date-selector';
+import { getAllocationsByDateSession } from '@/lib/actions/allocation';
+import {
+  getTimetableEntries,
+  getUniqueDates,
+  getUniqueSessions,
+  markAbsent,
+  markCopyCase,
+} from '@/lib/actions/timetable';
+import { cn } from '@/lib/utils';
+
+import { useUserInfo } from '@/hooks/useUserInfo';
+
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -37,16 +46,11 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { useUserInfo } from '@/hooks/useUserInfo';
-import { getAllocationsByDateSession } from '@/lib/actions/allocation';
-import {
-  getTimetableEntries,
-  getUniqueDates,
-  getUniqueSessions,
-  markAbsent,
-  markCopyCase,
-} from '@/lib/actions/timetable';
-import { cn } from '@/lib/utils';
+
+import { MSBTEContextBar } from '@/components/layout/msbte-context-bar';
+import { PageHeader } from '@/components/layout/page-layout';
+
+import { SessionSelector } from '@/components/shared/date-selector';
 
 // ============================================================================
 // Configuration
@@ -119,7 +123,7 @@ function validateMutualExclusion(
   mode: 'absent' | 'copycase',
   seatNo: number,
   absentSeats: number[],
-  copyCaseSeats: number[]
+  copyCaseSeats: number[],
 ): { isValid: boolean; message?: string } {
   if (mode === 'absent' && copyCaseSeats.includes(seatNo)) {
     return {
@@ -147,7 +151,13 @@ interface StatsData {
   markedPercentage: number;
 }
 
-const CompactStats = ({ stats, CURRENT_CONFIG }: { stats: StatsData | null; CURRENT_CONFIG: ExamDayEditConfig }) => {
+const CompactStats = ({
+  stats,
+  CURRENT_CONFIG,
+}: {
+  stats: StatsData | null;
+  CURRENT_CONFIG: ExamDayEditConfig;
+}) => {
   if (!stats) return null;
 
   const label = CURRENT_CONFIG.mode === 'absent' ? 'Absent' : 'Copy Case';
@@ -205,7 +215,9 @@ function BlockNav({
   CURRENT_CONFIG,
 }: BlockNavProps) {
   const getMarkedCount = (scheme: SchemeData) => {
-    return CURRENT_CONFIG.mode === 'absent' ? scheme.absentNumbers.length : scheme.cpsNumbers.length;
+    return CURRENT_CONFIG.mode === 'absent'
+      ? scheme.absentNumbers.length
+      : scheme.cpsNumbers.length;
   };
 
   if (isLoading) {
@@ -228,7 +240,7 @@ function BlockNav({
 
   return (
     <div className="space-y-0.5">
-      {blocks.map(block => {
+      {blocks.map((block) => {
         const isBlockExpanded = selectedBlockNo === block.blockNo;
         const totalMarked = block.schemes.reduce((sum, s) => sum + getMarkedCount(s), 0);
         const totalStudents = block.schemes.reduce((sum, s) => sum + s.totalStudents, 0);
@@ -239,16 +251,23 @@ function BlockNav({
               onClick={() => onSelectBlock(isBlockExpanded ? null : block.blockNo)}
               className={cn(
                 'flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-sm transition-colors',
-                isBlockExpanded ? 'bg-neutral-100 dark:bg-neutral-800' : 'hover:bg-neutral-50 dark:hover:bg-neutral-900'
+                isBlockExpanded
+                  ? 'bg-neutral-100 dark:bg-neutral-800'
+                  : 'hover:bg-neutral-50 dark:hover:bg-neutral-900',
               )}
             >
               <div className="flex items-center gap-2">
-                <ChevronLeft className={cn('h-3 w-3 transition-transform', isBlockExpanded && '-rotate-90')} />
+                <ChevronLeft
+                  className={cn('h-3 w-3 transition-transform', isBlockExpanded && '-rotate-90')}
+                />
                 <span className="font-mono text-sm">Block {block.blockNo}</span>
                 <span className="text-xs text-neutral-400">{block.location}</span>
               </div>
               {totalMarked > 0 && (
-                <Badge variant="destructive" className="h-5 px-1.5 text-[10px]">
+                <Badge
+                  variant="destructive"
+                  className="h-5 px-1.5 text-[10px]"
+                >
                   {totalMarked}/{totalStudents}
                 </Badge>
               )}
@@ -256,10 +275,11 @@ function BlockNav({
 
             {isBlockExpanded && (
               <div className="ml-6 space-y-0.5 border-l border-neutral-200 pl-2 dark:border-neutral-800">
-                {block.schemes.map(scheme => {
+                {block.schemes.map((scheme) => {
                   const isSelected = selectedSchemeId === scheme.id;
                   const markedCount = getMarkedCount(scheme);
-                  const percent = scheme.totalStudents > 0 ? (markedCount / scheme.totalStudents) * 100 : 0;
+                  const percent =
+                    scheme.totalStudents > 0 ? (markedCount / scheme.totalStudents) * 100 : 0;
 
                   return (
                     <button
@@ -269,7 +289,7 @@ function BlockNav({
                         'w-full rounded-md px-2 py-1.5 text-left text-sm transition-colors',
                         isSelected
                           ? 'bg-neutral-100 dark:bg-neutral-800'
-                          : 'hover:bg-neutral-50 dark:hover:bg-neutral-900'
+                          : 'hover:bg-neutral-50 dark:hover:bg-neutral-900',
                       )}
                     >
                       <div className="flex items-center justify-between gap-2">
@@ -284,8 +304,12 @@ function BlockNav({
                         </div>
                         {markedCount > 0 && (
                           <div className="shrink-0 text-right">
-                            <span className={cn('text-xs font-medium', CURRENT_CONFIG.textColor)}>{markedCount}</span>
-                            <span className="text-[10px] text-neutral-400">/{scheme.totalStudents}</span>
+                            <span className={cn('text-xs font-medium', CURRENT_CONFIG.textColor)}>
+                              {markedCount}
+                            </span>
+                            <span className="text-[10px] text-neutral-400">
+                              /{scheme.totalStudents}
+                            </span>
                           </div>
                         )}
                       </div>
@@ -321,7 +345,8 @@ interface SubjectHeaderProps {
 function SubjectHeader({ scheme, CURRENT_CONFIG }: SubjectHeaderProps) {
   if (!scheme) return null;
 
-  const markedCount = CURRENT_CONFIG.mode === 'absent' ? scheme.absentNumbers.length : scheme.cpsNumbers.length;
+  const markedCount =
+    CURRENT_CONFIG.mode === 'absent' ? scheme.absentNumbers.length : scheme.cpsNumbers.length;
   const label = CURRENT_CONFIG.mode === 'absent' ? 'absent' : 'copy case';
   const color = CURRENT_CONFIG.textColor;
 
@@ -334,7 +359,10 @@ function SubjectHeader({ scheme, CURRENT_CONFIG }: SubjectHeaderProps) {
               {scheme.subjectCode}
             </code>
             <span className="font-medium">{scheme.subjectName}</span>
-            <Badge variant="outline" className="font-mono text-[10px]">
+            <Badge
+              variant="outline"
+              className="font-mono text-[10px]"
+            >
               {scheme.scheme}
             </Badge>
           </div>
@@ -348,7 +376,9 @@ function SubjectHeader({ scheme, CURRENT_CONFIG }: SubjectHeaderProps) {
               {markedCount} {label}
             </div>
             <div className="text-[10px] text-neutral-500">
-              {scheme.totalStudents > 0 ? `${((markedCount / scheme.totalStudents) * 100).toFixed(0)}%` : '0%'}
+              {scheme.totalStudents > 0
+                ? `${((markedCount / scheme.totalStudents) * 100).toFixed(0)}%`
+                : '0%'}
             </div>
           </div>
         </div>
@@ -384,7 +414,7 @@ function SeatGrid({
 
   const filteredSeats = useMemo(() => {
     if (!searchTerm) return seatNumbers;
-    return seatNumbers.filter(seat => seat.toString().includes(searchTerm));
+    return seatNumbers.filter((seat) => seat.toString().includes(searchTerm));
   }, [seatNumbers, searchTerm]);
 
   const getSeatStatus = (seatNo: number) => {
@@ -407,7 +437,12 @@ function SeatGrid({
 
   const handleSeatClick = (seatNo: number) => {
     // Validate mutual exclusion
-    const validation = validateMutualExclusion(CURRENT_CONFIG.mode, seatNo, absentSeats, copyCaseSeats);
+    const validation = validateMutualExclusion(
+      CURRENT_CONFIG.mode,
+      seatNo,
+      absentSeats,
+      copyCaseSeats,
+    );
 
     if (!validation.isValid) {
       toast.warning(validation.message);
@@ -427,11 +462,19 @@ function SeatGrid({
   };
 
   const handleBulkMark = () => {
-    const eligibleSeats = seatNumbers.filter(seat => {
+    const eligibleSeats = seatNumbers.filter((seat) => {
       if (CURRENT_CONFIG.mode === 'absent') {
-        return !absentSeats.includes(seat) && !copyCaseSeats.includes(seat) && !markedSeats.includes(seat);
+        return (
+          !absentSeats.includes(seat) &&
+          !copyCaseSeats.includes(seat) &&
+          !markedSeats.includes(seat)
+        );
       } else {
-        return !copyCaseSeats.includes(seat) && !absentSeats.includes(seat) && !markedSeats.includes(seat);
+        return (
+          !copyCaseSeats.includes(seat) &&
+          !absentSeats.includes(seat) &&
+          !markedSeats.includes(seat)
+        );
       }
     });
 
@@ -439,12 +482,12 @@ function SeatGrid({
       toast.warning(
         CURRENT_CONFIG.mode === 'absent'
           ? 'No eligible students to mark absent'
-          : 'No eligible students to mark copy case'
+          : 'No eligible students to mark copy case',
       );
       return;
     }
 
-    eligibleSeats.forEach(seat => {
+    eligibleSeats.forEach((seat) => {
       if (!markedSeats.includes(seat)) {
         onSeatToggle(seat);
       }
@@ -455,7 +498,7 @@ function SeatGrid({
 
   const handleClearAll = () => {
     const toClear = [...markedSeats];
-    toClear.forEach(seat => {
+    toClear.forEach((seat) => {
       if (markedSeats.includes(seat)) onSeatToggle(seat);
     });
     toast.success(`Cleared ${toClear.length} student${toClear.length !== 1 ? 's' : ''}`);
@@ -465,7 +508,10 @@ function SeatGrid({
     return (
       <div className="grid grid-cols-6 gap-1 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12">
         {Array.from({ length: 24 }).map((_, i) => (
-          <Skeleton key={i} className="aspect-square w-full rounded-md" />
+          <Skeleton
+            key={i}
+            className="aspect-square w-full rounded-md"
+          />
         ))}
       </div>
     );
@@ -488,15 +534,25 @@ function SeatGrid({
             type="text"
             placeholder="Search seat..."
             value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
+            onChange={(e) => setSearchTerm(e.target.value)}
             className="h-8 w-48 pl-8 text-sm"
           />
         </div>
         <div className="flex gap-1">
-          <Button variant="outline" size="sm" onClick={handleBulkMark} className="h-7 px-2 text-xs">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleBulkMark}
+            className="h-7 px-2 text-xs"
+          >
             Mark All
           </Button>
-          <Button variant="outline" size="sm" onClick={handleClearAll} className="h-7 px-2 text-xs">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleClearAll}
+            className="h-7 px-2 text-xs"
+          >
             Clear All
           </Button>
         </div>
@@ -504,7 +560,7 @@ function SeatGrid({
 
       <div className="max-h-[450px] overflow-y-auto rounded-lg border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-950">
         <div className="grid grid-cols-6 gap-1 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12">
-          {filteredSeats.map(seatNo => {
+          {filteredSeats.map((seatNo) => {
             const status = getSeatStatus(seatNo);
             const isCurrentlyMarked = markedSeats.includes(seatNo);
             const isSelectable = isSeatSelectable(seatNo);
@@ -516,19 +572,19 @@ function SeatGrid({
               className = cn(
                 className,
                 'cursor-not-allowed opacity-60',
-                status === 'absent' ? 'border-rose-300 bg-rose-50' : 'border-amber-300 bg-amber-50'
+                status === 'absent' ? 'border-rose-300 bg-rose-50' : 'border-amber-300 bg-amber-50',
               );
             } else if (isCurrentlyMarked) {
               className = cn(
                 className,
                 CURRENT_CONFIG.mode === 'absent'
                   ? 'border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-400'
-                  : 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400'
+                  : 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400',
               );
             } else {
               className = cn(
                 className,
-                'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300 hover:bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-300'
+                'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300 hover:bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-300',
               );
             }
 
@@ -548,10 +604,10 @@ function SeatGrid({
                   <div
                     className={cn(
                       'absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-[9px] text-white',
-                      checkmarkColor
+                      checkmarkColor,
                     )}
                   >
-                    <Check className="h-4 w-4 text-green-500" />
+                    <Check className="h-3 w-3" />
                   </div>
                 )}
               </button>
@@ -615,7 +671,10 @@ function ConfirmDialog({
   const color = CURRENT_CONFIG.textColor;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+    >
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
@@ -648,12 +707,18 @@ function ConfirmDialog({
           </div>
 
           {isHigh && CURRENT_CONFIG.mode === 'absent' && (
-            <p className="mt-2 text-xs text-amber-600">High absentee rate ({percentage.toFixed(0)}%)</p>
+            <p className="mt-2 text-xs text-amber-600">
+              High absentee rate ({percentage.toFixed(0)}%)
+            </p>
           )}
         </div>
 
         <DialogFooter className="gap-2">
-          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onOpenChange(false)}
+          >
             Cancel
           </Button>
           <Button
@@ -679,7 +744,7 @@ function ConfirmDialog({
 async function fetchMarkedData(
   schemes: SchemeData[],
   date: Date,
-  session: string
+  session: string,
 ): Promise<Map<string, { absent: number[]; cps: number[] }>> {
   const markedMap = new Map<string, { absent: number[]; cps: number[] }>();
 
@@ -732,7 +797,8 @@ function calculateStats(schemes: SchemeData[], CURRENT_CONFIG: ExamDayEditConfig
 
   for (const scheme of schemes) {
     totalStudents += scheme.totalStudents;
-    totalMarked += CURRENT_CONFIG.mode === 'absent' ? scheme.absentNumbers.length : scheme.cpsNumbers.length;
+    totalMarked +=
+      CURRENT_CONFIG.mode === 'absent' ? scheme.absentNumbers.length : scheme.cpsNumbers.length;
   }
 
   return {
@@ -789,8 +855,8 @@ export default function ExamDayEditsPage({ mode = 'absent' }: { mode?: Mode }) {
           return;
         }
 
-        const rawSchemes: SchemeData[] = result.data.map(alloc => ({
-          id: `${alloc.subjectCode}_${alloc.scheme}`,
+        const rawSchemes: SchemeData[] = result.data.map((alloc) => ({
+          id: `${alloc.blockNo}_${alloc.subjectCode}_${alloc.scheme}`,
           scheme: alloc.scheme,
           subjectCode: alloc.subjectCode,
           subjectName: alloc.subjectName,
@@ -804,7 +870,7 @@ export default function ExamDayEditsPage({ mode = 'absent' }: { mode?: Mode }) {
 
         const markedMap = await fetchMarkedData(rawSchemes, new Date(date), session);
 
-        const schemesWithData = rawSchemes.map(scheme => ({
+        const schemesWithData = rawSchemes.map((scheme) => ({
           ...scheme,
           absentNumbers: markedMap.get(scheme.id)?.absent || [],
           cpsNumbers: markedMap.get(scheme.id)?.cps || [],
@@ -822,10 +888,13 @@ export default function ExamDayEditsPage({ mode = 'absent' }: { mode?: Mode }) {
         setLoading(false);
       }
     },
-    [CURRENT_CONFIG]
+    [CURRENT_CONFIG],
   );
 
-  const handleSessionSelect = async (session: { date: string; session: 'Morning' | 'Afternoon' | 'All' }) => {
+  const handleSessionSelect = async (session: {
+    date: string;
+    session: 'Morning' | 'Afternoon' | 'All';
+  }) => {
     setSelectedDate(session.date);
     setSelectedSession(session.session);
     await loadData(session.date, session.session);
@@ -833,10 +902,11 @@ export default function ExamDayEditsPage({ mode = 'absent' }: { mode?: Mode }) {
   };
 
   const handleSelectScheme = (schemeId: string) => {
-    const scheme = schemes.find(s => s.id === schemeId);
+    const scheme = schemes.find((s) => s.id === schemeId);
     if (scheme) {
       setSelectedScheme(scheme);
-      const currentMarkedSeats = CURRENT_CONFIG.mode === 'absent' ? scheme.absentNumbers : scheme.cpsNumbers;
+      const currentMarkedSeats =
+        CURRENT_CONFIG.mode === 'absent' ? scheme.absentNumbers : scheme.cpsNumbers;
       setMarkedSeats([...currentMarkedSeats]);
     }
   };
@@ -849,7 +919,7 @@ export default function ExamDayEditsPage({ mode = 'absent' }: { mode?: Mode }) {
       CURRENT_CONFIG.mode,
       seatNo,
       selectedScheme.absentNumbers,
-      selectedScheme.cpsNumbers
+      selectedScheme.cpsNumbers,
     );
 
     if (!validation.isValid) {
@@ -857,7 +927,9 @@ export default function ExamDayEditsPage({ mode = 'absent' }: { mode?: Mode }) {
       return;
     }
 
-    setMarkedSeats(prev => (prev.includes(seatNo) ? prev.filter(s => s !== seatNo) : [...prev, seatNo]));
+    setMarkedSeats((prev) =>
+      prev.includes(seatNo) ? prev.filter((s) => s !== seatNo) : [...prev, seatNo],
+    );
   };
 
   const handleSave = async () => {
@@ -882,8 +954,10 @@ export default function ExamDayEditsPage({ mode = 'absent' }: { mode?: Mode }) {
     if (conflicts.length > 0) {
       toast.error(
         `Cannot save: ${conflicts.length} student${conflicts.length !== 1 ? 's' : ''} (${conflicts.join(', ')}) ${
-          CURRENT_CONFIG.mode === 'absent' ? 'already marked as copy case' : 'already marked as absent'
-        }`
+          CURRENT_CONFIG.mode === 'absent'
+            ? 'already marked as copy case'
+            : 'already marked as absent'
+        }`,
       );
       return;
     }
@@ -912,7 +986,7 @@ export default function ExamDayEditsPage({ mode = 'absent' }: { mode?: Mode }) {
 
       if (result.success) {
         // Update local state
-        const updatedSchemes = schemes.map(s => {
+        const updatedSchemes = schemes.map((s) => {
           if (s.id === selectedScheme.id) {
             if (CURRENT_CONFIG.mode === 'absent') {
               return { ...s, absentNumbers: markedSeats };
@@ -935,7 +1009,7 @@ export default function ExamDayEditsPage({ mode = 'absent' }: { mode?: Mode }) {
         toast.success(
           markedSeats.length
             ? `${markedSeats.length} student${markedSeats.length !== 1 ? 's' : ''} marked ${CURRENT_CONFIG.mode === 'absent' ? 'absent' : 'copy case'}`
-            : `${CURRENT_CONFIG.mode === 'absent' ? 'Absent' : 'Copy case'} list cleared`
+            : `${CURRENT_CONFIG.mode === 'absent' ? 'Absent' : 'Copy case'} list cleared`,
         );
         setDialogOpen(false);
       } else {
@@ -973,7 +1047,11 @@ export default function ExamDayEditsPage({ mode = 'absent' }: { mode?: Mode }) {
   if (step === 'select') {
     return (
       <div className="mx-auto max-w-[1400px] space-y-5 px-6 py-5">
-        <PageHeader title={CURRENT_CONFIG.title} description={CURRENT_CONFIG.description} icon={CURRENT_CONFIG.icon} />
+        <PageHeader
+          title={CURRENT_CONFIG.title}
+          description={CURRENT_CONFIG.description}
+          icon={CURRENT_CONFIG.icon}
+        />
         <SessionSelector
           availableDates={dates}
           availableSessions={sessions}
@@ -998,7 +1076,12 @@ export default function ExamDayEditsPage({ mode = 'absent' }: { mode?: Mode }) {
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="outline" size="sm" onClick={handleRefresh} className="h-7 gap-1 text-xs">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRefresh}
+                    className="h-7 gap-1 text-xs"
+                  >
                     <RefreshCw className="h-3 w-3" />
                     Refresh
                   </Button>
@@ -1006,7 +1089,12 @@ export default function ExamDayEditsPage({ mode = 'absent' }: { mode?: Mode }) {
                 <TooltipContent>Reload data</TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            <Button variant="ghost" size="sm" onClick={() => setStep('select')} className="h-7 gap-1 text-xs">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setStep('select')}
+              className="h-7 gap-1 text-xs"
+            >
               <ChevronLeft className="h-3 w-3" />
               Change Session
             </Button>
@@ -1020,7 +1108,10 @@ export default function ExamDayEditsPage({ mode = 'absent' }: { mode?: Mode }) {
         compact
       />
 
-      <CompactStats stats={stats} CURRENT_CONFIG={CURRENT_CONFIG} />
+      <CompactStats
+        stats={stats}
+        CURRENT_CONFIG={CURRENT_CONFIG}
+      />
 
       <div className="grid gap-5 lg:grid-cols-[300px_1fr]">
         <div className="space-y-2">
@@ -1041,7 +1132,10 @@ export default function ExamDayEditsPage({ mode = 'absent' }: { mode?: Mode }) {
         <div className="space-y-3">
           {selectedScheme ? (
             <>
-              <SubjectHeader scheme={selectedScheme} CURRENT_CONFIG={CURRENT_CONFIG} />
+              <SubjectHeader
+                scheme={selectedScheme}
+                CURRENT_CONFIG={CURRENT_CONFIG}
+              />
               <SeatGrid
                 seatNumbers={selectedScheme.seatNumbers}
                 absentSeats={selectedScheme.absentNumbers}
@@ -1058,7 +1152,11 @@ export default function ExamDayEditsPage({ mode = 'absent' }: { mode?: Mode }) {
                   className={cn('h-8 gap-1.5', CURRENT_CONFIG.buttonColor)}
                   size="sm"
                 >
-                  {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                  {saving ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Save className="h-3.5 w-3.5" />
+                  )}
                   Save {CURRENT_CONFIG.mode === 'absent' ? 'Absent' : 'Copy Case'} List
                 </Button>
               </div>
@@ -1067,7 +1165,9 @@ export default function ExamDayEditsPage({ mode = 'absent' }: { mode?: Mode }) {
             <Card className="flex h-[calc(100vh-420px)] items-center justify-center border-dashed">
               <CardContent className="text-center">
                 <CURRENT_CONFIG.icon className="mx-auto h-8 w-8 text-neutral-400" />
-                <p className="mt-2 text-sm text-neutral-500">Select a subject from the left panel</p>
+                <p className="mt-2 text-sm text-neutral-500">
+                  Select a subject from the left panel
+                </p>
               </CardContent>
             </Card>
           )}

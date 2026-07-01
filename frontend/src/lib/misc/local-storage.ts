@@ -53,7 +53,9 @@ export function getLocalAllocations(): LocalAllocation[] {
   return data ? JSON.parse(data) : [];
 }
 
-export function addLocalAllocation(allocation: Omit<LocalAllocation, 'id' | 'createdAt'>): LocalAllocation {
+export function addLocalAllocation(
+  allocation: Omit<LocalAllocation, 'id' | 'createdAt'>,
+): LocalAllocation {
   const newAllocation: LocalAllocation = {
     ...allocation,
     id: crypto.randomUUID(),
@@ -67,7 +69,10 @@ export function addLocalAllocation(allocation: Omit<LocalAllocation, 'id' | 'cre
 
 export function removeLocalAllocation(id: string): void {
   const current = getLocalAllocations();
-  localStorage.setItem(STORAGE_KEYS.TEMP_ALLOCATIONS, JSON.stringify(current.filter(a => a.id !== id)));
+  localStorage.setItem(
+    STORAGE_KEYS.TEMP_ALLOCATIONS,
+    JSON.stringify(current.filter((a) => a.id !== id)),
+  );
 }
 
 export function clearLocalAllocations(): void {
@@ -90,16 +95,16 @@ export function updateLocalTimetable(scheme: string, allocatedCount: number): vo
   if (!current) return;
 
   const updatedEntries = current.entries
-    .map(entry =>
+    .map((entry) =>
       entry.scheme === scheme
         ? {
             ...entry,
             totalStudents: entry.totalStudents - allocatedCount,
             allocatedCount: entry.allocatedCount + allocatedCount,
           }
-        : entry
+        : entry,
     )
-    .filter(entry => entry.totalStudents > 0);
+    .filter((entry) => entry.totalStudents > 0);
 
   setLocalTimetable({ ...current, entries: updatedEntries });
 }
@@ -110,5 +115,8 @@ export function clearLocalTimetable(): void {
 
 export function hasLocalData(): boolean {
   if (typeof window === 'undefined') return false;
-  return !!localStorage.getItem(STORAGE_KEYS.TEMP_ALLOCATIONS) || !!localStorage.getItem(STORAGE_KEYS.TEMP_TIMETABLE);
+  return (
+    !!localStorage.getItem(STORAGE_KEYS.TEMP_ALLOCATIONS) ||
+    !!localStorage.getItem(STORAGE_KEYS.TEMP_TIMETABLE)
+  );
 }

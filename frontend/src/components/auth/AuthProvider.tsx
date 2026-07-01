@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loadSession();
 
     // Listen for auth changes (useful for social auth redirects)
-    authClient.$store.listen('session', newSession => {
+    authClient.$store.listen('session', (newSession) => {
       syncSession(newSession);
     });
   }, []);
@@ -97,7 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInWithGoogle = async () => {
     await authClient.signIn.social({
       provider: 'google',
-      callbackURL: window.location.origin + '/auth/callback',
+      // No callbackURL needed - Better Auth uses the default /api/auth/callback/{provider}
     });
   };
 

@@ -1,4 +1,5 @@
-// modules/formats/format13.tsx
+// modules/formats/format13.tsx - Using MultiPageReport with scheme parser
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -8,15 +9,26 @@ import { AlertCircle, CheckCircle } from 'lucide-react';
 import { CircleAlert, CircleCheckBig } from 'lucide-react';
 import { toast } from 'sonner';
 
-import ReportLayout from '@/components/layout/msbte-report-layout';
-import { SessionSelector } from '@/components/shared/date-selector';
+import { getAllocationsByDateSession } from '@/lib/actions/allocation';
+import { getTimetableEntries, resolveCopyCase } from '@/lib/actions/timetable';
+import { cn, parseScheme } from '@/lib/utils';
+
+import { useUserInfo } from '@/hooks/useUserInfo';
+
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useUserInfo } from '@/hooks/useUserInfo';
-import { getAllocationsByDateSession } from '@/lib/actions/allocation';
-import { getTimetableEntries, resolveCopyCase } from '@/lib/actions/timetable';
-import { cn } from '@/lib/utils';
+
+import { MultiPageReport, ReportPageData } from '@/components/layout/msbte-report-layout';
+import { PageToolbar } from '@/components/layout/page-layout';
+
+import { SessionSelector } from '@/components/shared/date-selector';
+
+// ============================================================
+// Constants
+// ============================================================
+
+const FORMAT_13_MAX_ROWS = 5;
 
 // ============================================================
 // Types
@@ -48,10 +60,18 @@ interface MalpracticeData {
 }
 
 // ============================================================
-// Format 13 Content Component - CLEAN MSBTE FORMAT
+// Format 13 Content Component
 // ============================================================
 
-function Format13Content({ data }: { data: MalpracticeData; resolvedCount: number; totalCount: number }) {
+function Format13Content({
+  data,
+  resolvedCount,
+  totalCount,
+}: {
+  data: MalpracticeData;
+  resolvedCount: number;
+  totalCount: number;
+}) {
   const [statementsRecorded, setStatementsRecorded] = useState(false);
   const [noticeIssued, setNoticeIssued] = useState(false);
   const [noticeDate, setNoticeDate] = useState('');
@@ -59,53 +79,53 @@ function Format13Content({ data }: { data: MalpracticeData; resolvedCount: numbe
   const hasRecords = data.records && data.records.length > 0;
 
   return (
-    <div className="space-y-5 text-sm">
-      {/* Heading */}
+    <div className="space-y-4 text-sm">
       <div className="text-center">
-        <p className="text-lg font-bold">REPORT OF MALPRACTICE CASES</p>
+        <p className="text-base font-bold">REPORT OF MALPRACTICE CASES</p>
       </div>
 
-      {/* Header Info */}
-      <div className="space-y-1.5">
+      <div className="space-y-1">
         <div className="flex items-center gap-2">
           <span className="font-medium whitespace-nowrap">Name of examination center</span>
-          <span className="flex-1 border-b-0 border-black px-2 font-medium">
+          <span className="flex-1 border-b border-black px-2 font-medium">
             {data.examCenterName || '__________________________________'}
           </span>
         </div>
         <div className="flex items-center gap-2">
           <span className="font-medium whitespace-nowrap">Code No of examination center</span>
-          <span className="w-40 border-b-0 border-black px-2 font-medium">{data.examCenterCode || '________'}</span>
+          <span className="w-40 border-b border-black px-2 font-medium">
+            {data.examCenterCode || '________'}
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <span className="font-medium whitespace-nowrap">Date of incidence</span>
-          <span className="w-48 border-b-0 border-black px-2 font-medium">
+          <span className="w-48 border-b border-black px-2 font-medium">
             {data.date ? format(data.date, 'dd/MM/yyyy') : '____________'}
           </span>
         </div>
       </div>
 
-      {/* Malpractice Table - EXACT MSBTE FORMAT */}
       <div>
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse border-2 border-black text-xs">
+          <table className="w-full border-collapse border-2 border-black text-[10px]">
             <thead>
               <tr>
-                <th className="w-[6%] border-2 border-black p-1.5 text-center">Sr. No.</th>
-                <th className="w-[12%] border-2 border-black p-1.5 text-center">Examination Seat Number of examinee</th>
-                <th className="w-[18%] border-2 border-black p-1.5 text-center">Subject of Examination</th>
-                <th className="w-[14%] border-2 border-black p-1.5 text-center">Timing of examination</th>
-                <th className="w-[18%] border-2 border-black p-1.5 text-center">Course-Year-Master of examination</th>
-                <th className="w-[32%] border-2 border-black p-1.5 text-center">Nature of malpractice</th>
+                <th className="w-[6%] border-2 border-black p-1 text-center">Sr. No.</th>
+                <th className="w-[12%] border-2 border-black p-1 text-center">Seat No.</th>
+                <th className="w-[18%] border-2 border-black p-1 text-center">Subject</th>
+                <th className="w-[14%] border-2 border-black p-1 text-center">Timing</th>
+                <th className="w-[18%] border-2 border-black p-1 text-center">
+                  Course-Year-Master
+                </th>
+                <th className="w-[32%] border-2 border-black p-1 text-center">
+                  Nature of malpractice
+                </th>
               </tr>
             </thead>
             <tbody>
               {hasRecords ? (
                 data.records.map((record, index) => {
-                  const schemeParts = record.scheme?.split('-') || [];
-                  const course = schemeParts[0] || '';
-                  const year = schemeParts[1] || '';
-                  const master = schemeParts[2] || '';
+                  const parsed = parseScheme(record.scheme || '');
                   const isResolved = record.isResolved;
 
                   return (
@@ -116,26 +136,33 @@ function Format13Content({ data }: { data: MalpracticeData; resolvedCount: numbe
                             'transition-colors',
                             isResolved
                               ? 'bg-green-50 hover:bg-green-100 print:bg-white'
-                              : 'hover:bg-amber-50 print:bg-white'
+                              : 'hover:bg-amber-50 print:bg-white',
                           )}
                         >
-                          <td className="border-2 border-black p-1.5 text-center font-medium">{index + 1}</td>
-                          <td className="border-2 border-black p-1.5 text-center font-mono">{record.seatNumber}</td>
-                          <td className="border-2 border-black p-1.5 text-center">
+                          <td className="border-2 border-black p-1 text-center font-medium">
+                            {index + 1}
+                          </td>
+                          <td className="border-2 border-black p-1 text-center font-mono">
+                            {record.seatNumber}
+                          </td>
+                          <td className="border-2 border-black p-1 text-center">
                             <span className="font-mono">{record.subjectCode}</span>
                             <span className="ml-1">- {record.subjectName}</span>
                           </td>
-                          <td className="border-2 border-black p-1.5 text-center">
+                          <td className="border-2 border-black p-1 text-center">
                             {record.timeSlot || record.session || '—'}
                           </td>
-                          <td className="border-2 border-black p-1.5 text-center">
-                            {course}/{year || '—'}/{master || '—'}
+                          <td className="border-2 border-black p-1 text-center">
+                            {parsed.courseCode}/{parsed.semester || '—'}/{parsed.master || '—'}
                           </td>
-                          <td className="h-16 border-2 border-black p-2" />
+                          <td className="h-12 border-2 border-black p-1" />
                         </tr>
                       </TooltipTrigger>
 
-                      <TooltipContent side="top" className="max-w-xs">
+                      <TooltipContent
+                        side="top"
+                        className="max-w-xs"
+                      >
                         <div className="flex items-center gap-2">
                           {isResolved ? (
                             <>
@@ -165,8 +192,11 @@ function Format13Content({ data }: { data: MalpracticeData; resolvedCount: numbe
                 })
               ) : (
                 <tr>
-                  <td colSpan={6} className="border-2 border-black p-4 text-center text-neutral-500">
-                    No malpractice cases reported for this session
+                  <td
+                    colSpan={6}
+                    className="border-2 border-black p-3 text-center text-neutral-500"
+                  >
+                    No malpractice cases reported
                   </td>
                 </tr>
               )}
@@ -175,18 +205,17 @@ function Format13Content({ data }: { data: MalpracticeData; resolvedCount: numbe
         </div>
       </div>
 
-      {/* Administrative Checks */}
-      <div className="space-y-2 border-t-2 border-black pt-3">
+      <div className="space-y-1.5 border-t-2 border-black pt-2">
         <div className="flex items-start gap-2">
           <input
             type="checkbox"
             checked={statementsRecorded}
-            onChange={e => setStatementsRecorded(e.target.checked)}
-            className="mt-0.5 h-4 w-4"
+            onChange={(e) => setStatementsRecorded(e.target.checked)}
+            className="mt-0.5 h-3.5 w-3.5"
           />
-          <span className="text-xs">
-            Whether the necessary statements are recorded and other documents supporting the alleged incidence of
-            malpractice are collected, as required under Board&apos;s Regulations and sent to the Enquiry Officer?
+          <span className="text-[10px]">
+            Whether the necessary statements are recorded and other documents supporting the alleged
+            incidence of malpractice are collected and sent to the Enquiry Officer?
           </span>
         </div>
 
@@ -194,94 +223,94 @@ function Format13Content({ data }: { data: MalpracticeData; resolvedCount: numbe
           <input
             type="checkbox"
             checked={noticeIssued}
-            onChange={e => setNoticeIssued(e.target.checked)}
-            className="mt-0.5 h-4 w-4"
+            onChange={(e) => setNoticeIssued(e.target.checked)}
+            className="mt-0.5 h-3.5 w-3.5"
           />
-          <span className="text-xs">
-            Whether the notice informing the date and time of enquiry is issued to the examinee? If yes, when?
+          <span className="text-[10px]">
+            Whether the notice informing the date and time of enquiry is issued to the examinee?
           </span>
           {noticeIssued && (
             <span className="ml-2 flex items-center gap-2">
-              <span className="text-xs text-neutral-500">Date:</span>
+              <span className="text-[10px] text-neutral-500">Date:</span>
               <input
                 type="date"
                 value={noticeDate}
-                onChange={e => setNoticeDate(e.target.value)}
-                className="border-b border-black px-2 text-sm"
+                onChange={(e) => setNoticeDate(e.target.value)}
+                className="border-b border-black px-1 text-[10px]"
               />
             </span>
           )}
         </div>
       </div>
 
-      {/* Staff Details */}
-      <div className="space-y-1.5 border-t-2 border-black pt-3">
+      <div className="space-y-1 border-t-2 border-black pt-2">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium whitespace-nowrap">Name of Chief officer-in-charge</span>
-          <span className="flex-1 border-b-0 border-black px-2 text-xs">
+          <span className="text-[10px] font-medium whitespace-nowrap">Chief officer-in-charge</span>
+          <span className="flex-1 border-b border-black px-2 text-[10px]">
             {data.officerIncharge || '_________________________'}
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium whitespace-nowrap">Name of Officer-in-charge, examination</span>
-          <span className="flex-1 border-b-0 border-black px-2 text-xs">
+          <span className="text-[10px] font-medium whitespace-nowrap">
+            Officer-in-charge, examination
+          </span>
+          <span className="flex-1 border-b border-black px-2 text-[10px]">
             {data.officerIncharge || '_________________________'}
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium whitespace-nowrap">Name of controller of examination center</span>
-          <span className="flex-1 border-b-0 border-black px-2 text-xs">
+          <span className="text-[10px] font-medium whitespace-nowrap">
+            Controller of examination center
+          </span>
+          <span className="flex-1 border-b border-black px-2 text-[10px]">
             {data.controller || '_________________________'}
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium whitespace-nowrap">Name of block supervisor / staff concerned</span>
-          <span className="flex-1 border-b-0 border-black px-2 text-xs">_________________________</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium whitespace-nowrap">
-            Name of the leader of the external vigilance committee
+          <span className="text-[10px] font-medium whitespace-nowrap">
+            Block supervisor concerned
           </span>
-          <span className="flex-1 border-b-0 border-black px-2 text-xs">_________________________</span>
+          <span className="flex-1 border-b border-black px-2 text-[10px]">
+            _________________________
+          </span>
         </div>
       </div>
 
-      {/* Signatures */}
-      <div className="grid grid-cols-3 gap-4 border-t-2 border-black pt-4">
+      <div className="grid grid-cols-3 gap-4 border-t-2 border-black pt-3">
         <div className="text-center">
-          <p className="text-xs font-medium">Signature of chief</p>
-          <p className="text-xs font-medium">officer-in-charge</p>
-          <p className="mt-6 border-t-2 border-black px-2"></p>
+          <p className="text-[10px] font-medium">Signature of chief</p>
+          <p className="text-[10px] font-medium">officer-in-charge</p>
+          <div className="mt-4 h-8 border-t-2 border-black" />
         </div>
         <div className="text-center">
-          <p className="text-xs font-medium">Signature of</p>
-          <p className="text-xs font-medium">officer-in-charge</p>
-          <p className="mt-6 border-t-2 border-black px-2"></p>
+          <p className="text-[10px] font-medium">Signature of</p>
+          <p className="text-[10px] font-medium">officer-in-charge</p>
+          <div className="mt-4 h-8 border-t-2 border-black" />
         </div>
         <div className="text-center">
-          <p className="text-xs font-medium">Signature of controller</p>
-          <p className="text-xs font-medium">of exam Center</p>
-          <p className="mt-6 border-t-2 border-black px-2"></p>
+          <p className="text-[10px] font-medium">Signature of controller</p>
+          <p className="text-[10px] font-medium">of exam Center</p>
+          <div className="mt-4 h-8 border-t-2 border-black" />
         </div>
       </div>
 
-      {/* Place and Date */}
-      <div className="flex items-center justify-between border-black pt-3">
+      <div className="flex items-center justify-between border-black pt-2">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium">Place:</span>
-          <span className="w-48 border-b-0 border-black px-2"></span>
+          <span className="text-[10px] font-medium">Place:</span>
+          <span className="w-48 border-b border-black px-2"></span>
+        </div>
+
+        <div className="text-center">
+          <p className="text-[10px] font-medium">Seal of examination center</p>
+          <div className="mt-1 flex justify-center">
+            <div className="h-12 w-12 rounded-full border-2 border-dashed border-neutral-400 bg-neutral-50" />
+          </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium">Date:</span>
-          <span className="w-40 border-b-0 border-black px-2">{format(new Date(), 'dd/MM/yyyy')}</span>
-        </div>
-      </div>
-
-      {/* Seal */}
-      <div className="text-center">
-        <p className="text-xs font-medium">Seal of examination center</p>
-        <div className="mt-2 flex justify-center">
-          <div className="h-16 w-16 rounded-full border-2 border-dashed border-neutral-400 bg-neutral-50" />
+          <span className="text-[10px] font-medium">Date:</span>
+          <span className="w-32 border-b border-black px-2">
+            {format(new Date(), 'dd/MM/yyyy')}
+          </span>
         </div>
       </div>
     </div>
@@ -303,8 +332,8 @@ export default function Format13Report() {
   const [showReport, setShowReport] = useState(false);
   const [data, setData] = useState<MalpracticeData | null>(null);
   const [resolvingAll, setResolvingAll] = useState(false);
+  const [copies, setCopies] = useState(2);
 
-  // Fetch available dates
   useEffect(() => {
     const fetchDates = async () => {
       const result = await getTimetableEntries();
@@ -321,7 +350,6 @@ export default function Format13Report() {
     fetchDates();
   }, []);
 
-  // Fetch malpractice data for the selected date and session
   const fetchMalpracticeData = async (date: string, session: string) => {
     setLoading(true);
     setError(null);
@@ -391,14 +419,26 @@ export default function Format13Report() {
         }
       });
 
-      records.sort((a, b) => a.seatNumber - b.seatNumber);
+      // ✅ DEDUPLICATE: Remove duplicate seat numbers
+      const seenSeats = new Set<number>();
+      const uniqueRecords: MalpracticeRecord[] = [];
+
+      for (const record of records) {
+        if (!seenSeats.has(record.seatNumber)) {
+          seenSeats.add(record.seatNumber);
+          uniqueRecords.push(record);
+        }
+      }
+
+      // Sort by seat number
+      uniqueRecords.sort((a, b) => a.seatNumber - b.seatNumber);
 
       setData({
         examCenterName: examCenter?.name || '',
         examCenterCode: examCenter?.code || '',
         date: new Date(date),
         session: session as 'Morning' | 'Afternoon',
-        records,
+        records: uniqueRecords,
         officerIncharge: examCenter?.officerIncharge || null,
         controller: examCenter?.examController || null,
       });
@@ -418,7 +458,7 @@ export default function Format13Report() {
     await fetchMalpracticeData(s.date, s.session);
   };
 
-  const handleBack = () => {
+  const handleReset = () => {
     setShowReport(false);
     setData(null);
     setError(null);
@@ -427,7 +467,7 @@ export default function Format13Report() {
   const handleResolveAll = async () => {
     if (!data) return;
 
-    const pendingRecords = data.records.filter(r => !r.isResolved);
+    const pendingRecords = data.records.filter((r) => !r.isResolved);
     if (pendingRecords.length === 0) {
       toast.info('All copy cases are already resolved');
       return;
@@ -456,7 +496,7 @@ export default function Format13Report() {
 
       if (successCount > 0) {
         toast.success(
-          `Resolved ${successCount} copy case${successCount !== 1 ? 's' : ''}${failCount > 0 ? ` (${failCount} failed)` : ''}`
+          `Resolved ${successCount} copy case${successCount !== 1 ? 's' : ''}${failCount > 0 ? ` (${failCount} failed)` : ''}`,
         );
         await fetchMalpracticeData(selectedDate, selectedSession);
       } else {
@@ -469,6 +509,51 @@ export default function Format13Report() {
     }
   };
 
+  // Build pages
+  const buildPages = (): ReportPageData[] => {
+    if (!data || data.records.length === 0) return [];
+
+    const pages: ReportPageData[] = [];
+    const records = data.records;
+
+    for (let i = 0; i < records.length; i += FORMAT_13_MAX_ROWS) {
+      const chunk = records.slice(i, i + FORMAT_13_MAX_ROWS);
+      const pageIndex = Math.floor(i / FORMAT_13_MAX_ROWS) + 1;
+      const chunkData = {
+        ...data,
+        records: chunk,
+      };
+      const resolvedCount = chunk.filter((r) => r.isResolved).length;
+
+      pages.push({
+        id: `format13-page-${pageIndex}`,
+        blockNo: 'N/A',
+        blockLocation: '',
+        supervisorName: '',
+        subjectCode: 'N/A',
+        subjectName: 'N/A',
+        scheme: 'N/A',
+        seatNumbers: [],
+        content: (
+          <Format13Content
+            data={chunkData}
+            resolvedCount={resolvedCount}
+            totalCount={chunk.length}
+          />
+        ),
+        date: data.date,
+        session: data.session,
+        examCenterCode: data.examCenterCode,
+        examCenterName: data.examCenterName,
+        officerIncharge: data.officerIncharge || undefined,
+      });
+    }
+
+    return pages;
+  };
+
+  const allPages = buildPages();
+
   if (loadingDates) {
     return (
       <div className="mx-auto max-w-4xl space-y-4 p-6">
@@ -478,7 +563,7 @@ export default function Format13Report() {
     );
   }
 
-  if (!showReport) {
+  if (!showReport || !data || allPages.length === 0) {
     return (
       <div className="mx-auto max-w-4xl p-4">
         <div className="space-y-4">
@@ -495,7 +580,10 @@ export default function Format13Report() {
             compact
           />
           {!dates.length && !error && (
-            <Alert variant="default" className="border-amber-200 bg-amber-50">
+            <Alert
+              variant="default"
+              className="border-amber-200 bg-amber-50"
+            >
               <AlertCircle className="h-4 w-4 text-amber-600" />
               <AlertTitle>No Data</AlertTitle>
               <AlertDescription>Upload timetable and mark copy cases first.</AlertDescription>
@@ -513,71 +601,45 @@ export default function Format13Report() {
     );
   }
 
-  if (!data || data.records.length === 0) {
-    return (
-      <div className="mx-auto max-w-4xl p-4">
-        <div className="space-y-4">
-          <SessionSelector
-            availableDates={dates}
-            availableSessions={['Morning', 'Afternoon', 'All']}
-            onSessionSelect={handleSelect}
-            defaultDate={selectedDate}
-            defaultSession="Morning"
-            isLoading={loading}
-            error={error}
-            title="Format 13 - Malpractice Report"
-            description="No copy cases found for this session"
-            compact
-          />
-          <Alert variant="default" className="border-blue-200 bg-blue-50">
-            <AlertCircle className="h-4 w-4 text-blue-600" />
-            <AlertTitle>No Malpractice Cases</AlertTitle>
-            <AlertDescription>
-              No copy cases have been marked for this session. Mark copy cases in the Exam Day module first.
-            </AlertDescription>
-          </Alert>
-        </div>
-      </div>
-    );
-  }
-
-  const resolvedCount = data.records.filter(r => r.isResolved).length;
-  const totalCount = data.records.length;
-  const pendingCount = totalCount - resolvedCount;
+  const pendingCount = data.records.filter((r) => !r.isResolved).length;
 
   return (
-    <ReportLayout
-      header={{
-        title: 'FORMAT NO. 13',
-        subtitle: 'Malpractice Report',
-        examSeason: examCenter?.season as 'Summer' | 'Winter',
-        examYear: examCenter?.examYear || new Date().getFullYear(),
-        examCenterName: examCenter?.name,
-        examCenterCode: examCenter?.code,
-        date: data.date,
-        session: data.session,
-      }}
-      footer={{
-        showTimestamp: false,
-      }}
-      actions={[
-        {
-          label: 'Resolve All (' + pendingCount + ')',
-          onClick: handleResolveAll,
-          icon: <CheckCircle className="h-3 w-3" />,
-          variant: 'outline',
-          size: 'sm',
-          disabled: resolvingAll,
-          loading: resolvingAll,
-        },
-      ]}
-      actionsPosition="right"
-      showBackButton
-      onBack={handleBack}
-      documentTitle="Format_13_Malpractice_Report"
-      bordered
-    >
-      <Format13Content data={data} resolvedCount={resolvedCount} totalCount={totalCount} />
-    </ReportLayout>
+    <div className="mx-auto max-w-4xl p-4">
+      <div className="mb-4">
+        <PageToolbar
+          actions={[
+            {
+              id: 'resolve-all',
+              label: 'Resolve All (' + pendingCount + ')',
+              onClick: handleResolveAll,
+              icon: <CheckCircle className="h-3 w-3" />,
+              variant: 'outline',
+            },
+          ]}
+        />
+        <MultiPageReport
+          pages={allPages}
+          header={{
+            title: 'FORMAT NO. 13',
+            subtitle: 'Malpractice Report',
+            examSeason: examCenter?.season as 'Summer' | 'Winter',
+            examYear: examCenter?.examYear || new Date().getFullYear(),
+            examCenterName: examCenter?.name,
+            examCenterCode: examCenter?.code,
+            date: data.date,
+            session: data.session,
+          }}
+          footer={{
+            showTimestamp: false,
+          }}
+          onBack={handleReset}
+          backButtonLabel="Back"
+          documentTitle="Format_13_Malpractice_Report"
+          numberOfCopies={copies}
+          onCopiesChange={setCopies}
+          renderPageContent={(pageData) => pageData.content}
+        />
+      </div>
+    </div>
   );
 }

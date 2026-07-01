@@ -1,13 +1,14 @@
 // components/layout/testforge-report-layout.tsx
 'use client';
 
-import React, { CSSProperties, ReactNode, forwardRef, useEffect, useRef, useState } from 'react';
+import React, { CSSProperties, forwardRef, ReactNode, useEffect, useRef, useState } from 'react';
 
 import { ArrowLeft, LucidePrinter } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+
+import { Button } from '@/components/ui/button';
 
 // ============================================================================
 // Types - White Label Focused
@@ -113,7 +114,13 @@ const createPageStyle = (landscape: boolean): CSSProperties => {
 // Print Credit
 // ============================================================================
 
-const PrintCredit = ({ text = 'Generated using TestForge®', enabled = true }: { text?: string; enabled?: boolean }) => {
+const PrintCredit = ({
+  text = 'Generated using TestForge®',
+  enabled = true,
+}: {
+  text?: string;
+  enabled?: boolean;
+}) => {
   if (!enabled) return null;
 
   return (
@@ -151,7 +158,10 @@ const DynamicHeaderFields = ({ fields }: { fields?: Record<string, string> }) =>
     <div className="mt-2 border-t border-neutral-200 pt-1.5">
       <div className="grid grid-cols-2 gap-x-6 gap-y-0.5 text-xs">
         {entries.map(([label, value]) => (
-          <div key={label} className="flex items-baseline gap-1.5">
+          <div
+            key={label}
+            className="flex items-baseline gap-1.5"
+          >
             <span className="font-medium whitespace-nowrap text-neutral-700">{label}:</span>
             <span className="truncate text-neutral-900">{value || '—'}</span>
           </div>
@@ -165,7 +175,13 @@ const DynamicHeaderFields = ({ fields }: { fields?: Record<string, string> }) =>
 // ReportHeader
 // ============================================================================
 
-export const ReportHeader = ({ title, description, examCenter, headerFields, className }: ReportHeaderProps) => {
+export const ReportHeader = ({
+  title,
+  description,
+  examCenter,
+  headerFields,
+  className,
+}: ReportHeaderProps) => {
   const metadataItems: Array<{ label: string; value: ReactNode }> = [];
 
   if (examCenter.code) {
@@ -226,8 +242,13 @@ export const ReportHeader = ({ title, description, examCenter, headerFields, cla
         <div className="mt-1.5">
           <div className="grid grid-cols-2 gap-x-6 gap-y-0.5 text-xs md:grid-cols-3">
             {metadataItems.map((item, index) => (
-              <div key={index} className="flex items-baseline gap-1.5">
-                <span className="font-medium whitespace-nowrap text-neutral-600">{item.label}:</span>
+              <div
+                key={index}
+                className="flex items-baseline gap-1.5"
+              >
+                <span className="font-medium whitespace-nowrap text-neutral-600">
+                  {item.label}:
+                </span>
                 <span className="truncate text-neutral-800">{item.value || '—'}</span>
               </div>
             ))}
@@ -248,7 +269,10 @@ export const ReportHeader = ({ title, description, examCenter, headerFields, cla
           {title}
         </h2>
         {description && (
-          <p className="mt-0.5 text-sm text-neutral-600" style={{ fontSize: '10pt' }}>
+          <p
+            className="mt-0.5 text-sm text-neutral-600"
+            style={{ fontSize: '10pt' }}
+          >
             {description}
           </p>
         )}
@@ -297,7 +321,10 @@ export const ReportFooter = ({
           }}
         >
           {signatureFields.map((field, index) => (
-            <div key={index} className="text-left">
+            <div
+              key={index}
+              className="text-left"
+            >
               <p className="text-sm font-medium">{field.label}</p>
               <p className="mt-0.5 text-sm text-neutral-500">
                 ({field.name || field.placeholder || '________________________'})
@@ -307,7 +334,10 @@ export const ReportFooter = ({
         </div>
       )}
 
-      <PrintCredit text={creditText} enabled={showTestForgeCredit} />
+      <PrintCredit
+        text={creditText}
+        enabled={showTestForgeCredit}
+      />
     </div>
   );
 };
@@ -344,7 +374,7 @@ const ReportPage = forwardRef<
       showCopyInfo = false,
       copyInfoText = 'Copy {copyNumber} of {totalCopies}',
     },
-    ref
+    ref,
   ) => {
     const pageStyle = createPageStyle(printLandscape);
 
@@ -387,7 +417,11 @@ const ReportPage = forwardRef<
       .replace(/{totalCopies}/g, String(totalCopies));
 
     return (
-      <div ref={ref} className="report-content bg-white shadow-sm print:shadow-none" style={pageStyle}>
+      <div
+        ref={ref}
+        className="report-content bg-white shadow-sm print:shadow-none"
+        style={pageStyle}
+      >
         <ReportHeader {...mergedHeader} />
 
         <div
@@ -414,7 +448,7 @@ const ReportPage = forwardRef<
         )}
       </div>
     );
-  }
+  },
 );
 
 ReportPage.displayName = 'ReportPage';
@@ -439,7 +473,7 @@ export const MultiPageReport = forwardRef<HTMLDivElement, MultiPageReportProps>(
       showCopyInfo = false,
       copyInfoText = 'Copy {copyNumber} of {totalCopies}',
     },
-    ref
+    ref,
   ) => {
     const internalRef = useRef<HTMLDivElement>(null);
     const combinedRef = (ref || internalRef) as React.RefObject<HTMLDivElement>;
@@ -473,7 +507,12 @@ export const MultiPageReport = forwardRef<HTMLDivElement, MultiPageReportProps>(
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 print:hidden">
           <div className="flex items-center gap-2">
             {onBack && (
-              <Button variant="outline" size="sm" onClick={onBack} className="gap-1.5 text-sm">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onBack}
+                className="gap-1.5 text-sm"
+              >
                 <ArrowLeft className="h-4 w-4" />
                 {backButtonLabel}
               </Button>
@@ -488,12 +527,16 @@ export const MultiPageReport = forwardRef<HTMLDivElement, MultiPageReportProps>(
                   min={1}
                   max={5}
                   value={numberOfCopies}
-                  onChange={e => handleCopiesChange(parseInt(e.target.value) || 1)}
+                  onChange={(e) => handleCopiesChange(parseInt(e.target.value) || 1)}
                   className="w-14 rounded border border-neutral-300 px-1.5 py-0.5 text-center text-sm focus:border-neutral-500 focus:outline-none"
                 />
               </div>
             )}
-            <Button onClick={handlePrint} size="sm" className="gap-1.5 text-sm">
+            <Button
+              onClick={handlePrint}
+              size="sm"
+              className="gap-1.5 text-sm"
+            >
               <LucidePrinter className="h-4 w-4" />
               Print ({totalPages} pages)
             </Button>
@@ -522,7 +565,10 @@ export const MultiPageReport = forwardRef<HTMLDivElement, MultiPageReportProps>(
           ))}
         </div>
 
-        <style jsx global>{`
+        <style
+          jsx
+          global
+        >{`
           @page {
             size: ${printLandscape ? '297mm 210mm' : '210mm 297mm'} !important;
             margin: 0 !important;
@@ -578,7 +624,7 @@ export const MultiPageReport = forwardRef<HTMLDivElement, MultiPageReportProps>(
         `}</style>
       </div>
     );
-  }
+  },
 );
 
 MultiPageReport.displayName = 'MultiPageReport';
@@ -622,7 +668,7 @@ const ReportLayout = forwardRef<HTMLDivElement, ReportLayoutProps>(
       bordered = true,
       printLandscape = false,
     },
-    ref
+    ref,
   ) => {
     const internalRef = useRef<HTMLDivElement>(null);
     const combinedRef = (ref || internalRef) as React.RefObject<HTMLDivElement>;
@@ -642,7 +688,12 @@ const ReportLayout = forwardRef<HTMLDivElement, ReportLayoutProps>(
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 print:hidden">
           <div className="flex items-center gap-2">
             {showBackButton && onBack && (
-              <Button variant="outline" size="sm" onClick={onBack} className="gap-1.5 text-sm">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onBack}
+                className="gap-1.5 text-sm"
+              >
                 <ArrowLeft className="h-4 w-4" />
                 {backButtonLabel}
               </Button>
@@ -671,18 +722,24 @@ const ReportLayout = forwardRef<HTMLDivElement, ReportLayoutProps>(
           className={cn(
             'report-content bg-white shadow-sm print:shadow-none',
             bordered && 'border border-black',
-            contentClassName
+            contentClassName,
           )}
           style={pageStyle}
         >
           {header && <ReportHeader {...header} />}
-          <div className="report-body" style={{ flex: 1, overflow: 'hidden' }}>
+          <div
+            className="report-body"
+            style={{ flex: 1, overflow: 'hidden' }}
+          >
             {children}
           </div>
           {footer && <ReportFooter {...footer} />}
         </div>
 
-        <style jsx global>{`
+        <style
+          jsx
+          global
+        >{`
           @page {
             size: ${printLandscape ? '297mm 210mm' : '210mm 297mm'} !important;
             margin: 0 !important;
@@ -736,7 +793,7 @@ const ReportLayout = forwardRef<HTMLDivElement, ReportLayoutProps>(
         `}</style>
       </div>
     );
-  }
+  },
 );
 
 ReportLayout.displayName = 'ReportLayout';

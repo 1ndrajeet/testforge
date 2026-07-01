@@ -17,7 +17,9 @@ export default async function BillingPage() {
   return (
     <BillingClient
       user={user ? { id: user.id, name: user.name, email: user.email } : null}
-      examCenter={examCenter ? { id: examCenter.id, name: examCenter.name, code: examCenter.code } : null}
+      examCenter={
+        examCenter ? { id: examCenter.id, name: examCenter.name, code: examCenter.code } : null
+      }
       subscription={subscription}
       organization={orgData?.org ? { id: orgData.org.id, name: orgData.org.name } : null}
       initialPayments={payments.payments}

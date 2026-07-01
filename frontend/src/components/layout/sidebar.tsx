@@ -6,6 +6,7 @@ import { memo, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+import modulesConfig from '@/config/modules.json';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   AlertCircle,
@@ -67,19 +68,20 @@ import {
   UserCog,
   UserMinus,
   UserPlus,
-  UserX,
   Users,
   Users2,
+  UserX,
   X,
   Zap,
 } from 'lucide-react';
 
+import { cn } from '@/lib/utils';
+
+import { useSidebar } from '@/hooks/useSidebar';
+
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import modulesConfig from '@/config/modules.json';
-import { useSidebar } from '@/hooks/useSidebar';
-import { cn } from '@/lib/utils';
 
 import { EmailDailyUsage } from '../admin/email-usage-stats';
 import { Logo } from './header';
@@ -188,7 +190,7 @@ const SidebarSearch = memo(({ onSearch }: { onSearch?: (query: string) => void }
       setQuery(value);
       onSearch?.(value);
     },
-    [onSearch]
+    [onSearch],
   );
 
   return (
@@ -217,7 +219,9 @@ export function Sidebar() {
   const pathname = usePathname();
   const { isOpen, close } = useSidebar();
   const [searchQuery, setSearchQuery] = useState('');
-  const [filteredModules, setFilteredModules] = useState<Module[]>(modulesConfig.modules as Module[]);
+  const [filteredModules, setFilteredModules] = useState<Module[]>(
+    modulesConfig.modules as Module[],
+  );
 
   // Filter modules based on search
   useEffect(() => {
@@ -229,18 +233,19 @@ export function Sidebar() {
     const query = searchQuery.toLowerCase();
     const filterModules = (modules: Module[]): Module[] => {
       return modules
-        .map(module => {
+        .map((module) => {
           // Check if module matches
           const moduleMatches =
-            module.name.toLowerCase().includes(query) || module.description.toLowerCase().includes(query);
+            module.name.toLowerCase().includes(query) ||
+            module.description.toLowerCase().includes(query);
 
           // Filter children
           let filteredChildren: ModuleChild[] | undefined;
           if (module.children) {
             filteredChildren = module.children.filter(
-              child =>
+              (child) =>
                 child.name.toLowerCase().includes(query) ||
-                (child.description && child.description.toLowerCase().includes(query))
+                (child.description && child.description.toLowerCase().includes(query)),
             );
           }
 
@@ -332,7 +337,7 @@ export function Sidebar() {
             {/* Navigation - Scrollable area with flex-1 and overflow-auto */}
             <div className="min-h-0 flex-1 overflow-auto">
               <nav className="space-y-1 px-3 py-3">
-                {filteredModules.map(module => (
+                {filteredModules.map((module) => (
                   <NavItem
                     key={module.id}
                     module={module}
@@ -376,7 +381,9 @@ function NavItem({ module, pathname, onNavigate, level, searchQuery }: NavItemPr
   const [isExpanded, setIsExpanded] = useState(false);
   const hasChildren = module.children && module.children.length > 0;
   const Icon = iconMap[module.icon || 'FileText'] || FileText;
-  const isActive = pathname === `/exam-center${module.route}` || pathname.startsWith(`/exam-center${module.route}/`);
+  const isActive =
+    pathname === `/exam-center${module.route}` ||
+    pathname.startsWith(`/exam-center${module.route}/`);
 
   // Auto-expand when searching
   useEffect(() => {
@@ -388,7 +395,9 @@ function NavItem({ module, pathname, onNavigate, level, searchQuery }: NavItemPr
   useEffect(() => {
     if (hasChildren && module.children) {
       const hasActiveChild = module.children.some(
-        child => pathname === `/exam-center${child.route}` || pathname.startsWith(`/exam-center${child.route}/`)
+        (child) =>
+          pathname === `/exam-center${child.route}` ||
+          pathname.startsWith(`/exam-center${child.route}/`),
       );
       if (hasActiveChild && !isExpanded) {
         setIsExpanded(true);
@@ -431,12 +440,19 @@ function NavItem({ module, pathname, onNavigate, level, searchQuery }: NavItemPr
                 className={cn(
                   'flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200',
                   'hover:bg-neutral-100 dark:hover:bg-neutral-900',
-                  isActive && !hasChildren && 'text-primary dark:text-primary bg-neutral-100 dark:bg-neutral-900'
+                  isActive &&
+                    !hasChildren &&
+                    'text-primary dark:text-primary bg-neutral-100 dark:bg-neutral-900',
                 )}
                 aria-expanded={isExpanded}
               >
                 <div className="flex min-w-0 items-center gap-3">
-                  <Icon className={cn('h-4 w-4 flex-shrink-0', isActive ? 'text-primary' : 'text-neutral-500')} />
+                  <Icon
+                    className={cn(
+                      'h-4 w-4 flex-shrink-0',
+                      isActive ? 'text-primary' : 'text-neutral-500',
+                    )}
+                  />
                   <span className="truncate">{module.name}</span>
                   {module.premium && <Crown className="h-3.5 w-3.5 flex-shrink-0 text-amber-500" />}
                   {isMsbteReports && (
@@ -454,7 +470,10 @@ function NavItem({ module, pathname, onNavigate, level, searchQuery }: NavItemPr
                 </motion.div>
               </button>
             </TooltipTrigger>
-            <TooltipContent side="right" className="text-xs">
+            <TooltipContent
+              side="right"
+              className="text-xs"
+            >
               {getTooltipText(module)}
             </TooltipContent>
           </Tooltip>
@@ -472,10 +491,10 @@ function NavItem({ module, pathname, onNavigate, level, searchQuery }: NavItemPr
               <div
                 className={cn(
                   'mt-1 ml-7 space-y-0.5',
-                  !isMsbteReports && 'border-l border-neutral-200 pl-2 dark:border-neutral-800'
+                  !isMsbteReports && 'border-l border-neutral-200 pl-2 dark:border-neutral-800',
                 )}
               >
-                {module.children?.map(child => (
+                {module.children?.map((child) => (
                   <NavItem
                     key={child.id}
                     module={child}
@@ -506,10 +525,12 @@ function NavItem({ module, pathname, onNavigate, level, searchQuery }: NavItemPr
         'hover:bg-neutral-100 dark:hover:bg-neutral-900',
         isLinkActive
           ? 'text-primary dark:text-primary bg-neutral-100 dark:bg-neutral-900'
-          : 'text-neutral-700 dark:text-neutral-300'
+          : 'text-neutral-700 dark:text-neutral-300',
       )}
     >
-      <Icon className={cn('h-4 w-4 flex-shrink-0', isLinkActive ? 'text-primary' : 'text-neutral-500')} />
+      <Icon
+        className={cn('h-4 w-4 flex-shrink-0', isLinkActive ? 'text-primary' : 'text-neutral-500')}
+      />
       <span className="flex-1 truncate">
         {module.id?.startsWith('f') ? `${module.name} - ${module.description}` : module.name}
       </span>
@@ -522,7 +543,10 @@ function NavItem({ module, pathname, onNavigate, level, searchQuery }: NavItemPr
     <TooltipProvider delayDuration={200}>
       <Tooltip>
         <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
-        <TooltipContent side="right" className="max-w-[200px] text-xs">
+        <TooltipContent
+          side="right"
+          className="max-w-[200px] text-xs"
+        >
           <p>{getTooltipText(module)}</p>
         </TooltipContent>
       </Tooltip>

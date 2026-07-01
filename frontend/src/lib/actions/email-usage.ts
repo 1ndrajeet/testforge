@@ -159,7 +159,7 @@ export async function getGlobalUsage(): Promise<GlobalUsageStats> {
       .groupBy(emailLogs.examCenterId, examCenters.code, examCenters.name)
       .orderBy(desc(sql`COUNT(*)`));
 
-    const centers: DailyUsageStats[] = centerStats.map(c => ({
+    const centers: DailyUsageStats[] = centerStats.map((c) => ({
       examCenterId: c.examCenterId,
       examCenterCode: c.code || 'Unknown',
       examCenterName: c.name || 'Unknown',
@@ -168,7 +168,8 @@ export async function getGlobalUsage(): Promise<GlobalUsageStats> {
       total: Number(c.total) || 0,
       limit: DAILY_LIMIT_PER_CENTER,
       remaining: Math.max(0, DAILY_LIMIT_PER_CENTER - (Number(c.total) || 0)),
-      percentage: DAILY_LIMIT_PER_CENTER > 0 ? ((Number(c.total) || 0) / DAILY_LIMIT_PER_CENTER) * 100 : 0,
+      percentage:
+        DAILY_LIMIT_PER_CENTER > 0 ? ((Number(c.total) || 0) / DAILY_LIMIT_PER_CENTER) * 100 : 0,
       isOverLimit: (Number(c.total) || 0) >= DAILY_LIMIT_PER_CENTER,
     }));
 
@@ -222,14 +223,24 @@ export async function getMonthlyUsage(): Promise<MonthlyUsageStats> {
     };
   } catch (error) {
     logger.error(MODULE_FN, 'Failed to get monthly usage', { error });
-    return { total: 0, limit: MONTHLY_LIMIT_GLOBAL, remaining: MONTHLY_LIMIT_GLOBAL, percentage: 0 };
+    return {
+      total: 0,
+      limit: MONTHLY_LIMIT_GLOBAL,
+      remaining: MONTHLY_LIMIT_GLOBAL,
+      percentage: 0,
+    };
   }
 }
 
 export async function canSendEmail(
   examCenterId: string,
-  count: number = 1
-): Promise<{ allowed: boolean; reason?: string; usage?: DailyUsageStats; monthly?: MonthlyUsageStats }> {
+  count: number = 1,
+): Promise<{
+  allowed: boolean;
+  reason?: string;
+  usage?: DailyUsageStats;
+  monthly?: MonthlyUsageStats;
+}> {
   const MODULE_FN = `${MODULE}.canSendEmail`;
 
   try {
@@ -291,7 +302,7 @@ export async function canSendEmail(
 export async function getEmailHistory(
   examCenterId: string,
   limit: number = 50,
-  offset: number = 0
+  offset: number = 0,
 ): Promise<{ logs: EmailLogEntry[]; total: number }> {
   const MODULE_FN = `${MODULE}.getEmailHistory`;
 

@@ -3,8 +3,9 @@
 
 import { useState } from 'react';
 
-import ReportLayout from '@/components/layout/msbte-report-layout';
 import { useUserInfo } from '@/hooks/useUserInfo';
+
+import ReportLayout from '@/components/layout/msbte-report-layout';
 
 // ============================================================
 // Format 16 Content Component - VIGILANCE REGISTER
@@ -35,7 +36,10 @@ function Format16Content({ examCenter }: { examCenter: any }) {
 
   return (
     <div className="space-y-4 text-sm">
-      <p> Format for Vigilance Register to be maintained at Distribution Center, Examination Center</p>
+      <p>
+        {' '}
+        Format for Vigilance Register to be maintained at Distribution Center, Examination Center
+      </p>
 
       {/* ============================================================
           INTERNAL VIGILANCE TABLE
@@ -55,13 +59,19 @@ function Format16Content({ examCenter }: { examCenter: any }) {
                 <th className="w-[6%] border border-black p-1 text-center">Sr. No.</th>
                 <th className="w-[12%] border border-black p-1 text-center">Date</th>
                 <th className="w-[10%] border border-black p-1 text-center">Time of Visit</th>
-                <th className="w-[15%] border border-black p-1 text-center">Name of vigilance officer</th>
+                <th className="w-[15%] border border-black p-1 text-center">
+                  Name of vigilance officer
+                </th>
                 <th className="w-[20%] border border-black p-1 text-center">Observations</th>
                 <th className="w-[22%] border border-black p-1 text-center">
                   In case of malpractice case/cases booked. Give clear details of the case.
                 </th>
-                <th className="w-[10%] border border-black p-1 text-center">Sign of vigilance officer</th>
-                <th className="w-[10%] border border-black p-1 text-center">Sign of Chief officer in charge</th>
+                <th className="w-[10%] border border-black p-1 text-center">
+                  Sign of vigilance officer
+                </th>
+                <th className="w-[10%] border border-black p-1 text-center">
+                  Sign of Chief officer in charge
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -102,14 +112,20 @@ function Format16Content({ examCenter }: { examCenter: any }) {
                 <th className="w-[5%] border border-black p-1 text-center">Sr. No.</th>
                 <th className="w-[10%] border border-black p-1 text-center">Date</th>
                 <th className="w-[9%] border border-black p-1 text-center">Time of Visit</th>
-                <th className="w-[13%] border border-black p-1 text-center">Name of vigilance officer</th>
+                <th className="w-[13%] border border-black p-1 text-center">
+                  Name of vigilance officer
+                </th>
                 <th className="w-[10%] border border-black p-1 text-center">Inst. code</th>
                 <th className="w-[18%] border border-black p-1 text-center">Observations</th>
                 <th className="w-[20%] border border-black p-1 text-center">
                   In case of malpractice case/cases booked. Give clear details of the case.
                 </th>
-                <th className="w-[9%] border border-black p-1 text-center">Sign of vigilance officer</th>
-                <th className="w-[9%] border border-black p-1 text-center">Sign of Chief officer in charge</th>
+                <th className="w-[9%] border border-black p-1 text-center">
+                  Sign of vigilance officer
+                </th>
+                <th className="w-[9%] border border-black p-1 text-center">
+                  Sign of Chief officer in charge
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -136,9 +152,9 @@ function Format16Content({ examCenter }: { examCenter: any }) {
       {/* Footer Note */}
       <div className="mt-4 border-t border-dashed border-neutral-300 pt-2 text-[9px] text-neutral-500">
         <p>
-          <strong>Note:</strong> This register should be maintained at both Distribution Center and Examination Center.
-          All vigilance visits (internal and external) must be recorded with observations and malpractice details if
-          any.
+          <strong>Note:</strong> This register should be maintained at both Distribution Center and
+          Examination Center. All vigilance visits (internal and external) must be recorded with
+          observations and malpractice details if any.
         </p>
       </div>
     </div>

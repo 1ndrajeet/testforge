@@ -5,9 +5,10 @@ import React, { useEffect, useRef, useState } from 'react';
 
 import { ArrowLeft, LucidePrinter } from 'lucide-react';
 
+import { cn } from '@/lib/utils';
+
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
 
 // ============================================================================
 // Types
@@ -142,7 +143,10 @@ export function PDFViewer({
           <p className="text-lg font-medium text-red-600">Failed to load PDF</p>
           <p className="text-sm text-neutral-500">{error}</p>
         </div>
-        <Button variant="outline" onClick={() => window.location.reload()}>
+        <Button
+          variant="outline"
+          onClick={() => window.location.reload()}
+        >
           Retry
         </Button>
       </div>
@@ -166,7 +170,12 @@ export function PDFViewer({
         <div className="flex flex-wrap items-center justify-between gap-4 print:hidden">
           <div className="flex items-center gap-3">
             {showBackButton && onBack && (
-              <Button variant="secondary" size="sm" onClick={onBack} className="gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={onBack}
+                className="gap-2"
+              >
                 <ArrowLeft className="h-4 w-4" />
                 {backButtonLabel}
               </Button>
@@ -176,7 +185,11 @@ export function PDFViewer({
               {subtitle && <p className="text-sm text-neutral-500">{subtitle}</p>}
             </div>
           </div>
-          <Button onClick={handlePrint} size="sm" className="gap-2">
+          <Button
+            onClick={handlePrint}
+            size="sm"
+            className="gap-2"
+          >
             <LucidePrinter className="h-4 w-4" />
             {printButtonLabel}
           </Button>
@@ -184,7 +197,10 @@ export function PDFViewer({
       )}
 
       {/* PDF Viewer */}
-      <div className="print:hidden" style={{ height, width }}>
+      <div
+        className="print:hidden"
+        style={{ height, width }}
+      >
         <iframe
           ref={iframeRef}
           src={`${pdfUrl}#toolbar=1&navpanes=1&scrollbar=1`}
@@ -196,7 +212,11 @@ export function PDFViewer({
 
       {/* Hidden iframe for printing fallback */}
       <div className="hidden">
-        <iframe src={pdfUrl} className="h-0 w-0" title={`${documentTitle}-print`} />
+        <iframe
+          src={pdfUrl}
+          className="h-0 w-0"
+          title={`${documentTitle}-print`}
+        />
       </div>
     </div>
   );

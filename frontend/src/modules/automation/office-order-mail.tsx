@@ -3,13 +3,17 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
+import departments from '@/config/course_codes.json';
 import { AlertCircle, Eye, Loader2, Mail, Plus, UserCheck, Users, Users2, X } from 'lucide-react';
 import { HashLoader } from 'react-spinners';
 import { toast } from 'sonner';
 
-import { EmailUsageStats } from '@/components/admin/email-usage-stats';
-import { MSBTEContextBar } from '@/components/layout/msbte-context-bar';
-import { PageHeader } from '@/components/layout/page-layout';
+import { getOrders } from '@/lib/actions/order';
+import { getStaff } from '@/lib/actions/staff';
+import { cn } from '@/lib/utils';
+
+import { useUserInfo } from '@/hooks/useUserInfo';
+
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -26,14 +30,20 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import departments from '@/config/course_codes.json';
-import { useUserInfo } from '@/hooks/useUserInfo';
-import { getOrders } from '@/lib/actions/order';
-import { getStaff } from '@/lib/actions/staff';
-import { cn } from '@/lib/utils';
+
+import { MSBTEContextBar } from '@/components/layout/msbte-context-bar';
+import { PageHeader } from '@/components/layout/page-layout';
+
+import { EmailUsageStats } from '@/components/admin/email-usage-stats';
 
 //  Constants
 
@@ -99,13 +109,18 @@ const getDeptName = (code: string) => (departments as Record<string, string>)[co
 const formatDateDisplay = (dateStr: string) => {
   if (!dateStr) return '—';
   try {
-    return new Date(dateStr).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return new Date(dateStr).toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
   } catch {
     return dateStr;
   }
 };
 
-const getDefaultExcludes = (userEmail: string) => [userEmail, 'exampl.co', 'test@example.com'].filter(Boolean);
+const getDefaultExcludes = (userEmail: string) =>
+  [userEmail, 'exampl.co', 'test@example.com'].filter(Boolean);
 
 //  Email Template
 
@@ -128,7 +143,7 @@ const generateOrderEmail = (data: {
       <td style="border:1px solid #000;padding:6px 12px;text-align:center;">${formatDateDisplay(block.DATE)}</td>
       <td style="border:1px solid #000;padding:6px 12px;text-align:center;text-transform:uppercase;">${block.SESSION}</td>
     </tr>
-  `
+  `,
   ).join('');
 
   const isChief = type === 'chief';
@@ -246,17 +261,23 @@ const EmailRecipientList = ({
     toast.success(`Added ${email} to excludes`);
   };
 
-  const totalSelected = recipients.filter(r => r.selected).length;
+  const totalSelected = recipients.filter((r) => r.selected).length;
   const total = recipients.length;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Badge variant="secondary" className="text-xs">
+          <Badge
+            variant="secondary"
+            className="text-xs"
+          >
             {totalSelected} of {total} selected
           </Badge>
-          <Badge variant="outline" className="text-xs">
+          <Badge
+            variant="outline"
+            className="text-xs"
+          >
             Quota: {QUOTA_LIMIT - totalSelected} remaining
           </Badge>
         </div>
@@ -264,7 +285,7 @@ const EmailRecipientList = ({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => recipients.forEach(r => onToggle(r.uid))}
+            onClick={() => recipients.forEach((r) => onToggle(r.uid))}
             className="h-7 text-xs"
           >
             Select All
@@ -273,7 +294,7 @@ const EmailRecipientList = ({
             variant="outline"
             size="sm"
             onClick={() =>
-              recipients.forEach(r => {
+              recipients.forEach((r) => {
                 if (r.selected) onToggle(r.uid);
               })
             }
@@ -290,18 +311,26 @@ const EmailRecipientList = ({
             <Input
               placeholder="Add email to exclude (e.g., @example.com)"
               value={newExclude}
-              onChange={e => setNewExclude(e.target.value)}
+              onChange={(e) => setNewExclude(e.target.value)}
               className="h-8 flex-1 text-sm"
-              onKeyDown={e => e.key === 'Enter' && handleAddExclude()}
+              onKeyDown={(e) => e.key === 'Enter' && handleAddExclude()}
             />
-            <Button size="sm" onClick={handleAddExclude} className="h-8 text-xs">
+            <Button
+              size="sm"
+              onClick={handleAddExclude}
+              className="h-8 text-xs"
+            >
               Add Exclude
             </Button>
           </div>
           {excludes.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1">
-              {excludes.map(email => (
-                <Badge key={email} variant="outline" className="gap-1 text-xs">
+              {excludes.map((email) => (
+                <Badge
+                  key={email}
+                  variant="outline"
+                  className="gap-1 text-xs"
+                >
                   {email}
                   <X
                     className="h-3 w-3 cursor-pointer hover:text-red-500"
@@ -318,11 +347,13 @@ const EmailRecipientList = ({
 
         <ScrollArea className="h-[280px]">
           {recipients.length === 0 ? (
-            <div className="flex h-full items-center justify-center text-sm text-neutral-400">No recipients found</div>
+            <div className="flex h-full items-center justify-center text-sm text-neutral-400">
+              No recipients found
+            </div>
           ) : (
-            recipients.map(recipient => {
+            recipients.map((recipient) => {
               const isExcluded = excludes.some(
-                e => recipient.EMAIL?.includes(e) || (e.includes('@') && recipient.EMAIL === e)
+                (e) => recipient.EMAIL?.includes(e) || (e.includes('@') && recipient.EMAIL === e),
               );
               const allotmentCount = recipient.ALLOTED?.length || 0;
 
@@ -331,7 +362,7 @@ const EmailRecipientList = ({
                   key={recipient.uid}
                   className={cn(
                     'flex items-center justify-between border-b border-neutral-100 p-2 last:border-0 hover:bg-neutral-50',
-                    isExcluded && 'line-through opacity-40'
+                    isExcluded && 'line-through opacity-40',
                   )}
                 >
                   <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -343,11 +374,17 @@ const EmailRecipientList = ({
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="truncate text-sm font-medium">{recipient.NAME}</span>
-                        <Badge variant="secondary" className="text-[10px]">
+                        <Badge
+                          variant="secondary"
+                          className="text-[10px]"
+                        >
                           {recipient.ROLE}
                         </Badge>
                         {allotmentCount > 0 && (
-                          <Badge variant="outline" className="text-[10px]">
+                          <Badge
+                            variant="outline"
+                            className="text-[10px]"
+                          >
                             {allotmentCount} duties
                           </Badge>
                         )}
@@ -360,7 +397,10 @@ const EmailRecipientList = ({
                     </div>
                   </div>
                   {isExcluded && (
-                    <Badge variant="outline" className="text-[10px] text-neutral-400">
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] text-neutral-400"
+                    >
                       Excluded
                     </Badge>
                   )}
@@ -410,7 +450,12 @@ export default function OfficeOrderMail() {
     email: '',
   });
   const roleOptions = ['Lecturer', 'HOD', 'Lab Assistant'];
-  const postOptions = ['Chief Officer In-Charge', 'Officer In-Charge', 'Sealing Supervisor', 'Exam Controller'];
+  const postOptions = [
+    'Chief Officer In-Charge',
+    'Officer In-Charge',
+    'Sealing Supervisor',
+    'Exam Controller',
+  ];
 
   // Save excludes to localStorage whenever they change
   useEffect(() => {
@@ -422,7 +467,7 @@ export default function OfficeOrderMail() {
   // Add user email to excludes on mount if not already present
   useEffect(() => {
     if (user?.email && !excludes.includes(user.email)) {
-      setExcludes(prev => [...prev, user.email]);
+      setExcludes((prev) => [...prev, user.email]);
     }
   }, [user?.email]);
 
@@ -453,7 +498,7 @@ export default function OfficeOrderMail() {
           staffResult.data.map((s: any) => [
             s.uid,
             { name: s.name, role: s.role || '', department: s.department, email: s.email || '' },
-          ])
+          ]),
         );
         const grouped: OrderData[] = [];
 
@@ -462,7 +507,7 @@ export default function OfficeOrderMail() {
           if (!staffMember) continue;
           const info = staffMap.get(staffMember.uid);
           if (!info) continue;
-          let existing = grouped.find(g => g.uid === staffMember.uid);
+          let existing = grouped.find((g) => g.uid === staffMember.uid);
           if (!existing) {
             existing = {
               uid: staffMember.uid,
@@ -481,7 +526,9 @@ export default function OfficeOrderMail() {
             SESSION: order.session || 'Morning',
           });
         }
-        grouped.forEach(g => g.ALLOTED.sort((a, b) => new Date(a.DATE).getTime() - new Date(b.DATE).getTime()));
+        grouped.forEach((g) =>
+          g.ALLOTED.sort((a, b) => new Date(a.DATE).getTime() - new Date(b.DATE).getTime()),
+        );
 
         if (type === 'supervision') setSupervisors(grouped);
         else setRelievers(grouped);
@@ -494,15 +541,21 @@ export default function OfficeOrderMail() {
         setLoading(false);
       }
     },
-    [orderKey, collegeRefKey]
+    [orderKey, collegeRefKey],
   );
 
   const handleAddOfficer = () => {
-    if (!newOfficer.name || !newOfficer.department || !newOfficer.role || !newOfficer.post || !newOfficer.email) {
+    if (
+      !newOfficer.name ||
+      !newOfficer.department ||
+      !newOfficer.role ||
+      !newOfficer.post ||
+      !newOfficer.email
+    ) {
       toast.error('Please fill in all officer fields');
       return;
     }
-    setOfficers(prev => [
+    setOfficers((prev) => [
       ...prev,
       {
         uid: `officer-${Date.now()}`,
@@ -520,12 +573,13 @@ export default function OfficeOrderMail() {
     toast.success('Officer added');
   };
 
-  const handleRemoveOfficer = (uid: string) => setOfficers(prev => prev.filter(o => o.uid !== uid));
+  const handleRemoveOfficer = (uid: string) =>
+    setOfficers((prev) => prev.filter((o) => o.uid !== uid));
 
   // FIXED: Properly update excludes state and localStorage
   const handleRemoveExclude = useCallback((email: string) => {
-    setExcludes(prev => {
-      const newExcludes = prev.filter(e => e !== email);
+    setExcludes((prev) => {
+      const newExcludes = prev.filter((e) => e !== email);
       // Save to localStorage immediately
       if (typeof window !== 'undefined') {
         localStorage.setItem(EMAIL_EXCLUDES_KEY, JSON.stringify(newExcludes));
@@ -536,7 +590,7 @@ export default function OfficeOrderMail() {
 
   // FIXED: Properly add exclude
   const handleAddExclude = useCallback((email: string) => {
-    setExcludes(prev => {
+    setExcludes((prev) => {
       if (prev.includes(email)) return prev;
       const newExcludes = [...prev, email];
       if (typeof window !== 'undefined') {
@@ -548,16 +602,21 @@ export default function OfficeOrderMail() {
 
   const handleToggleRecipient = (type: OrderType, uid: string) => {
     if (type === 'supervision')
-      setSupervisors(prev => prev.map(s => (s.uid === uid ? { ...s, selected: !s.selected } : s)));
+      setSupervisors((prev) =>
+        prev.map((s) => (s.uid === uid ? { ...s, selected: !s.selected } : s)),
+      );
     else if (type === 'reliever')
-      setRelievers(prev => prev.map(s => (s.uid === uid ? { ...s, selected: !s.selected } : s)));
-    else setOfficers(prev => prev.map(s => (s.uid === uid ? { ...s, selected: !s.selected } : s)));
+      setRelievers((prev) =>
+        prev.map((s) => (s.uid === uid ? { ...s, selected: !s.selected } : s)),
+      );
+    else
+      setOfficers((prev) => prev.map((s) => (s.uid === uid ? { ...s, selected: !s.selected } : s)));
   };
 
   const getAllRecipients = () => [
-    ...supervisors.filter(s => s.selected && !excludes.some(e => s.EMAIL?.includes(e))),
-    ...relievers.filter(s => s.selected && !excludes.some(e => s.EMAIL?.includes(e))),
-    ...officers.filter(s => s.selected && !excludes.some(e => s.EMAIL?.includes(e))),
+    ...supervisors.filter((s) => s.selected && !excludes.some((e) => s.EMAIL?.includes(e))),
+    ...relievers.filter((s) => s.selected && !excludes.some((e) => s.EMAIL?.includes(e))),
+    ...officers.filter((s) => s.selected && !excludes.some((e) => s.EMAIL?.includes(e))),
   ];
 
   const getTotalSelected = () => getAllRecipients().length;
@@ -576,7 +635,7 @@ export default function OfficeOrderMail() {
     setSending(true);
     try {
       const emailData = {
-        recipients: recipients.map(r => ({
+        recipients: recipients.map((r) => ({
           email: r.EMAIL,
           name: r.NAME,
           type: r.type,
@@ -624,7 +683,7 @@ export default function OfficeOrderMail() {
         results.push(await res.json());
       }
 
-      const sent = results.filter(r => r.success).length;
+      const sent = results.filter((r) => r.success).length;
       toast.success(`Sent ${sent} of ${recipients.length} emails`);
       if (sent < recipients.length) toast.warning(`${recipients.length - sent} emails failed`);
     } catch (error) {
@@ -659,7 +718,10 @@ export default function OfficeOrderMail() {
   if (userLoading) {
     return (
       <div className="bg-background/80 fixed inset-0 z-50 flex flex-col items-center justify-center backdrop-blur-sm">
-        <HashLoader size={60} color="#059669" />
+        <HashLoader
+          size={60}
+          color="#059669"
+        />
         <p className="text-muted-foreground mt-6 text-sm font-medium">Loading...</p>
       </div>
     );
@@ -684,10 +746,18 @@ export default function OfficeOrderMail() {
         icon={Mail}
         actions={
           <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="text-xs">
+            <Badge
+              variant="secondary"
+              className="text-xs"
+            >
               Quota: {QUOTA_LIMIT - getTotalSelected()} remaining
             </Badge>
-            <Button variant="outline" size="sm" onClick={handleReset} className="h-8 gap-1.5 text-xs">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleReset}
+              className="h-8 gap-1.5 text-xs"
+            >
               <X className="h-3.5 w-3.5" /> Reset
             </Button>
           </div>
@@ -696,7 +766,11 @@ export default function OfficeOrderMail() {
       <div>
         <EmailUsageStats />
       </div>
-      <MSBTEContextBar season={examCenter?.season as 'Summer' | 'Winter'} year={examCenter?.examYear!} compact />
+      <MSBTEContextBar
+        season={examCenter?.season as 'Summer' | 'Winter'}
+        year={examCenter?.examYear!}
+        compact
+      />
 
       {/* Input Section */}
       <Card className="border-neutral-200 shadow-sm">
@@ -709,7 +783,7 @@ export default function OfficeOrderMail() {
               <Input
                 placeholder="Enter ORDER REF key"
                 value={orderKey}
-                onChange={e => setOrderKey(e.target.value)}
+                onChange={(e) => setOrderKey(e.target.value)}
                 className="h-9 text-sm"
               />
             </div>
@@ -720,7 +794,7 @@ export default function OfficeOrderMail() {
               <Input
                 placeholder="Enter COLLEGE REF key"
                 value={collegeRefKey}
-                onChange={e => setCollegeRefKey(e.target.value)}
+                onChange={(e) => setCollegeRefKey(e.target.value)}
                 className="h-9 text-sm"
               />
             </div>
@@ -731,7 +805,11 @@ export default function OfficeOrderMail() {
                 className="h-9 flex-1 gap-1.5 bg-emerald-600 hover:bg-emerald-700"
                 size="sm"
               >
-                {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Users className="h-3.5 w-3.5" />}
+                {loading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Users className="h-3.5 w-3.5" />
+                )}
                 Fetch All
               </Button>
               <TooltipProvider>
@@ -776,15 +854,28 @@ export default function OfficeOrderMail() {
       </Card>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={v => setActiveTab(v as OrderType)} className="space-y-4">
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as OrderType)}
+        className="space-y-4"
+      >
         <TabsList className="grid w-full grid-cols-3 rounded-xl bg-neutral-100 p-1 dark:bg-neutral-800">
-          <TabsTrigger value="supervision" className="gap-2 rounded-lg data-[state=active]:bg-white">
+          <TabsTrigger
+            value="supervision"
+            className="gap-2 rounded-lg data-[state=active]:bg-white"
+          >
             <UserCheck className="h-4 w-4" /> Supervisors ({supervisors.length})
           </TabsTrigger>
-          <TabsTrigger value="reliever" className="gap-2 rounded-lg data-[state=active]:bg-white">
+          <TabsTrigger
+            value="reliever"
+            className="gap-2 rounded-lg data-[state=active]:bg-white"
+          >
             <Users2 className="h-4 w-4" /> Relievers ({relievers.length})
           </TabsTrigger>
-          <TabsTrigger value="chief" className="gap-2 rounded-lg data-[state=active]:bg-white">
+          <TabsTrigger
+            value="chief"
+            className="gap-2 rounded-lg data-[state=active]:bg-white"
+          >
             <Users className="h-4 w-4" /> Officers ({officers.length})
           </TabsTrigger>
         </TabsList>
@@ -799,7 +890,7 @@ export default function OfficeOrderMail() {
           ) : (
             <EmailRecipientList
               recipients={supervisors}
-              onToggle={uid => handleToggleRecipient('supervision', uid)}
+              onToggle={(uid) => handleToggleRecipient('supervision', uid)}
               excludes={excludes}
               onAddExclude={handleAddExclude}
               onRemoveExclude={handleRemoveExclude}
@@ -821,7 +912,7 @@ export default function OfficeOrderMail() {
           ) : (
             <EmailRecipientList
               recipients={relievers}
-              onToggle={uid => handleToggleRecipient('reliever', uid)}
+              onToggle={(uid) => handleToggleRecipient('reliever', uid)}
               excludes={excludes}
               onAddExclude={handleAddExclude}
               onRemoveExclude={handleRemoveExclude}
@@ -841,7 +932,7 @@ export default function OfficeOrderMail() {
                 <Input
                   placeholder="Name"
                   value={newOfficer.name}
-                  onChange={e => setNewOfficer({ ...newOfficer, name: e.target.value })}
+                  onChange={(e) => setNewOfficer({ ...newOfficer, name: e.target.value })}
                   className="h-8 text-sm"
                 />
               </div>
@@ -850,7 +941,7 @@ export default function OfficeOrderMail() {
                 <Input
                   placeholder="Department"
                   value={newOfficer.department}
-                  onChange={e => setNewOfficer({ ...newOfficer, department: e.target.value })}
+                  onChange={(e) => setNewOfficer({ ...newOfficer, department: e.target.value })}
                   className="h-8 text-sm"
                 />
               </div>
@@ -860,19 +951,25 @@ export default function OfficeOrderMail() {
                   placeholder="Email"
                   type="email"
                   value={newOfficer.email}
-                  onChange={e => setNewOfficer({ ...newOfficer, email: e.target.value })}
+                  onChange={(e) => setNewOfficer({ ...newOfficer, email: e.target.value })}
                   className="h-8 text-sm"
                 />
               </div>
               <div className="min-w-[120px] flex-1 space-y-1">
                 <Label className="text-xs font-medium">Role</Label>
-                <Select onValueChange={v => setNewOfficer({ ...newOfficer, role: v })} value={newOfficer.role}>
+                <Select
+                  onValueChange={(v) => setNewOfficer({ ...newOfficer, role: v })}
+                  value={newOfficer.role}
+                >
                   <SelectTrigger className="h-8 text-sm">
                     <SelectValue placeholder="Role" />
                   </SelectTrigger>
                   <SelectContent>
-                    {roleOptions.map(r => (
-                      <SelectItem key={r} value={r}>
+                    {roleOptions.map((r) => (
+                      <SelectItem
+                        key={r}
+                        value={r}
+                      >
                         {r}
                       </SelectItem>
                     ))}
@@ -881,20 +978,29 @@ export default function OfficeOrderMail() {
               </div>
               <div className="min-w-[140px] flex-1 space-y-1">
                 <Label className="text-xs font-medium">Post</Label>
-                <Select onValueChange={v => setNewOfficer({ ...newOfficer, post: v })} value={newOfficer.post}>
+                <Select
+                  onValueChange={(v) => setNewOfficer({ ...newOfficer, post: v })}
+                  value={newOfficer.post}
+                >
                   <SelectTrigger className="h-8 text-sm">
                     <SelectValue placeholder="Post" />
                   </SelectTrigger>
                   <SelectContent>
-                    {postOptions.map(p => (
-                      <SelectItem key={p} value={p}>
+                    {postOptions.map((p) => (
+                      <SelectItem
+                        key={p}
+                        value={p}
+                      >
                         {p}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              <Button onClick={handleAddOfficer} className="h-8 gap-1 text-xs">
+              <Button
+                onClick={handleAddOfficer}
+                className="h-8 gap-1 text-xs"
+              >
                 <Plus className="h-3.5 w-3.5" /> Add
               </Button>
             </div>
@@ -920,8 +1026,11 @@ export default function OfficeOrderMail() {
                   </div>
                 </div>
                 <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
-                  {officers.map(officer => (
-                    <div key={officer.uid} className="flex items-center justify-between p-3 hover:bg-neutral-50">
+                  {officers.map((officer) => (
+                    <div
+                      key={officer.uid}
+                      className="flex items-center justify-between p-3 hover:bg-neutral-50"
+                    >
                       <div className="flex min-w-0 flex-1 items-center gap-3">
                         <Checkbox
                           checked={officer.selected}
@@ -930,10 +1039,16 @@ export default function OfficeOrderMail() {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <span className="truncate text-sm font-medium">{officer.NAME}</span>
-                            <Badge variant="secondary" className="text-[10px]">
+                            <Badge
+                              variant="secondary"
+                              className="text-[10px]"
+                            >
                               {officer.ROLE}
                             </Badge>
-                            <Badge variant="outline" className="text-[10px]">
+                            <Badge
+                              variant="outline"
+                              className="text-[10px]"
+                            >
                               {(officer as any).post || officer.ROLE}
                             </Badge>
                           </div>
@@ -989,7 +1104,10 @@ export default function OfficeOrderMail() {
       </div>
 
       {/* Preview Dialog */}
-      <Dialog open={showPreview} onOpenChange={setShowPreview}>
+      <Dialog
+        open={showPreview}
+        onOpenChange={setShowPreview}
+      >
         <DialogContent className="max-h-[90vh] max-w-7xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1000,7 +1118,7 @@ export default function OfficeOrderMail() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-6">
-            {getAllRecipients().map(recipient => {
+            {getAllRecipients().map((recipient) => {
               const html = generateOrderEmail({
                 recipient,
                 examCenter: {
@@ -1014,26 +1132,46 @@ export default function OfficeOrderMail() {
                 type: recipient.type || 'supervision',
               });
               return (
-                <div key={recipient.uid} className="overflow-hidden rounded-lg border border-neutral-200">
+                <div
+                  key={recipient.uid}
+                  className="overflow-hidden rounded-lg border border-neutral-200"
+                >
                   <div className="flex items-center justify-between border-b border-neutral-200 bg-neutral-50 px-4 py-2">
                     <span className="text-sm font-medium">
                       {recipient.NAME} - {recipient.EMAIL}
                     </span>
-                    <Badge variant="secondary" className="text-[10px]">
+                    <Badge
+                      variant="secondary"
+                      className="text-[10px]"
+                    >
                       {recipient.ROLE}
                     </Badge>
                   </div>
-                  <div className="p-4 text-sm" dangerouslySetInnerHTML={{ __html: html }} />
+                  <div
+                    className="p-4 text-sm"
+                    dangerouslySetInnerHTML={{ __html: html }}
+                  />
                 </div>
               );
             })}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPreview(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowPreview(false)}
+            >
               Close
             </Button>
-            <Button onClick={handleSendEmails} disabled={sending} className="bg-emerald-600 hover:bg-emerald-700">
-              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+            <Button
+              onClick={handleSendEmails}
+              disabled={sending}
+              className="bg-emerald-600 hover:bg-emerald-700"
+            >
+              {sending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Mail className="h-4 w-4" />
+              )}
               {sending ? 'Sending...' : 'Send All'}
             </Button>
           </DialogFooter>
@@ -1041,7 +1179,10 @@ export default function OfficeOrderMail() {
       </Dialog>
 
       {error && (
-        <Alert variant="destructive" className="flex items-center gap-2">
+        <Alert
+          variant="destructive"
+          className="flex items-center gap-2"
+        >
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>{error}</AlertDescription>
         </Alert>

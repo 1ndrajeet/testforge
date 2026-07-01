@@ -14,7 +14,7 @@ function Skeleton({ className, ...props }: React.ComponentProps<'div'>) {
         'before:via-white/10',
         'before:to-transparent',
         'dark:before:via-white/5',
-        className
+        className,
       )}
       {...props}
     />
@@ -37,14 +37,23 @@ export function TableSkeleton({
       {/* Header */}
       <div className="flex gap-4 border-b pb-3">
         {Array.from({ length: columns }).map((_, i) => (
-          <div key={i} className="h-4 w-24 animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />
+          <div
+            key={i}
+            className="h-4 w-24 animate-pulse rounded bg-neutral-200 dark:bg-neutral-800"
+          />
         ))}
       </div>
       {/* Rows */}
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="flex gap-4 py-3">
+        <div
+          key={i}
+          className="flex gap-4 py-3"
+        >
           {Array.from({ length: columns }).map((_, j) => (
-            <div key={j} className="h-4 w-24 animate-pulse rounded bg-neutral-100 dark:bg-neutral-800" />
+            <div
+              key={j}
+              className="h-4 w-24 animate-pulse rounded bg-neutral-100 dark:bg-neutral-800"
+            />
           ))}
         </div>
       ))}

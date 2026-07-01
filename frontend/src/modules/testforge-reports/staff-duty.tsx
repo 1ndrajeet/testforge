@@ -1,20 +1,30 @@
 // modules/testforge-reports/staff-duty.tsx
+
 'use client';
 
 import { ReactNode, useCallback, useEffect, useState } from 'react';
 
+import departments from '@/config/course_codes.json';
 import { format } from 'date-fns';
 
-import { MultiPageReport, ReportPageData } from '@/components/layout/testforge-report-layout';
-import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
-import departments from '@/config/course_codes.json';
-import { useUserInfo } from '@/hooks/useUserInfo';
 import { getAllocations } from '@/lib/actions/allocation';
 import { getStaff } from '@/lib/actions/staff';
 import { cn } from '@/lib/utils';
 
+import { useUserInfo } from '@/hooks/useUserInfo';
+
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+
+import { MultiPageReport, ReportPageData } from '@/components/layout/testforge-report-layout';
+
 const getDept = (code: string) => departments[code as keyof typeof departments] || code;
+
+// ============================================================
+// Constants
+// ============================================================
+
+const MAX_ROWS_PER_PAGE = 12;
 
 // ============================================================
 // Types
@@ -42,6 +52,8 @@ interface StaffDutyPageData extends ReportPageData {
   totalDuties: number;
   totalStudents: number;
   dateRange: { start: Date; end: Date };
+  pageNumber: number;
+  totalPages: number;
 }
 
 // ============================================================
@@ -49,7 +61,7 @@ interface StaffDutyPageData extends ReportPageData {
 // ============================================================
 
 const renderStaffDutyTable = (pageData: StaffDutyPageData) => {
-  const { rows, totalStaff, totalStudents, dateRange } = pageData;
+  const { rows, totalStaff, totalStudents, dateRange, pageNumber, totalPages } = pageData;
 
   return (
     <div className="flex h-full flex-col">
@@ -61,7 +73,9 @@ const renderStaffDutyTable = (pageData: StaffDutyPageData) => {
               <th className="w-[20%] border border-black p-1.5 text-left font-bold">Staff Name</th>
               <th className="w-[10%] border border-black p-1.5 text-center font-bold">UID</th>
               <th className="w-[18%] border border-black p-1.5 text-left font-bold">Department</th>
-              <th className="w-[20%] border border-black p-1.5 text-center font-bold">Date & Session</th>
+              <th className="w-[20%] border border-black p-1.5 text-center font-bold">
+                Date & Session
+              </th>
               <th className="w-[10%] border border-black p-1.5 text-center font-bold">Students</th>
             </tr>
           </thead>
@@ -71,22 +85,29 @@ const renderStaffDutyTable = (pageData: StaffDutyPageData) => {
                 (duty, index, self) =>
                   index ===
                   self.findIndex(
-                    d => format(d.date, 'yyyy-MM-dd') === format(duty.date, 'yyyy-MM-dd') && d.session === duty.session
-                  )
+                    (d) =>
+                      format(d.date, 'yyyy-MM-dd') === format(duty.date, 'yyyy-MM-dd') &&
+                      d.session === duty.session,
+                  ),
               );
 
               return uniqueDuties.map((duty, dutyIndex) => {
                 const isFirst = dutyIndex === 0;
                 const studentCount = staff.duties
                   .filter(
-                    d => format(d.date, 'yyyy-MM-dd') === format(duty.date, 'yyyy-MM-dd') && d.session === duty.session
+                    (d) =>
+                      format(d.date, 'yyyy-MM-dd') === format(duty.date, 'yyyy-MM-dd') &&
+                      d.session === duty.session,
                   )
                   .reduce((sum, d) => sum + d.studentCount, 0);
 
                 return (
                   <tr
                     key={`${staff.staffUid}-${dutyIndex}`}
-                    className={cn('border-b border-black', dutyIndex % 2 === 0 ? 'bg-white' : 'bg-neutral-50')}
+                    className={cn(
+                      'border-b border-black',
+                      dutyIndex % 2 === 0 ? 'bg-white' : 'bg-neutral-50',
+                    )}
                   >
                     {isFirst && (
                       <td
@@ -130,13 +151,15 @@ const renderStaffDutyTable = (pageData: StaffDutyPageData) => {
                           'mt-0.5 text-[8px]',
                           duty.session === 'Morning'
                             ? 'border-amber-200 bg-amber-50 text-amber-700'
-                            : 'border-blue-200 bg-blue-50 text-blue-700'
+                            : 'border-blue-200 bg-blue-50 text-blue-700',
                         )}
                       >
                         {duty.session}
                       </Badge>
                     </td>
-                    <td className="border border-black p-1.5 text-center text-[12px] font-bold">{studentCount}</td>
+                    <td className="border border-black p-1.5 text-center text-[12px] font-bold">
+                      {studentCount}
+                    </td>
                   </tr>
                 );
               });
@@ -144,10 +167,16 @@ const renderStaffDutyTable = (pageData: StaffDutyPageData) => {
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-black bg-neutral-200 font-bold print:bg-neutral-200">
-              <td colSpan={4} className="border border-black p-1.5 pr-4 text-right">
+              <td
+                colSpan={4}
+                className="border border-black p-1.5 pr-4 text-right"
+              >
                 GRAND TOTAL
               </td>
-              <td colSpan={1} className="border border-black p-1.5 text-center text-[10px]">
+              <td
+                colSpan={1}
+                className="border border-black p-1.5 text-center text-[10px]"
+              >
                 {format(dateRange.start, 'dd/MM/yyyy')} - {format(dateRange.end, 'dd/MM/yyyy')}
               </td>
               <td className="border border-black p-1.5 text-center">
@@ -157,6 +186,17 @@ const renderStaffDutyTable = (pageData: StaffDutyPageData) => {
           </tfoot>
         </table>
       </div>
+
+      {totalPages > 1 && (
+        <div className="mt-2 border-t border-black pt-1 text-[10px]">
+          <div className="flex justify-between">
+            <span className="font-medium">Staff Duty Report</span>
+            <span>
+              Page {pageNumber} of {totalPages}
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -178,7 +218,12 @@ export default function StaffDutyReport() {
     try {
       const [allocationsResult, staffResult] = await Promise.all([getAllocations({}), getStaff()]);
 
-      if (!allocationsResult.success || !allocationsResult.data || !staffResult.success || !staffResult.data) {
+      if (
+        !allocationsResult.success ||
+        !allocationsResult.data ||
+        !staffResult.success ||
+        !staffResult.data
+      ) {
         setRows([]);
         return;
       }
@@ -222,7 +267,7 @@ export default function StaffDutyReport() {
       });
 
       const staffDutyRows = Array.from(dutyMap.values())
-        .map(s => ({
+        .map((s) => ({
           ...s,
           duties: s.duties.sort((a, b) => a.date.getTime() - b.date.getTime()),
           totalDuties: s.duties.length,
@@ -241,85 +286,89 @@ export default function StaffDutyReport() {
     fetchData();
   }, [fetchData]);
 
+  // Build pages - ✅ Count ACTUAL visible rows (unique duty entries)
   const buildPages = useCallback((): StaffDutyPageData[] => {
     if (rows.length === 0) return [];
 
-    const MAX_ROWS_PER_PAGE = 13;
     const pages: StaffDutyPageData[] = [];
-
     let currentPageRows: StaffDutyRow[] = [];
     let currentRowCount = 0;
+    let pageCounter = 0;
 
     for (const staff of rows) {
-      // Count unique duties (what actually renders)
-      const uniqueDutyCount = new Set(staff.duties.map(d => `${format(d.date, 'yyyy-MM-dd')}_${d.session}`)).size;
+      // Count unique duties (what actually renders as rows)
+      const uniqueDutyCount = new Set(
+        staff.duties.map((d) => `${format(d.date, 'yyyy-MM-dd')}_${d.session}`),
+      ).size;
 
       // If adding this staff would exceed the limit AND we have content, start new page
       if (currentRowCount + uniqueDutyCount > MAX_ROWS_PER_PAGE && currentPageRows.length > 0) {
-        // Calculate page totals
+        pageCounter++;
         const chunkStaff = currentPageRows.length;
         const chunkStudents = currentPageRows.reduce((sum, r) => sum + r.totalStudents, 0);
         const chunkDuties = currentPageRows.reduce((sum, r) => sum + r.duties.length, 0);
 
-        // Calculate date range for this page
         let cMin = new Date();
         let cMax = new Date(0);
-        currentPageRows.forEach(s =>
-          s.duties.forEach(d => {
+        currentPageRows.forEach((s) =>
+          s.duties.forEach((d) => {
             if (d.date < cMin) cMin = d.date;
             if (d.date > cMax) cMax = d.date;
-          })
+          }),
         );
 
         pages.push({
-          id: `staff-duty-${pages.length + 1}`,
+          id: `staff-duty-${pageCounter}`,
           rows: [...currentPageRows],
           totalStaff: chunkStaff,
           totalDuties: chunkDuties,
           totalStudents: chunkStudents,
           dateRange: { start: cMin, end: cMax },
+          pageNumber: pageCounter,
+          totalPages: 0, // Will be updated after all pages are built
           metadata: {
-            Page: String(pages.length + 1),
+            Page: String(pageCounter),
             Staff: chunkStaff,
             Duties: chunkDuties,
             Students: chunkStudents,
           },
         });
 
-        // Reset for next page
         currentPageRows = [];
         currentRowCount = 0;
       }
 
-      // Add staff to current page
       currentPageRows.push(staff);
       currentRowCount += uniqueDutyCount;
     }
 
     // Save last page
     if (currentPageRows.length > 0) {
+      pageCounter++;
       const chunkStaff = currentPageRows.length;
       const chunkStudents = currentPageRows.reduce((sum, r) => sum + r.totalStudents, 0);
       const chunkDuties = currentPageRows.reduce((sum, r) => sum + r.duties.length, 0);
 
       let cMin = new Date();
       let cMax = new Date(0);
-      currentPageRows.forEach(s =>
-        s.duties.forEach(d => {
+      currentPageRows.forEach((s) =>
+        s.duties.forEach((d) => {
           if (d.date < cMin) cMin = d.date;
           if (d.date > cMax) cMax = d.date;
-        })
+        }),
       );
 
       pages.push({
-        id: `staff-duty-${pages.length + 1}`,
+        id: `staff-duty-${pageCounter}`,
         rows: currentPageRows,
         totalStaff: chunkStaff,
         totalDuties: chunkDuties,
         totalStudents: chunkStudents,
         dateRange: { start: cMin, end: cMax },
+        pageNumber: pageCounter,
+        totalPages: 0,
         metadata: {
-          Page: String(pages.length + 1),
+          Page: String(pageCounter),
           Staff: chunkStaff,
           Duties: chunkDuties,
           Students: chunkStudents,
@@ -327,11 +376,17 @@ export default function StaffDutyReport() {
       });
     }
 
+    // Update totalPages for all pages
+    const totalPages = pages.length;
+    pages.forEach((page) => {
+      page.totalPages = totalPages;
+    });
+
     return pages;
   }, [rows]);
 
   const pages = buildPages();
-  const _firstPage = pages[0];
+  const firstPage = pages[0];
 
   if (loading || userLoading) {
     return (
@@ -350,11 +405,11 @@ export default function StaffDutyReport() {
   const globalTotalStudents = rows.reduce((sum, r) => sum + r.totalStudents, 0);
   let globalMin = new Date();
   let globalMax = new Date(0);
-  rows.forEach(s =>
-    s.duties.forEach(d => {
+  rows.forEach((s) =>
+    s.duties.forEach((d) => {
       if (d.date < globalMin) globalMin = d.date;
       if (d.date > globalMax) globalMax = d.date;
-    })
+    }),
   );
 
   return (

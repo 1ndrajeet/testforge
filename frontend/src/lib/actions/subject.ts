@@ -35,7 +35,11 @@ export async function getSubjectByCode(code: string, scheme: string) {
 export async function searchSubjects(query: string, scheme?: string) {
   const conditions = [
     eq(subjects.isDeleted, false),
-    or(like(subjects.code, `%${query}%`), like(subjects.name, `%${query}%`), like(subjects.abbr, `%${query}%`)),
+    or(
+      like(subjects.code, `%${query}%`),
+      like(subjects.name, `%${query}%`),
+      like(subjects.abbr, `%${query}%`),
+    ),
   ];
 
   if (scheme) {
@@ -48,7 +52,12 @@ export async function searchSubjects(query: string, scheme?: string) {
   });
 }
 
-export async function createSubject(data: { code: string; name: string; scheme: string; abbr?: string }) {
+export async function createSubject(data: {
+  code: string;
+  name: string;
+  scheme: string;
+  abbr?: string;
+}) {
   // Check for duplicate
   const existing = await getSubjectByCode(data.code, data.scheme);
   if (existing) {
@@ -68,7 +77,7 @@ export async function updateSubject(
     name?: string;
     scheme?: string;
     abbr?: string;
-  }
+  },
 ) {
   const [subject] = await db
     .update(subjects)
@@ -81,7 +90,10 @@ export async function updateSubject(
 }
 
 export async function deleteSubject(id: string) {
-  await db.update(subjects).set({ isDeleted: true, updatedAt: new Date() }).where(eq(subjects.id, id));
+  await db
+    .update(subjects)
+    .set({ isDeleted: true, updatedAt: new Date() })
+    .where(eq(subjects.id, id));
 
   revalidatePath('/exam-center/subjects');
 }
@@ -92,5 +104,5 @@ export async function getSchemes() {
     .from(subjects)
     .where(eq(subjects.isDeleted, false));
 
-  return results.map(r => r.scheme);
+  return results.map((r) => r.scheme);
 }

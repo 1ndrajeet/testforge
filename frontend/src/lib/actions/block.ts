@@ -35,7 +35,9 @@ const UpdateBlockSchema = CreateBlockSchema.partial().extend({
 // Read Operations
 // ============================================
 
-export async function getBlocks(): Promise<{ success: true; data: Block[] } | { success: false; error: string }> {
+export async function getBlocks(): Promise<
+  { success: true; data: Block[] } | { success: false; error: string }
+> {
   const MODULE_FN = `${MODULE}.getBlocks`;
 
   try {
@@ -51,7 +53,7 @@ export async function getBlocks(): Promise<{ success: true; data: Block[] } | { 
       orderBy: [asc(blocks.blockNo)],
     });
 
-    const normalizedBlockList: Block[] = blockList.map(block => ({
+    const normalizedBlockList: Block[] = blockList.map((block) => ({
       ...block,
       distribution: block.distribution ?? [10, 10, 10, 10],
       template: block.template ?? 1, // Add this line
@@ -80,7 +82,11 @@ export async function getBlockById(id: string) {
     }
 
     const block = await db.query.blocks.findFirst({
-      where: and(eq(blocks.id, id), eq(blocks.examCenterId, examCenterId), eq(blocks.isDeleted, false)),
+      where: and(
+        eq(blocks.id, id),
+        eq(blocks.examCenterId, examCenterId),
+        eq(blocks.isDeleted, false),
+      ),
     });
 
     if (!block) {
@@ -111,7 +117,11 @@ export async function getBlockByLocation(location: string) {
     }
 
     const block = await db.query.blocks.findFirst({
-      where: and(eq(blocks.examCenterId, examCenterId), eq(blocks.location, location), eq(blocks.isDeleted, false)),
+      where: and(
+        eq(blocks.examCenterId, examCenterId),
+        eq(blocks.location, location),
+        eq(blocks.isDeleted, false),
+      ),
     });
 
     if (!block) {
@@ -168,7 +178,7 @@ export async function createBlock(data: z.infer<typeof CreateBlockSchema>) {
       where: and(
         eq(blocks.examCenterId, examCenter.id),
         eq(blocks.location, validated.location),
-        eq(blocks.isDeleted, false)
+        eq(blocks.isDeleted, false),
       ),
     });
 
@@ -226,7 +236,7 @@ export async function updateBlock(data: z.infer<typeof UpdateBlockSchema>) {
           eq(blocks.examCenterId, examCenter.id),
           eq(blocks.location, updates.location),
           eq(blocks.isDeleted, false),
-          sql`${blocks.id} != ${id}`
+          sql`${blocks.id} != ${id}`,
         ),
       });
 
@@ -279,7 +289,7 @@ export async function deleteBlock(id: string) {
       where: and(
         eq(blockAllocations.examCenterId, examCenter.id),
         eq(blockAllocations.blockId, id),
-        sql`${blockAllocations.date} >= CURRENT_DATE`
+        sql`${blockAllocations.date} >= CURRENT_DATE`,
       ),
       limit: 1,
     });
@@ -288,7 +298,8 @@ export async function deleteBlock(id: string) {
       logger.warn(MODULE_FN, 'Cannot delete block with active allocations', { id });
       return {
         success: false,
-        error: 'Cannot delete block with active allocations. Please reassign or delete allocations first.',
+        error:
+          'Cannot delete block with active allocations. Please reassign or delete allocations first.',
       };
     }
 
@@ -336,7 +347,7 @@ export async function bulkCreateBlocks(data: z.infer<typeof BulkCreateBlocksSche
       return { success: false, error: 'No blocks to import' };
     }
 
-    const results = await db.transaction(async tx => {
+    const results = await db.transaction(async (tx) => {
       if (validated.overwrite) {
         await tx
           .update(blocks)
@@ -345,7 +356,7 @@ export async function bulkCreateBlocks(data: z.infer<typeof BulkCreateBlocksSche
         logger.info(MODULE_FN, 'Soft deleted existing blocks', { examCenterId: examCenter.id });
       }
 
-      const values = validated.blocks.map(block => ({
+      const values = validated.blocks.map((block) => ({
         examCenterId: examCenter.id,
         ...block,
       }));

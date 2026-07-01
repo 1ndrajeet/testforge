@@ -4,20 +4,40 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { format } from 'date-fns';
-import { ArrowDown, ArrowUp, Calendar, ChevronLeft, ChevronRight, Download, RefreshCw, Upload } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  RefreshCw,
+  Upload,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
-import { MSBTEContextBar } from '@/components/layout/msbte-context-bar';
-import { PageEmpty, PageHeader, PageToolbar } from '@/components/layout/page-layout';
-import { UniversalFileUploader } from '@/components/shared/file-uploader';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useUserInfo } from '@/hooks/useUserInfo';
 import { getTimetable, getTimetableStats, hasTimetable } from '@/lib/actions/timetable';
 import { TimetableEntry, TimetableStats } from '@/lib/types';
 import { cn } from '@/lib/utils';
+
+import { useUserInfo } from '@/hooks/useUserInfo';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+
+import { MSBTEContextBar } from '@/components/layout/msbte-context-bar';
+import { PageEmpty, PageHeader, PageToolbar } from '@/components/layout/page-layout';
+
+import { UniversalFileUploader } from '@/components/shared/file-uploader';
 
 // ============================================================================
 // Helper Functions
@@ -32,18 +52,24 @@ const formatDateShort = (date: Date) => format(date, 'dd/MM');
 const StatsCards = ({ stats }: { stats: TimetableStats }) => {
   const minDate = stats.dateRange?.min ? new Date(stats.dateRange.min) : null;
   const maxDate = stats.dateRange?.max ? new Date(stats.dateRange.max) : null;
+
+  // Calculate total days (difference in days + 1 to include both start and end)
   const examDays =
-    minDate && maxDate ? Math.ceil((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24)) + 1 : 0;
+    minDate && maxDate
+      ? Math.ceil((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
+      : 0;
 
   return (
     <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
       <div className="rounded-lg border border-neutral-100 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
-        <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">{stats.uniqueSubjects}</p>
+        <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
+          {stats.uniqueSubjects}
+        </p>
         <p className="text-xs text-neutral-500">Subjects</p>
       </div>
       <div className="rounded-lg border border-neutral-100 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
         <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
-          {stats.totalStudents?.toLocaleString()}
+          {stats.students?.toLocaleString() || 0}
         </p>
         <p className="text-xs text-neutral-500">Students</p>
       </div>
@@ -52,8 +78,10 @@ const StatsCards = ({ stats }: { stats: TimetableStats }) => {
         <p className="text-xs text-neutral-500">Exam Days</p>
       </div>
       <div className="rounded-lg border border-neutral-100 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
-        <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">{stats.totalEntries}</p>
-        <p className="text-xs text-neutral-500">Sessions</p>
+        <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
+          {stats.examinees?.toLocaleString() || 0}{' '}
+        </p>
+        <p className="text-xs text-neutral-500">Examinees</p>
       </div>
     </div>
   );
@@ -76,12 +104,19 @@ const DataTable = ({
 }) => {
   const getSortIcon = (column: string) => {
     if (sortColumn !== column) return null;
-    return sortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+    return sortDirection === 'asc' ? (
+      <ArrowUp className="h-3 w-3" />
+    ) : (
+      <ArrowDown className="h-3 w-3" />
+    );
   };
 
   if (entries.length === 0) {
     return (
-      <PageEmpty title="No matching records" description="Try adjusting your filters or upload a new timetable." />
+      <PageEmpty
+        title="No matching records"
+        description="Try adjusting your filters or upload a new timetable."
+      />
     );
   }
 
@@ -136,14 +171,22 @@ const DataTable = ({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {entries.map(entry => (
-              <TableRow key={entry.id} className="h-12 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-900">
+            {entries.map((entry) => (
+              <TableRow
+                key={entry.id}
+                className="h-12 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-900"
+              >
                 <TableCell className="px-4 py-3 text-center font-mono text-sm">
-                  <Badge variant="secondary" className="text-xs">
+                  <Badge
+                    variant="secondary"
+                    className="text-xs"
+                  >
                     Day {entry.examDay || '?'}
                   </Badge>
                 </TableCell>
-                <TableCell className="px-4 py-3 font-mono text-sm">{formatDateShort(entry.date)}</TableCell>
+                <TableCell className="px-4 py-3 font-mono text-sm">
+                  {formatDateShort(entry.date)}
+                </TableCell>
                 <TableCell className="px-4 py-3">
                   <Badge
                     variant="outline"
@@ -151,7 +194,7 @@ const DataTable = ({
                       'text-xs',
                       entry.session === 'Morning'
                         ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400'
-                        : 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-400'
+                        : 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-400',
                     )}
                   >
                     {entry.session}
@@ -163,10 +206,15 @@ const DataTable = ({
                   </code>
                 </TableCell>
                 <TableCell className="px-4 py-3 text-sm">
-                  {entry.subjectName || String(entry.subjectAbbr)?.split('-')[0] || entry.subjectCode}
+                  {entry.subjectName ||
+                    String(entry.subjectAbbr)?.split('-')[0] ||
+                    entry.subjectCode}
                 </TableCell>
                 <TableCell className="px-4 py-3">
-                  <Badge variant="outline" className="font-mono text-xs">
+                  <Badge
+                    variant="outline"
+                    className="font-mono text-xs"
+                  >
                     {entry.scheme}
                   </Badge>
                 </TableCell>
@@ -242,7 +290,7 @@ export default function TimetablePage() {
 
     const headers = ['Date', 'Session', 'Subject Code', 'Subject Name', 'Scheme', 'Students'];
 
-    const rows = filteredEntries.map(entry => [
+    const rows = filteredEntries.map((entry) => [
       format(entry.date, 'dd/MM/yyyy'),
       entry.session,
       entry.subjectCode,
@@ -251,7 +299,9 @@ export default function TimetablePage() {
       entry.totalStudents,
     ]);
 
-    const csv = [headers, ...rows].map(row => row.map(cell => `"${cell ?? ''}"`).join(',')).join('\n');
+    const csv = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${cell ?? ''}"`).join(','))
+      .join('\n');
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -271,24 +321,34 @@ export default function TimetablePage() {
   }, [fetchData]);
 
   const schemes = useMemo(() => {
-    return [...new Set(entries.map(e => e.scheme))].sort();
+    return [...new Set(entries.map((e) => e.scheme))].sort();
   }, [entries]);
 
   // Use useMemo with proper dependencies
   const filteredEntries = useMemo(() => {
     // If no filters are active, return entries directly (optimization)
     const hasActiveFilters =
-      filters.subjectCode || filters.subjectName || filters.session || filters.scheme || filters.date;
+      filters.subjectCode ||
+      filters.subjectName ||
+      filters.session ||
+      filters.scheme ||
+      filters.date;
 
     if (!hasActiveFilters) {
       return entries;
     }
 
-    return entries.filter(entry => {
-      if (filters.subjectCode && !entry.subjectCode.toLowerCase().includes(filters.subjectCode.toLowerCase())) {
+    return entries.filter((entry) => {
+      if (
+        filters.subjectCode &&
+        !entry.subjectCode.toLowerCase().includes(filters.subjectCode.toLowerCase())
+      ) {
         return false;
       }
-      if (filters.subjectName && !(entry.subjectName || '').toLowerCase().includes(filters.subjectName.toLowerCase())) {
+      if (
+        filters.subjectName &&
+        !(entry.subjectName || '').toLowerCase().includes(filters.subjectName.toLowerCase())
+      ) {
         if (!String(entry.subjectAbbr).toLowerCase().includes(filters.subjectName.toLowerCase())) {
           return false;
         }
@@ -301,7 +361,14 @@ export default function TimetablePage() {
       }
       return true;
     });
-  }, [entries, filters.subjectCode, filters.subjectName, filters.session, filters.scheme, filters.date]);
+  }, [
+    entries,
+    filters.subjectCode,
+    filters.subjectName,
+    filters.session,
+    filters.scheme,
+    filters.date,
+  ]);
 
   const sortedEntries = useMemo(() => {
     const sorted = [...filteredEntries];
@@ -343,11 +410,14 @@ export default function TimetablePage() {
   }, [filteredEntries, sortColumn, sortDirection]);
 
   const totalPages = Math.ceil(sortedEntries.length / pageSize);
-  const paginatedEntries = sortedEntries.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const paginatedEntries = sortedEntries.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
 
   const handleSort = (column: string) => {
     if (sortColumn === column) {
-      setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortColumn(column);
       setSortDirection('asc');
@@ -384,7 +454,7 @@ export default function TimetablePage() {
     {
       id: 'scheme',
       label: 'Scheme',
-      options: schemes.map(s => ({ value: s, label: s })),
+      options: schemes.map((s) => ({ value: s, label: s })),
       value: filters.scheme || 'all',
     },
   ];
@@ -428,12 +498,19 @@ export default function TimetablePage() {
             icon={Calendar}
           />
           {hasData && (
-            <Button variant="ghost" size="sm" onClick={() => setShowUpload(false)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowUpload(false)}
+            >
               Cancel
             </Button>
           )}
         </div>
-        <MSBTEContextBar season={examCenter?.season as 'Summer' | 'Winter'} year={examCenter?.examYear!} />
+        <MSBTEContextBar
+          season={examCenter?.season as 'Summer' | 'Winter'}
+          year={examCenter?.examYear!}
+        />
         <div className="rounded-lg border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-950">
           <UniversalFileUploader
             fileType="timetable"
@@ -454,14 +531,22 @@ export default function TimetablePage() {
         description="View and manage your examination schedule."
         icon={Calendar}
         actions={
-          <Button variant="outline" size="sm" onClick={() => setShowUpload(true)} className="gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowUpload(true)}
+            className="gap-1.5"
+          >
             <Upload className="h-4 w-4" />
             Upload New
           </Button>
         }
       />
 
-      <MSBTEContextBar season={examCenter?.season as 'Summer' | 'Winter'} year={examCenter?.examYear!} />
+      <MSBTEContextBar
+        season={examCenter?.season as 'Summer' | 'Winter'}
+        year={examCenter?.examYear!}
+      />
 
       {stats && <StatsCards stats={stats} />}
 
@@ -469,15 +554,15 @@ export default function TimetablePage() {
         filters={filterOptions}
         onFilterChange={(id, value) => {
           if (id === 'session') {
-            setFilters(prev => ({ ...prev, session: value === 'all' ? '' : value }));
+            setFilters((prev) => ({ ...prev, session: value === 'all' ? '' : value }));
           } else if (id === 'scheme') {
-            setFilters(prev => ({ ...prev, scheme: value === 'all' ? '' : value }));
+            setFilters((prev) => ({ ...prev, scheme: value === 'all' ? '' : value }));
           }
           setCurrentPage(1);
         }}
         searchValue={filters.subjectCode}
-        onSearchChange={value => {
-          setFilters(prev => ({ ...prev, subjectCode: value }));
+        onSearchChange={(value) => {
+          setFilters((prev) => ({ ...prev, subjectCode: value }));
           setCurrentPage(1);
         }}
         searchPlaceholder="Search by subject code..."
@@ -493,7 +578,7 @@ export default function TimetablePage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
               className="h-7 px-2 text-xs"
             >
@@ -505,7 +590,7 @@ export default function TimetablePage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
               className="h-7 px-2 text-xs"
             >
@@ -515,11 +600,21 @@ export default function TimetablePage() {
         )}
       </div>
 
-      <DataTable entries={paginatedEntries} sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
+      <DataTable
+        entries={paginatedEntries}
+        sortColumn={sortColumn}
+        sortDirection={sortDirection}
+        onSort={handleSort}
+      />
 
-      {Object.values(filters).some(v => v !== '') && (
+      {Object.values(filters).some((v) => v !== '') && (
         <div className="mt-4 flex justify-end">
-          <Button variant="ghost" size="sm" onClick={handleClearFilters} className="text-xs">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleClearFilters}
+            className="text-xs"
+          >
             Clear all filters
           </Button>
         </div>

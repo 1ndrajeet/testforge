@@ -6,7 +6,7 @@ import { eq } from 'drizzle-orm';
 
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { examCenters, orgMembers, organizations } from '@/lib/db/schema';
+import { examCenters, organizations, orgMembers } from '@/lib/db/schema';
 
 export async function GET() {
   try {

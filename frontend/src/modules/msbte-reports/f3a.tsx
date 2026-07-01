@@ -6,12 +6,16 @@ import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { AlertCircle } from 'lucide-react';
 
-import ReportLayout from '@/components/layout/msbte-report-layout';
-import { SessionSelector } from '@/components/shared/date-selector';
+import { getAvailableInventoryDates, getQPInventory } from '@/lib/actions/inventory';
+
+import { useUserInfo } from '@/hooks/useUserInfo';
+
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useUserInfo } from '@/hooks/useUserInfo';
-import { getAvailableInventoryDates, getQPInventory } from '@/lib/actions/inventory';
+
+import ReportLayout from '@/components/layout/msbte-report-layout';
+
+import { SessionSelector } from '@/components/shared/date-selector';
 
 interface ExamRecord {
   id: string;
@@ -36,17 +40,20 @@ function Format3AContent({ data, distCode }: { data: ExamRecord[]; distCode: str
     <div>
       <div className="mb-4 text-center">
         <p className="text-sm font-medium">
-          Receipt to be given by the Officer in Charge of examination centre to the officer in charge, DC
+          Receipt to be given by the Officer in Charge of examination centre to the officer in
+          charge, DC
         </p>
         <p className="text-sm font-medium">Receipt of question paper packets</p>
       </div>
 
       <div className="mb-4 text-sm">
         <p>
-          The question paper bundles received from Name: ________________________ the Controller of examination from the
+          The question paper bundles received from Name: ________________________ the Controller of
+          examination from the
         </p>
         <p>
-          Distribution Centre {distCode} were opened in the examination control room and the contents were as below;
+          Distribution Centre {distCode} were opened in the examination control room and the
+          contents were as below;
         </p>
       </div>
 
@@ -56,11 +63,19 @@ function Format3AContent({ data, distCode }: { data: ExamRecord[]; distCode: str
             <th className="w-[8%] border border-black p-1.5 text-center font-bold">Sr.No</th>
             <th className="w-[12%] border border-black p-1.5 text-center font-bold">Date</th>
             <th className="w-[10%] border border-black p-1.5 text-center font-bold">Session</th>
-            <th className="w-[10%] border border-black p-1.5 text-center font-bold">Time of Opening</th>
-            <th className="w-[20%] border border-black p-1.5 text-center font-bold" colSpan={2}>
+            <th className="w-[10%] border border-black p-1.5 text-center font-bold">
+              Time of Opening
+            </th>
+            <th
+              className="w-[20%] border border-black p-1.5 text-center font-bold"
+              colSpan={2}
+            >
               Content as per label on bundle
             </th>
-            <th className="w-[20%] border border-black p-1.5 text-center font-bold" colSpan={2}>
+            <th
+              className="w-[20%] border border-black p-1.5 text-center font-bold"
+              colSpan={2}
+            >
               Actual content in the bundle
             </th>
             <th className="w-[15%] border border-black p-1.5 text-center font-bold">Remark</th>
@@ -79,12 +94,14 @@ function Format3AContent({ data, distCode }: { data: ExamRecord[]; distCode: str
         </thead>
         <tbody>
           {sessions.map((session, idx) => {
-            const sessionRecords = data.filter(r => r.session === session);
+            const sessionRecords = data.filter((r) => r.session === session);
             if (!sessionRecords.length) return null;
 
             return (
               <tr key={session}>
-                <td className="border border-black p-1.5 text-center align-top font-medium">{idx + 1}</td>
+                <td className="border border-black p-1.5 text-center align-top font-medium">
+                  {idx + 1}
+                </td>
                 <td className="border border-black p-1.5 text-center align-top">{dateStr}</td>
                 <td className="border border-black p-1.5 text-center align-top">{session}</td>
                 <td className="border border-black p-1.5 text-center align-top">
@@ -92,34 +109,48 @@ function Format3AContent({ data, distCode }: { data: ExamRecord[]; distCode: str
                 </td>
                 <td className="border border-black p-1.5 align-top">
                   {sessionRecords.map((record, i) => (
-                    <div key={i} className="py-0.5 text-center">
+                    <div
+                      key={i}
+                      className="py-0.5 text-center"
+                    >
                       {record.subjectCode}
                     </div>
                   ))}
                 </td>
                 <td className="border border-black p-1.5 align-top">
                   {sessionRecords.map((record, i) => (
-                    <div key={i} className="py-0.5 text-center">
+                    <div
+                      key={i}
+                      className="py-0.5 text-center"
+                    >
                       {record.expectedPackets || 0}
                     </div>
                   ))}
                 </td>
                 <td className="border border-black p-1.5 align-top">
                   {sessionRecords.map((record, i) => (
-                    <div key={i} className="py-0.5 text-center">
+                    <div
+                      key={i}
+                      className="py-0.5 text-center"
+                    >
                       {record.subjectCode}
                     </div>
                   ))}
                 </td>
                 <td className="border border-black p-1.5 align-top">
                   {sessionRecords.map((record, i) => (
-                    <div key={i} className="py-0.5 text-center">
+                    <div
+                      key={i}
+                      className="py-0.5 text-center"
+                    >
                       {record.receivedPackets || 0}
                     </div>
                   ))}
                 </td>
                 <td className="border border-black p-1.5 text-center align-top">
-                  {sessionRecords.some(r => r.receivedPackets !== r.expectedPackets) ? 'Discrepancy' : 'Matched'}
+                  {sessionRecords.some((r) => r.receivedPackets !== r.expectedPackets)
+                    ? 'Discrepancy'
+                    : 'Matched'}
                 </td>
               </tr>
             );
@@ -220,10 +251,13 @@ export default function Format3AReport() {
           error={error}
           title="FORMAT 3A REPORT"
           description={availableDates.length ? 'Select a date' : 'No inventory data'}
-          compact={false}
+          compact
         />
         {!availableDates.length && !error && (
-          <Alert variant="default" className="border-amber-200 bg-amber-50">
+          <Alert
+            variant="default"
+            className="border-amber-200 bg-amber-50"
+          >
             <AlertCircle className="h-4 w-4 text-amber-600" />
             <AlertTitle>No Data</AlertTitle>
             <AlertDescription>Upload inventory data first.</AlertDescription>
@@ -249,7 +283,10 @@ export default function Format3AReport() {
       documentTitle="Format_3A_Report"
       bordered
     >
-      <Format3AContent data={data} distCode={examCenter?.distCenterCode || ''} />
+      <Format3AContent
+        data={data}
+        distCode={examCenter?.distCenterCode || ''}
+      />
     </ReportLayout>
   );
 }

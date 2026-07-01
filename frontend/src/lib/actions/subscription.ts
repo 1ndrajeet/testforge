@@ -9,7 +9,9 @@ import { getCurrentOrg } from '@/lib/session';
 export async function getCurrentSubscription() {
   const { org } = await getCurrentOrg();
 
-  const isActive = !!(org.subscriptionExpiresAt && new Date(org.subscriptionExpiresAt) > new Date());
+  const isActive = !!(
+    org.subscriptionExpiresAt && new Date(org.subscriptionExpiresAt) > new Date()
+  );
 
   const lastPayment = await db.query.payments.findFirst({
     where: eq(payments.orgId, org.id),

@@ -47,7 +47,7 @@ const AssignSupervisorsSchema = z.object({
     z.object({
       allocationId: z.string().uuid(),
       supervisorUid: z.string(),
-    })
+    }),
   ),
 });
 
@@ -110,7 +110,11 @@ export async function getStaffById(id: string) {
     }
 
     const staffMember = await db.query.staff.findFirst({
-      where: and(eq(staff.id, id), eq(staff.examCenterId, examCenterId), eq(staff.isDeleted, false)),
+      where: and(
+        eq(staff.id, id),
+        eq(staff.examCenterId, examCenterId),
+        eq(staff.isDeleted, false),
+      ),
     });
 
     if (!staffMember) {
@@ -141,7 +145,11 @@ export async function getStaffByUid(uid: string) {
     }
 
     const staffMember = await db.query.staff.findFirst({
-      where: and(eq(staff.uid, uid), eq(staff.examCenterId, examCenterId), eq(staff.isDeleted, false)),
+      where: and(
+        eq(staff.uid, uid),
+        eq(staff.examCenterId, examCenterId),
+        eq(staff.isDeleted, false),
+      ),
     });
 
     if (!staffMember) {
@@ -222,7 +230,11 @@ export async function getAvailableSupervisors(date?: Date, session?: string) {
 
     // Get all supervisors
     const supervisors = await db.query.staff.findMany({
-      where: and(eq(staff.examCenterId, examCenterId), eq(staff.staffType, 'SUPERVISOR'), eq(staff.isDeleted, false)),
+      where: and(
+        eq(staff.examCenterId, examCenterId),
+        eq(staff.staffType, 'SUPERVISOR'),
+        eq(staff.isDeleted, false),
+      ),
     });
 
     // If no date/session provided, return all
@@ -236,15 +248,15 @@ export async function getAvailableSupervisors(date?: Date, session?: string) {
       where: and(
         eq(blockAllocations.examCenterId, examCenterId),
         eq(blockAllocations.date, date),
-        eq(blockAllocations.session, session)
+        eq(blockAllocations.session, session),
       ),
       columns: { supervisorUid: true },
     });
 
-    const allocatedUids = new Set(allocations.map(a => a.supervisorUid).filter(Boolean));
+    const allocatedUids = new Set(allocations.map((a) => a.supervisorUid).filter(Boolean));
 
     // Filter out allocated supervisors
-    const available = supervisors.filter(s => !allocatedUids.has(s.uid));
+    const available = supervisors.filter((s) => !allocatedUids.has(s.uid));
 
     logger.debug(MODULE_FN, `Fetched ${available.length} available supervisors`, {
       total: supervisors.length,
@@ -272,7 +284,11 @@ export async function getStaffWithAllocations(staffId: string) {
     }
 
     const staffMember = await db.query.staff.findFirst({
-      where: and(eq(staff.id, staffId), eq(staff.examCenterId, examCenterId), eq(staff.isDeleted, false)),
+      where: and(
+        eq(staff.id, staffId),
+        eq(staff.examCenterId, examCenterId),
+        eq(staff.isDeleted, false),
+      ),
     });
 
     if (!staffMember) {
@@ -286,7 +302,7 @@ export async function getStaffWithAllocations(staffId: string) {
       allocations = await db.query.blockAllocations.findMany({
         where: and(
           eq(blockAllocations.examCenterId, examCenterId),
-          eq(blockAllocations.supervisorUid, staffMember.uid)
+          eq(blockAllocations.supervisorUid, staffMember.uid),
         ),
         orderBy: [blockAllocations.date, blockAllocations.session],
         columns: {
@@ -333,7 +349,11 @@ export async function createStaff(data: z.infer<typeof CreateStaffSchema>) {
 
     // Check for duplicate UID
     const existing = await db.query.staff.findFirst({
-      where: and(eq(staff.examCenterId, examCenter.id), eq(staff.uid, validated.uid), eq(staff.isDeleted, false)),
+      where: and(
+        eq(staff.examCenterId, examCenter.id),
+        eq(staff.uid, validated.uid),
+        eq(staff.isDeleted, false),
+      ),
     });
 
     if (existing) {
@@ -347,7 +367,11 @@ export async function createStaff(data: z.infer<typeof CreateStaffSchema>) {
     // Check for duplicate email (if provided)
     if (validated.email) {
       const existingEmail = await db.query.staff.findFirst({
-        where: and(eq(staff.examCenterId, examCenter.id), eq(staff.email, validated.email), eq(staff.isDeleted, false)),
+        where: and(
+          eq(staff.examCenterId, examCenter.id),
+          eq(staff.email, validated.email),
+          eq(staff.isDeleted, false),
+        ),
       });
 
       if (existingEmail) {
@@ -407,7 +431,7 @@ export async function updateStaff(data: z.infer<typeof UpdateStaffSchema>) {
           eq(staff.examCenterId, examCenter.id),
           eq(staff.email, updates.email),
           eq(staff.isDeleted, false),
-          sql`${staff.id} != ${id}`
+          sql`${staff.id} != ${id}`,
         ),
       });
 
@@ -475,7 +499,7 @@ export async function deleteStaff(id: string) {
         where: and(
           eq(blockAllocations.examCenterId, examCenter.id),
           eq(blockAllocations.supervisorUid, staffMember.uid),
-          sql`${blockAllocations.date} >= CURRENT_DATE`
+          sql`${blockAllocations.date} >= CURRENT_DATE`,
         ),
         limit: 1,
       });
@@ -529,10 +553,10 @@ export async function bulkCreateStaff(data: z.infer<typeof BulkCreateStaffSchema
       columns: { uid: true },
     });
 
-    const existingUids = new Set(existingStaff.map(s => s.uid));
+    const existingUids = new Set(existingStaff.map((s) => s.uid));
 
     // Filter out duplicates
-    const newStaff = validated.staff.filter(member => !existingUids.has(member.uid));
+    const newStaff = validated.staff.filter((member) => !existingUids.has(member.uid));
     const skippedCount = validated.staff.length - newStaff.length;
 
     if (newStaff.length === 0) {
@@ -549,7 +573,7 @@ export async function bulkCreateStaff(data: z.infer<typeof BulkCreateStaffSchema
     }
 
     // Start transaction
-    const result = await db.transaction(async tx => {
+    const result = await db.transaction(async (tx) => {
       // If overwrite is true, soft delete existing staff (but we already filtered)
       if (validated.overwrite) {
         // Actually, if overwrite is true, we should update existing ones
@@ -566,7 +590,7 @@ export async function bulkCreateStaff(data: z.infer<typeof BulkCreateStaffSchema
 
           // Now all staff (including what were duplicates) should be inserted as new
           // But since we already have newStaff filtered, we need to include all
-          const allStaff = validated.staff.map(member => ({
+          const allStaff = validated.staff.map((member) => ({
             examCenterId: examCenter.id,
             ...member,
           }));
@@ -586,7 +610,7 @@ export async function bulkCreateStaff(data: z.infer<typeof BulkCreateStaffSchema
       }
 
       // Insert only new staff in batches
-      const values = newStaff.map(member => ({
+      const values = newStaff.map((member) => ({
         examCenterId: examCenter.id,
         ...member,
       }));
@@ -631,7 +655,8 @@ export async function bulkCreateStaff(data: z.infer<typeof BulkCreateStaffSchema
       logger.warn(MODULE_FN, 'Duplicate key error during bulk import', { error });
       return {
         success: false,
-        error: 'One or more staff members with duplicate UIDs were found. Please remove duplicates and try again.',
+        error:
+          'One or more staff members with duplicate UIDs were found. Please remove duplicates and try again.',
         duplicateError: true,
       };
     }
@@ -656,7 +681,7 @@ export async function assignSupervisors(data: z.infer<typeof AssignSupervisorsSc
     const examCenter = await requireExamCenter();
 
     // Start transaction
-    const results = await db.transaction(async tx => {
+    const results = await db.transaction(async (tx) => {
       const updates = [];
 
       for (const assignment of validated.assignments) {
@@ -666,7 +691,7 @@ export async function assignSupervisors(data: z.infer<typeof AssignSupervisorsSc
             eq(staff.examCenterId, examCenter.id),
             eq(staff.uid, assignment.supervisorUid),
             eq(staff.staffType, 'SUPERVISOR'),
-            eq(staff.isDeleted, false)
+            eq(staff.isDeleted, false),
           ),
         });
 
@@ -687,8 +712,8 @@ export async function assignSupervisors(data: z.infer<typeof AssignSupervisorsSc
               eq(blockAllocations.id, assignment.allocationId),
               eq(blockAllocations.examCenterId, examCenter.id),
               eq(blockAllocations.date, validated.date),
-              eq(blockAllocations.session, validated.session)
-            )
+              eq(blockAllocations.session, validated.session),
+            ),
           )
           .returning();
 
@@ -735,7 +760,7 @@ export async function replaceStaff(data: z.infer<typeof ReplaceStaffSchema>) {
         eq(staff.examCenterId, examCenter.id),
         eq(staff.uid, validated.newUid),
         eq(staff.staffType, validated.staffType),
-        eq(staff.isDeleted, false)
+        eq(staff.isDeleted, false),
       ),
     });
 
@@ -766,8 +791,8 @@ export async function replaceStaff(data: z.infer<typeof ReplaceStaffSchema>) {
             eq(blockAllocations.examCenterId, examCenter.id),
             eq(blockAllocations.date, validated.date),
             eq(blockAllocations.session, validated.session),
-            eq(blockAllocations.supervisorUid, validated.oldUid)
-          )
+            eq(blockAllocations.supervisorUid, validated.oldUid),
+          ),
         );
       updatedCount = result.rowCount || 0;
     }
@@ -826,22 +851,39 @@ export async function getStaffStats() {
         .select({ count: sql<number>`count(*)` })
         .from(staff)
         .where(
-          and(eq(staff.examCenterId, examCenterId), eq(staff.staffType, 'SUPERVISOR'), eq(staff.isDeleted, false))
+          and(
+            eq(staff.examCenterId, examCenterId),
+            eq(staff.staffType, 'SUPERVISOR'),
+            eq(staff.isDeleted, false),
+          ),
         ),
-      db
-        .select({ count: sql<number>`count(*)` })
-        .from(staff)
-        .where(and(eq(staff.examCenterId, examCenterId), eq(staff.staffType, 'RELIEVER'), eq(staff.isDeleted, false))),
       db
         .select({ count: sql<number>`count(*)` })
         .from(staff)
         .where(
-          and(eq(staff.examCenterId, examCenterId), eq(staff.staffType, 'CONTROL_ROOM'), eq(staff.isDeleted, false))
+          and(
+            eq(staff.examCenterId, examCenterId),
+            eq(staff.staffType, 'RELIEVER'),
+            eq(staff.isDeleted, false),
+          ),
+        ),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(staff)
+        .where(
+          and(
+            eq(staff.examCenterId, examCenterId),
+            eq(staff.staffType, 'CONTROL_ROOM'),
+            eq(staff.isDeleted, false),
+          ),
         ),
     ]);
 
     const stats: StaffStats = {
-      total: Number(supervisors[0]?.count || 0) + Number(relievers[0]?.count || 0) + Number(controlRoom[0]?.count || 0),
+      total:
+        Number(supervisors[0]?.count || 0) +
+        Number(relievers[0]?.count || 0) +
+        Number(controlRoom[0]?.count || 0),
       supervisors: Number(supervisors[0]?.count || 0),
       relievers: Number(relievers[0]?.count || 0),
       controlRoom: Number(controlRoom[0]?.count || 0),

@@ -80,17 +80,17 @@ export interface TimetableEntry {
   updatedAt: Date;
 }
 
+// lib/types.ts - Update TimetableStats
 export interface TimetableStats {
   totalEntries: number;
   uniqueSubjects: number;
   uniqueSchemes: number;
-  totalStudents: number;
+  examinees: number; // ← Add this
+  students: number; // ← Add this
   totalAbsent: number;
   totalCps: number;
-  dateRange: {
-    min: Date;
-    max: Date;
-  } | null;
+  dateRange: { min: Date; max: Date } | null;
+  totalStudents?: number; // ← Make optional for backward compatibility
 }
 
 // ============================================
@@ -549,7 +549,9 @@ export type AssignSupervisorInput = z.infer<
   typeof import('../actions/allocation') extends { AssignSupervisorSchema: infer S } ? S : never
 >;
 export type BulkAssignSupervisorsInput = z.infer<
-  typeof import('../actions/allocation') extends { BulkAssignSupervisorsSchema: infer S } ? S : never
+  typeof import('../actions/allocation') extends { BulkAssignSupervisorsSchema: infer S }
+    ? S
+    : never
 >;
 export type AutoAllocateInput = z.infer<
   typeof import('../actions/allocation') extends { AutoAllocateSchema: infer S } ? S : never
@@ -657,7 +659,7 @@ export interface SessionSelectorProps {
   // Validation
   validateSession?: (
     date: string,
-    session: string
+    session: string,
   ) => Promise<{ valid: boolean; message?: string; data?: SessionData }>;
 
   // Callbacks

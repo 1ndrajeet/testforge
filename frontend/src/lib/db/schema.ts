@@ -1,6 +1,16 @@
 // modules//block-allocation/supervision-order
 import { relations, sql } from 'drizzle-orm';
-import { boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
 
 // ============================================
 // BetterAuth Schema
@@ -116,10 +126,10 @@ export const payments = pgTable(
     endDate: timestamp('end_date'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
-  table => ({
+  (table) => ({
     orgIdx: index('payments_org_idx').on(table.orgId),
     orderIdx: uniqueIndex('payments_order_idx').on(table.razorpayOrderId),
-  })
+  }),
 );
 
 // ============================================
@@ -141,9 +151,9 @@ export const orgMembers = pgTable(
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
-  table => ({
+  (table) => ({
     orgUserIdx: uniqueIndex('org_members_org_user_idx').on(table.orgId, table.userId),
-  })
+  }),
 );
 
 // ============================================
@@ -162,9 +172,9 @@ export const subjects = pgTable(
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
-  table => ({
+  (table) => ({
     codeSchemeIdx: uniqueIndex('subjects_code_scheme_idx').on(table.code, table.scheme),
-  })
+  }),
 );
 
 // ============================================
@@ -196,11 +206,11 @@ export const examCenters = pgTable(
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
-  table => ({
+  (table) => ({
     // Enforce one organization = one exam center
     orgUniqueIdx: uniqueIndex('exam_center_org_unique').on(table.orgId),
     orgIdx: index('exam_centers_org_idx').on(table.orgId),
-  })
+  }),
 );
 
 // ============================================
@@ -220,9 +230,12 @@ export const connectedInstitutes = pgTable(
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
-  table => ({
-    centerInstituteIdx: uniqueIndex('connected_inst_center_inst_idx').on(table.examCenterId, table.instituteCode),
-  })
+  (table) => ({
+    centerInstituteIdx: uniqueIndex('connected_inst_center_inst_idx').on(
+      table.examCenterId,
+      table.instituteCode,
+    ),
+  }),
 );
 
 // ============================================
@@ -250,10 +263,10 @@ export const students = pgTable(
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
-  table => ({
+  (table) => ({
     centerSeatIdx: uniqueIndex('students_center_seat_idx').on(table.examCenterId, table.seatNumber),
     enrollmentIdx: index('students_enrollment_idx').on(table.enrollmentNumber),
-  })
+  }),
 );
 
 // ============================================
@@ -279,10 +292,10 @@ export const staff = pgTable(
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
-  table => ({
+  (table) => ({
     centerUidIdx: uniqueIndex('staff_center_uid_idx').on(table.examCenterId, table.uid),
     staffTypeIdx: index('staff_type_idx').on(table.staffType),
-  })
+  }),
 );
 
 // ============================================
@@ -306,9 +319,12 @@ export const blocks = pgTable(
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
-  table => ({
-    centerLocationIdx: uniqueIndex('blocks_center_location_idx').on(table.examCenterId, table.location),
-  })
+  (table) => ({
+    centerLocationIdx: uniqueIndex('blocks_center_location_idx').on(
+      table.examCenterId,
+      table.location,
+    ),
+  }),
 );
 
 // ============================================
@@ -340,17 +356,17 @@ export const timetable = pgTable(
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
-  table => ({
+  (table) => ({
     uniqueIdx: uniqueIndex('tt_unique_idx').on(
       table.examCenterId,
       table.date,
       table.session,
       table.subjectCode,
-      table.scheme
+      table.scheme,
     ),
     dateIdx: index('tt_date_idx').on(table.date),
     centerDateIdx: index('tt_center_date_idx').on(table.examCenterId, table.date),
-  })
+  }),
 );
 // ============================================
 // Block Allocations
@@ -385,18 +401,18 @@ export const blockAllocations = pgTable(
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
-  table => ({
+  (table) => ({
     uniqueIdx: uniqueIndex('alloc_unique_idx').on(
       table.examCenterId,
       table.date,
       table.session,
       table.blockId,
-      table.subjectCode
+      table.subjectCode,
     ),
     dateSessionIdx: index('alloc_date_session_idx').on(table.date, table.session),
     blockIdx: index('alloc_block_idx').on(table.blockId),
     instituteIdx: index('alloc_institute_idx').on(table.connectedInstituteId),
-  })
+  }),
 );
 
 // ============================================
@@ -451,10 +467,10 @@ export const orders = pgTable(
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
-  table => ({
+  (table) => ({
     staffIdx: index('orders_staff_idx').on(table.staffId),
     dateIdx: index('orders_date_idx').on(table.date),
-  })
+  }),
 );
 
 // ============================================
@@ -477,9 +493,9 @@ export const eMarksheets = pgTable(
     processedAt: timestamp('processed_at'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
-  table => ({
+  (table) => ({
     paperCodeIdx: index('emarksheets_paper_code_idx').on(table.paperCode),
-  })
+  }),
 );
 
 // ============================================
@@ -504,14 +520,14 @@ export const qpInventory = pgTable(
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
-  table => ({
+  (table) => ({
     dateSubjectIdx: uniqueIndex('qp_date_subject_idx').on(
       table.examCenterId,
       table.date,
       table.session,
-      table.subjectCode
+      table.subjectCode,
     ),
-  })
+  }),
 );
 
 // ============================================
@@ -535,10 +551,10 @@ export const auditLogs = pgTable(
     userAgent: text('user_agent'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
-  table => ({
+  (table) => ({
     orgTimeIdx: index('audit_org_time_idx').on(table.orgId, table.createdAt),
     entityIdx: index('audit_entity_idx').on(table.entityType, table.entityId),
-  })
+  }),
 );
 
 export const UPLOAD_STATUSES = ['UPLOADED', 'PROCESSING', 'PROCESSED', 'FAILED'] as const;
@@ -569,12 +585,12 @@ export const uploads = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  table => ({
+  (table) => ({
     // ✅ NEW: Unique constraint includes institute ID
     uniqueUploadIdx: uniqueIndex('upload_exam_center_file_type_institute_idx').on(
       table.examCenterId,
       table.fileType,
-      table.connectedInstituteId
+      table.connectedInstituteId,
     ),
     // ✅ Allow one NULL institute upload per file type
     uniqueNullInstituteIdx: uniqueIndex('upload_exam_center_file_type_null_institute_idx')
@@ -582,7 +598,7 @@ export const uploads = pgTable(
       .where(sql`${table.connectedInstituteId} IS NULL`),
     examCenterIdx: index('upload_status_exam_center_idx').on(table.examCenterId),
     instituteUploadIdx: index('upload_institute_idx').on(table.connectedInstituteId),
-  })
+  }),
 );
 
 export const emailLogs = pgTable(
@@ -608,12 +624,12 @@ export const emailLogs = pgTable(
     sentAt: timestamp('sent_at', { withTimezone: true }).defaultNow().notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  table => ({
+  (table) => ({
     orgIdx: index('email_logs_org_idx').on(table.orgId),
     examCenterIdx: index('email_logs_exam_center_idx').on(table.examCenterId),
     sentAtIdx: index('email_logs_sent_at_idx').on(table.sentAt),
     dailyUsageIdx: index('email_logs_daily_usage_idx').on(table.examCenterId, table.sentAt),
-  })
+  }),
 );
 
 // Add relations

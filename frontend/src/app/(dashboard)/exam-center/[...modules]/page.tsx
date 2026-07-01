@@ -18,7 +18,10 @@ interface ModuleComponent {
 function ModuleLoading() {
   return (
     <div className="bg-background/80 fixed inset-0 z-50 flex flex-col items-center justify-center backdrop-blur-sm">
-      <HashLoader size={60} color="#059669" />
+      <HashLoader
+        size={60}
+        color="#059669"
+      />
 
       <p className="text-muted-foreground mt-6 text-sm font-medium">Loading module...</p>
     </div>
@@ -38,7 +41,10 @@ function ModuleError({ modulePath, onRetry }: { modulePath: string; onRetry: () 
         <p className="text-muted-foreground mb-6">The module "{modulePath}" could not be loaded.</p>
 
         <div className="flex justify-center gap-3">
-          <Button onClick={onRetry} variant="outline">
+          <Button
+            onClick={onRetry}
+            variant="outline"
+          >
             Try Again
           </Button>
 
@@ -56,6 +62,7 @@ function ModuleError({ modulePath, onRetry }: { modulePath: string; onRetry: () 
 
 export default function ModulePage() {
   const { modules } = useParams();
+
   const router = useRouter();
 
   const [Component, setComponent] = useState<React.ComponentType | null>(null);

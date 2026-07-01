@@ -7,10 +7,17 @@ import { LucideIcon } from 'lucide-react';
 import { Filter, Search, X } from 'lucide-react';
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 
+import { cn } from '@/lib/utils';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { cn } from '@/lib/utils';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface PageHeaderProps {
   title: string;
@@ -21,7 +28,14 @@ interface PageHeaderProps {
   className?: string;
 }
 
-export function PageHeader({ title, description, icon: Icon, badge, actions, className }: PageHeaderProps) {
+export function PageHeader({
+  title,
+  description,
+  icon: Icon,
+  badge,
+  actions,
+  className,
+}: PageHeaderProps) {
   return (
     <div className={cn('mb-8 space-y-2', className)}>
       <div className="flex items-center justify-between">
@@ -44,7 +58,9 @@ export function PageHeader({ title, description, icon: Icon, badge, actions, cla
         </div>
         {actions && <div className="flex items-center gap-2">{actions}</div>}
       </div>
-      {description && <p className="text-sm text-neutral-500 dark:text-neutral-400">{description}</p>}
+      {description && (
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">{description}</p>
+      )}
     </div>
   );
 }
@@ -99,19 +115,22 @@ export function PageToolbar({
         <div className="flex flex-wrap items-center gap-3">
           {hasFilters && (
             <div className="flex items-center gap-2">
-              {filters.map(filter => (
+              {filters.map((filter) => (
                 <Select
                   key={filter.id}
                   value={filter.value || 'all'}
-                  onValueChange={value => onFilterChange?.(filter.id, value)}
+                  onValueChange={(value) => onFilterChange?.(filter.id, value)}
                 >
                   <SelectTrigger className="h-8 w-36 text-sm">
                     <SelectValue placeholder={filter.label} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All {filter.label}</SelectItem>
-                    {filter.options.map(opt => (
-                      <SelectItem key={opt.value} value={opt.value}>
+                    {filter.options.map((opt) => (
+                      <SelectItem
+                        key={opt.value}
+                        value={opt.value}
+                      >
                         {opt.label}
                       </SelectItem>
                     ))}
@@ -127,7 +146,7 @@ export function PageToolbar({
                 type="text"
                 disabled={disableSearch}
                 value={searchValue}
-                onChange={e => onSearchChange(e.target.value)}
+                onChange={(e) => onSearchChange(e.target.value)}
                 placeholder={searchPlaceholder}
                 className="h-8 w-80 pr-8 pl-9 text-sm"
               />
@@ -144,7 +163,7 @@ export function PageToolbar({
         </div>
         {hasActions && (
           <div className="flex items-center gap-2">
-            {actions.map(action => (
+            {actions.map((action) => (
               <Button
                 key={action.id}
                 variant={action.variant || 'outline'}
@@ -169,7 +188,7 @@ export function PageToolbar({
               <Input
                 type="text"
                 value={searchValue}
-                onChange={e => onSearchChange(e.target.value)}
+                onChange={(e) => onSearchChange(e.target.value)}
                 placeholder={searchPlaceholder}
                 className="h-9 w-full pr-8 pl-9 text-sm"
               />
@@ -189,19 +208,22 @@ export function PageToolbar({
         </div>
         {showMobileFilters && hasFilters && (
           <div className="flex flex-wrap gap-2">
-            {filters.map(filter => (
+            {filters.map((filter) => (
               <Select
                 key={filter.id}
                 value={filter.value || 'all'}
-                onValueChange={value => onFilterChange?.(filter.id, value)}
+                onValueChange={(value) => onFilterChange?.(filter.id, value)}
               >
                 <SelectTrigger className="h-8 min-w-[120px] flex-1 text-sm">
                   <SelectValue placeholder={filter.label} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All {filter.label}</SelectItem>
-                  {filter.options.map(opt => (
-                    <SelectItem key={opt.value} value={opt.value}>
+                  {filter.options.map((opt) => (
+                    <SelectItem
+                      key={opt.value}
+                      value={opt.value}
+                    >
                       {opt.label}
                     </SelectItem>
                   ))}
@@ -212,7 +234,7 @@ export function PageToolbar({
         )}
         {hasActions && (
           <div className="flex flex-wrap gap-2 border-t border-neutral-100 pt-3 dark:border-neutral-800">
-            {actions.map(action => (
+            {actions.map((action) => (
               <Button
                 key={action.id}
                 variant={action.variant || 'outline'}
@@ -252,8 +274,14 @@ export function PageSection({
     <div className={cn('space-y-4', className)}>
       {(title || description) && (
         <div className={cn('space-y-1', headerClassName)}>
-          {title && <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">{title}</h2>}
-          {description && <p className="text-sm text-neutral-500 dark:text-neutral-400">{description}</p>}
+          {title && (
+            <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+              {title}
+            </h2>
+          )}
+          {description && (
+            <p className="text-sm text-neutral-500 dark:text-neutral-400">{description}</p>
+          )}
         </div>
       )}
       <div className={cn('space-y-4', contentClassName)}>{children}</div>
@@ -299,12 +327,24 @@ export function ActionBar({
       disabled={primary.disabled || primary.loading}
       className={cn(
         'bg-primary hover:bg-primary focus:ring-ring inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium text-white transition-colors focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50',
-        primary.loading && 'cursor-wait'
+        primary.loading && 'cursor-wait',
       )}
     >
       {primary.loading && (
-        <svg className="mr-2 h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+        <svg
+          className="mr-2 h-4 w-4 animate-spin"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <circle
+            className="opacity-25"
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            strokeWidth="4"
+          />
           <path
             className="opacity-75"
             fill="currentColor"
@@ -352,7 +392,7 @@ export function ActionBar({
           'flex items-center',
           align === 'left' && 'justify-start',
           align === 'right' && 'justify-end',
-          align === 'between' && 'justify-between'
+          align === 'between' && 'justify-between',
         )}
       >
         {note && <p className="text-xs text-neutral-400">{note}</p>}

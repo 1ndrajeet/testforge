@@ -5,12 +5,13 @@ import { useEffect, useState } from 'react';
 
 import { AlertCircle, CheckCircle2, Gauge, Mail, TrendingUp, Users } from 'lucide-react';
 
+import { getUsageStatsForCurrentCenter } from '@/lib/actions/email-usage';
+import { cn } from '@/lib/utils';
+
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getUsageStatsForCurrentCenter } from '@/lib/actions/email-usage';
-import { cn } from '@/lib/utils';
 
 interface UsageStats {
   daily: {
@@ -49,8 +50,8 @@ export function EmailUsageStats() {
 
   useEffect(() => {
     getUsageStatsForCurrentCenter()
-      .then(data => setStats(data as UsageStats))
-      .catch(err => setError(err.message))
+      .then((data) => setStats(data as UsageStats))
+      .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
 
@@ -79,8 +80,14 @@ export function EmailUsageStats() {
 
   const status = isOverLimit ? 'danger' : isNearLimit ? 'warning' : 'success';
   const colors = {
-    danger: { light: 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-400', bar: 'bg-rose-500' },
-    warning: { light: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400', bar: 'bg-amber-500' },
+    danger: {
+      light: 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-400',
+      bar: 'bg-rose-500',
+    },
+    warning: {
+      light: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400',
+      bar: 'bg-amber-500',
+    },
     success: {
       light: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400',
       bar: 'bg-emerald-500',
@@ -101,7 +108,9 @@ export function EmailUsageStats() {
                 <div>
                   <p className="text-sm font-semibold">Daily</p>
                   <div className="flex items-center gap-1.5 text-xs">
-                    <span className="font-medium text-emerald-600 dark:text-emerald-400">{daily.sent}</span>
+                    <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                      {daily.sent}
+                    </span>
                     <span className="text-neutral-400">sent</span>
                     {daily.failed > 0 && (
                       <>
@@ -125,7 +134,7 @@ export function EmailUsageStats() {
                 'border-0 font-medium',
                 status === 'danger' && colors.danger.light,
                 status === 'warning' && colors.warning.light,
-                status === 'success' && colors.success.light
+                status === 'success' && colors.success.light,
               )}
             >
               <span className="flex items-center gap-1.5">
@@ -155,7 +164,7 @@ export function EmailUsageStats() {
                 'h-1.5 bg-neutral-200/50 dark:bg-white/5',
                 status === 'danger' && '[&>div]:bg-rose-500',
                 status === 'warning' && '[&>div]:bg-amber-500',
-                status === 'success' && '[&>div]:bg-emerald-500'
+                status === 'success' && '[&>div]:bg-emerald-500',
               )}
             />
           </div>
@@ -222,7 +231,7 @@ export function EmailUsageStats() {
               value={global.percentage}
               className={cn(
                 'h-1.5 bg-neutral-200/50 dark:bg-white/5',
-                global.isOverLimit ? '[&>div]:bg-rose-500' : '[&>div]:bg-violet-500'
+                global.isOverLimit ? '[&>div]:bg-rose-500' : '[&>div]:bg-violet-500',
               )}
             />
           </div>
@@ -250,7 +259,7 @@ export function EmailDailyUsage() {
 
   useEffect(() => {
     getUsageStatsForCurrentCenter()
-      .then(res => setData(res.daily))
+      .then((res) => setData(res.daily))
       .catch(() => setData(null))
       .finally(() => setLoading(false));
   }, []);
@@ -276,7 +285,7 @@ export function EmailDailyUsage() {
           'absolute -top-6 -right-6 h-14 w-14 rounded-full opacity-0 blur-2xl transition-opacity duration-500',
           color === 'emerald' && 'bg-emerald-500/20',
           color === 'amber' && 'bg-amber-500/20',
-          color === 'rose' && 'bg-rose-500/20'
+          color === 'rose' && 'bg-rose-500/20',
         )}
       />
 
@@ -288,7 +297,7 @@ export function EmailDailyUsage() {
                 'grid h-5 w-5 place-items-center rounded text-white',
                 color === 'emerald' && 'bg-emerald-500',
                 color === 'amber' && 'bg-amber-500',
-                color === 'rose' && 'bg-rose-500'
+                color === 'rose' && 'bg-rose-500',
               )}
             >
               <Mail className="h-2.5 w-2.5" />
@@ -308,7 +317,7 @@ export function EmailDailyUsage() {
                 'text-[9px] font-medium',
                 color === 'emerald' && 'text-emerald-600',
                 color === 'amber' && 'text-amber-600',
-                color === 'rose' && 'text-rose-600'
+                color === 'rose' && 'text-rose-600',
               )}
             >
               {remaining} remaining
@@ -332,7 +341,7 @@ export function EmailDailyUsage() {
             'h-1 bg-neutral-200/50 dark:bg-white/5',
             color === 'emerald' && '[&>div]:bg-emerald-500',
             color === 'amber' && '[&>div]:bg-amber-500',
-            color === 'rose' && '[&>div]:bg-rose-500'
+            color === 'rose' && '[&>div]:bg-rose-500',
           )}
         />
       </div>

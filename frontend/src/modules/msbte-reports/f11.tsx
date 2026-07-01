@@ -1,8 +1,9 @@
 // modules/formats/format11.tsx
 'use client';
 
-import ReportLayout from '@/components/layout/msbte-report-layout';
 import { useUserInfo } from '@/hooks/useUserInfo';
+
+import ReportLayout from '@/components/layout/msbte-report-layout';
 
 // ============================================================
 // Format 11 Content Component - STATIC TEMPLATE (Horizontal/Landscape)
@@ -38,7 +39,9 @@ function Format11Content({ examCenter }: { examCenter: any }) {
             <th className="w-[4%] border border-black p-0.5 text-center">Sr. No.</th>
             <th className="w-[7%] border border-black p-0.5 text-center">Date</th>
             <th className="w-[7%] border border-black p-0.5 text-center">Time</th>
-            <th className="w-[10%] border border-black p-0.5 text-center">Course +Sem +year + Master</th>
+            <th className="w-[10%] border border-black p-0.5 text-center">
+              Course +Sem +year + Master
+            </th>
             <th className="w-[4%] border border-black p-0.5 text-center">From</th>
             <th className="w-[4%] border border-black p-0.5 text-center">To</th>
             <th className="w-[6%] border border-black p-0.5 text-center">Total No.</th>
@@ -51,8 +54,12 @@ function Format11Content({ examCenter }: { examCenter: any }) {
             <th className="w-[11%] border border-black p-0.5 text-center">
               Sr. No. of Ans. Books remaining unused in this session
             </th>
-            <th className="w-[7%] border border-black p-0.5 text-center">Total Answer books used</th>
-            <th className="w-[10%] border border-black p-0.5 text-center">Dated sign of Officer-in-charge</th>
+            <th className="w-[7%] border border-black p-0.5 text-center">
+              Total Answer books used
+            </th>
+            <th className="w-[10%] border border-black p-0.5 text-center">
+              Dated sign of Officer-in-charge
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -78,8 +85,8 @@ function Format11Content({ examCenter }: { examCenter: any }) {
       {/* Note */}
       <div className="mt-3 text-[9px]">
         <p>
-          <strong>NOTE:</strong> The account should be maintained in a bound-book / register and not on loose sheets of
-          paper.
+          <strong>NOTE:</strong> The account should be maintained in a bound-book / register and not
+          on loose sheets of paper.
         </p>
       </div>
     </>

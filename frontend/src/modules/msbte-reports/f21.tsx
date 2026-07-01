@@ -1,8 +1,9 @@
 // modules/formats/format21.tsx
 'use client';
 
-import ReportLayout from '@/components/layout/msbte-report-layout';
 import { useUserInfo } from '@/hooks/useUserInfo';
+
+import ReportLayout from '@/components/layout/msbte-report-layout';
 
 // ============================================================
 // Format 21 Content Component - INVENTORY DISCREPANCY REPORT
@@ -33,9 +34,9 @@ function Format21Content() {
         <p>
           Received the EC-wise question paper boxes for the DC{' '}
           <span className="min-w-[80px] border-b-2 border-black px-6 py-0.5">&nbsp;</span>
-          on <span className="min-w-[100px] border-b-2 border-black px-6 py-0.5">&nbsp;</span>. The boxes were opened
-          and the question paper bundles were arranged EC-wise / Day-wise manner and compared with the EC-wise time
-          table for the EC.
+          on <span className="min-w-[100px] border-b-2 border-black px-6 py-0.5">&nbsp;</span>. The
+          boxes were opened and the question paper bundles were arranged EC-wise / Day-wise manner
+          and compared with the EC-wise time table for the EC.
         </p>
         <p className="font-medium">Following discrepancies were noticed after the verification;</p>
       </div>
@@ -49,15 +50,22 @@ function Format21Content() {
               <th className="w-[10%] border border-black p-1.5 text-center">EC</th>
               <th className="w-[8%] border border-black p-1.5 text-center">Day</th>
               <th className="w-[10%] border border-black p-1.5 text-center">Session</th>
-              <th className="w-[18%] border border-black p-1.5 text-center">EC Time table indication</th>
+              <th className="w-[18%] border border-black p-1.5 text-center">
+                EC Time table indication
+              </th>
               <th className="w-[18%] border border-black p-1.5 text-center">EC Q.P. demand</th>
               <th className="w-[30%] border border-black p-1.5 text-center">Q.P. bundle</th>
             </tr>
           </thead>
           <tbody>
             {Array.from({ length: 8 }).map((_, index) => (
-              <tr key={index} className="h-10">
-                <td className="border border-black p-1 text-center align-middle font-medium">{index + 1}</td>
+              <tr
+                key={index}
+                className="h-10"
+              >
+                <td className="border border-black p-1 text-center align-middle font-medium">
+                  {index + 1}
+                </td>
                 <td className="border border-black p-1 text-center">&nbsp;</td>
                 <td className="border border-black p-1 text-center">&nbsp;</td>
                 <td className="border border-black p-1 text-center">&nbsp;</td>
@@ -106,13 +114,16 @@ function Format21Content() {
       {/* Important Note */}
       <div className="mt-4 rounded-lg border p-3">
         <p>
-          <strong>Note:</strong> Time table may show exam for the session but EC may not have Q.P. demand. In such cases
-          inventory discrepancy need not be filed.
+          <strong>Note:</strong> Time table may show exam for the session but EC may not have Q.P.
+          demand. In such cases inventory discrepancy need not be filed.
         </p>
       </div>
 
       {/* Print CSS for clean borders */}
-      <style jsx global>{`
+      <style
+        jsx
+        global
+      >{`
         @media print {
           table {
             page-break-inside: avoid;

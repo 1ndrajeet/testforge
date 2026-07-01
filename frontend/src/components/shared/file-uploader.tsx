@@ -4,6 +4,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
+import * as XLSX from 'xlsx';
 import {
   AlertCircle,
   Building2,
@@ -30,24 +31,52 @@ import {
 } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { toast } from 'sonner';
-import * as XLSX from 'xlsx';
+
+import { getConnectedInstitutes } from '@/lib/actions/institute';
+import {
+  type UploadFileType as ActionFileType,
+  getStoredFilename,
+  getUploadStatus,
+} from '@/lib/actions/upload';
+import { cn } from '@/lib/utils';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getConnectedInstitutes } from '@/lib/actions/institute';
-import { type UploadFileType as ActionFileType, getStoredFilename, getUploadStatus } from '@/lib/actions/upload';
-import { cn } from '@/lib/utils';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+
+type UploadStatusType = 'idle' | 'uploading' | 'uploaded' | 'processing' | 'processed' | 'failed';
 
 // ============================================================================
 // Types & Constants
 // ============================================================================
 
-export type FileType = 'timetable' | 'seatingchart' | 'seatingarrangement' | 'emarksheet' | 'inventory';
+export type FileType =
+  | 'timetable'
+  | 'seatingchart'
+  | 'seatingarrangement'
+  | 'emarksheet'
+  | 'inventory';
 
 interface FileTypeConfig {
   id: FileType;
@@ -91,12 +120,31 @@ interface InstituteUploadState {
   instituteName: string;
   storedFilename: string | null;
   file: File | null;
-  status: 'idle' | 'uploading' | 'uploaded' | 'processing' | 'processed' | 'failed';
+  status: UploadStatusType;
   uploadProgress: number;
   recordCount: number | null;
   error: string | null;
   uploadedAt: string | null;
   processedAt: string | null;
+}
+
+interface Mismatch {
+  seat_number: number;
+  scheme: string;
+  db_scheme: string | null;
+  expected_subjects: string[];
+  actual_subjects: string[];
+  missing_subjects: string[];
+  extra_subjects: string[];
+  invalid_papers: string[];
+  issue_type: string;
+}
+
+interface CorrectionSession {
+  temp_session_id: string;
+  total_students: number;
+  mismatch_count: number;
+  mismatches: Mismatch[];
 }
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
@@ -165,7 +213,13 @@ const FILE_TYPE_CONFIGS: Record<FileType, FileTypeConfig> = {
     icon: <Users className="h-5 w-5" />,
     acceptedFormats: ['.xlsx', '.xls', '.csv'],
     maxSize: MAX_FILE_SIZE,
-    expectedColumns: ['Seat Number', 'Enrollment Number', 'Name', 'Scheme', 'Subject Appearing For'],
+    expectedColumns: [
+      'Seat Number',
+      'Enrollment Number',
+      'Name',
+      'Scheme',
+      'Subject Appearing For',
+    ],
     backendPrefix: 'sc',
   },
   seatingarrangement: {
@@ -175,7 +229,15 @@ const FILE_TYPE_CONFIGS: Record<FileType, FileTypeConfig> = {
     icon: <LayoutGrid className="h-5 w-5" />,
     acceptedFormats: ['.xlsx', '.xls', '.csv'],
     maxSize: MAX_FILE_SIZE,
-    expectedColumns: ['SR No', 'Seat Number', 'Inst Code', 'Course Code', 'Semester', 'Master Code', 'Paper Code'],
+    expectedColumns: [
+      'SR No',
+      'Seat Number',
+      'Inst Code',
+      'Course Code',
+      'Semester',
+      'Master Code',
+      'Paper Code',
+    ],
     backendPrefix: 'sa',
   },
   emarksheet: {
@@ -185,7 +247,14 @@ const FILE_TYPE_CONFIGS: Record<FileType, FileTypeConfig> = {
     icon: <FileSignature className="h-5 w-5" />,
     acceptedFormats: ['.xlsx', '.xls', '.csv'],
     maxSize: MAX_FILE_SIZE,
-    expectedColumns: ['Sheet No', 'Subject Name', 'Scheme', 'Subject Head', 'Paper Code', 'File Name'],
+    expectedColumns: [
+      'Sheet No',
+      'Subject Name',
+      'Scheme',
+      'Subject Head',
+      'Paper Code',
+      'File Name',
+    ],
     backendPrefix: 'em',
   },
   inventory: {
@@ -233,9 +302,11 @@ function validateAndParseHtmlTimetable(html: string): ValidationResult {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const tables = Array.from(doc.querySelectorAll('table'));
   const targetTable =
-    tables.find(t =>
-      ['time table', 'subject code', 'scheme', 'schema'].some(k => t.textContent?.toLowerCase().includes(k))
-    ) || tables.find(t => t.querySelectorAll('tr').length > 2);
+    tables.find((t) =>
+      ['time table', 'subject code', 'scheme', 'schema'].some((k) =>
+        t.textContent?.toLowerCase().includes(k),
+      ),
+    ) || tables.find((t) => t.querySelectorAll('tr').length > 2);
 
   if (!targetTable) return { valid: false, error: 'Could not find timetable table in HTML' };
 
@@ -247,8 +318,10 @@ function validateAndParseHtmlTimetable(html: string): ValidationResult {
     const cells = allRows[i].querySelectorAll('th, td');
     if (
       cells.length > 0 &&
-      Array.from(cells).some(c =>
-        ['subject code', 'paper code', 'subject name'].some(k => c.textContent?.toLowerCase().includes(k))
+      Array.from(cells).some((c) =>
+        ['subject code', 'paper code', 'subject name'].some((k) =>
+          c.textContent?.toLowerCase().includes(k),
+        ),
       )
     ) {
       headerCells = Array.from(cells);
@@ -273,26 +346,32 @@ function validateAndParseHtmlTimetable(html: string): ValidationResult {
       else if (text.includes('day')) colMap.day = i;
       else if (text.includes('session') && !text.includes('subject')) colMap.session_col = i;
       else if (text.includes('time') || text.includes('slot')) colMap.time = i;
-      else if (text.includes('subject code') || text.includes('paper code')) colMap.subject_code = i;
+      else if (text.includes('subject code') || text.includes('paper code'))
+        colMap.subject_code = i;
       else if (text.includes('subject name')) colMap.subject_name = i;
       else if (text.includes('scheme') || text.includes('schema')) colMap.scheme = i;
     });
   }
 
   const headerMap = new Map<Element, { date: string; session: string; day: number }>();
-  doc.querySelectorAll('.timetable-session-header, .session-header, [class*="session"]').forEach(el => {
-    const text = el.textContent || '';
-    const dateMatch = text.match(/Date:\s*(\d{2}-\d{2}-\d{4})/);
-    if (dateMatch) {
-      const dateStr = dateMatch[1];
-      const parts = dateStr.split('-');
-      headerMap.set(el, {
-        date: `${parts[2]}-${parts[1]}-${parts[0]}`,
-        session: text.includes('Afternoon') || text.includes('') || text.includes('') ? 'Afternoon' : 'Morning',
-        day: parseInt(text.match(/Day:\s*(\d+)/)?.[1] || '0'),
-      });
-    }
-  });
+  doc
+    .querySelectorAll('.timetable-session-header, .session-header, [class*="session"]')
+    .forEach((el) => {
+      const text = el.textContent || '';
+      const dateMatch = text.match(/Date:\s*(\d{2}-\d{2}-\d{4})/);
+      if (dateMatch) {
+        const dateStr = dateMatch[1];
+        const parts = dateStr.split('-');
+        headerMap.set(el, {
+          date: `${parts[2]}-${parts[1]}-${parts[0]}`,
+          session:
+            text.includes('Afternoon') || text.includes('') || text.includes('')
+              ? 'Afternoon'
+              : 'Morning',
+          day: parseInt(text.match(/Day:\s*(\d+)/)?.[1] || '0'),
+        });
+      }
+    });
 
   let currentHeader: { date: string; session: string; day: number } | null = null;
   let prev = targetTable.previousElementSibling;
@@ -328,13 +407,20 @@ function validateAndParseHtmlTimetable(html: string): ValidationResult {
 
     const schemes = schemesRaw
       .split(',')
-      .map(s => s.trim())
+      .map((s) => s.trim())
       .filter(Boolean);
     const schemeList = schemes.length ? schemes : [''];
 
     for (const scheme of schemeList) {
       if (subjectCode && subjectName && date) {
-        entries.push({ date, session: currentHeader?.session || '', timeSlot, subjectCode, subjectName, scheme });
+        entries.push({
+          date,
+          session: currentHeader?.session || '',
+          timeSlot,
+          subjectCode,
+          subjectName,
+          scheme,
+        });
       }
     }
   }
@@ -350,11 +436,11 @@ function validateAndParseHtmlTimetable(html: string): ValidationResult {
 const validateExcelFile = (
   file: File,
   schema: Record<string, string>,
-  fileType?: FileType
+  fileType?: FileType,
 ): Promise<ValidationResult> =>
-  new Promise(resolve => {
+  new Promise((resolve) => {
     const reader = new FileReader();
-    reader.onload = e => {
+    reader.onload = (e) => {
       try {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, {
@@ -390,7 +476,49 @@ const validateExcelFile = (
           let headerRowIndex = -1;
           let headers: string[] = [];
 
+          // ========== FIX: Seating Arrangement - Skip header by column position ==========
+          if (fileType === 'seatingarrangement') {
+            // Header is always the first row with "SR No", "Seat Number", etc.
+            // Data starts from row 2 (index 1)
+            headerRowIndex = 0;
+            headers = rawData[0].map((h: any) => String(h || '').trim());
+
+            // Parse data rows starting from index 1 (row 2)
+            for (let rowIdx = 1; rowIdx < rawData.length; rowIdx++) {
+              const row = rawData[rowIdx];
+              if (!row || row.every((c: any) => !c || String(c).trim() === '')) {
+                continue;
+              }
+
+              const seatNumber = String(row[1] || '').trim(); // Column B
+              const paperCode = String(row[6] || '').trim(); // Column G
+
+              if (!seatNumber || isNaN(Number(seatNumber)) || !paperCode) {
+                continue;
+              }
+
+              validData.push({
+                SR_NO: Number(String(row[0] || '').trim()) || rowIdx,
+                SEAT_NUMBER: Number(seatNumber),
+                INST_CODE: String(row[2] || '').trim(),
+                COURSE_CODE: String(row[3] || '').trim(),
+                SEMESTER: Number(String(row[4] || '').trim()) || 0,
+                MASTER_CODE: String(row[5] || '').trim(),
+                PAPER_CODE: paperCode,
+              });
+            }
+
+            if (validData.length > 0) {
+              break;
+            } else {
+              allErrors.push('No valid seating arrangement records found');
+              continue;
+            }
+          }
+          // ========== END FIX ==========
+
           if (fileType === 'seatingchart') {
+            // ... existing seatingchart logic (unchanged) ...
             for (let i = 0; i < Math.min(rawData.length, 5); i++) {
               const row = rawData[i];
               if (!row || row.length === 0) continue;
@@ -409,7 +537,7 @@ const validateExcelFile = (
                       .includes('seat number') ||
                     String(cell || '')
                       .toLowerCase()
-                      .includes('enrollment')
+                      .includes('enrollment'),
                 );
 
               const isDataRow = !isNaN(Number(firstCell)) && firstCell.length > 0;
@@ -431,7 +559,11 @@ const validateExcelFile = (
 
             for (let rowIdx = headerRowIndex + 1; rowIdx < rawData.length; rowIdx++) {
               const row = rawData[rowIdx];
-              if (!row || row.length === 0 || row.every((c: any) => !c || String(c).trim() === '')) {
+              if (
+                !row ||
+                row.length === 0 ||
+                row.every((c: any) => !c || String(c).trim() === '')
+              ) {
                 continue;
               }
 
@@ -465,6 +597,7 @@ const validateExcelFile = (
               allErrors.push('No valid seating chart records found');
             }
           } else {
+            // ... existing generic validation (unchanged) ...
             for (let i = 0; i < Math.min(rawData.length, 10); i++) {
               const row = rawData[i];
               if (!row || row.length === 0) continue;
@@ -473,12 +606,12 @@ const validateExcelFile = (
                 String(h || '')
                   .trim()
                   .toUpperCase()
-                  .replace(/[^A-Z0-9_]/g, '')
+                  .replace(/[^A-Z0-9_]/g, ''),
               );
 
               const expectedHeaders = Object.keys(schema);
-              const matchedHeaders = expectedHeaders.filter(h =>
-                rowHeaders.some(rh => rh === h || rh.includes(h) || h.includes(rh))
+              const matchedHeaders = expectedHeaders.filter((h) =>
+                rowHeaders.some((rh) => rh === h || rh.includes(h) || h.includes(rh)),
               );
 
               if (matchedHeaders.length >= expectedHeaders.length * 0.5) {
@@ -505,13 +638,15 @@ const validateExcelFile = (
             }
 
             const colIdx: Record<string, number> = {};
-            const headerUpper = headers.map(h => h.toUpperCase().trim());
+            const headerUpper = headers.map((h) => h.toUpperCase().trim());
 
             for (const expected of Object.keys(schema)) {
               const expectedUpper = expected.toUpperCase();
-              let idx = headerUpper.findIndex(h => h === expectedUpper);
+              let idx = headerUpper.findIndex((h) => h === expectedUpper);
               if (idx === -1) {
-                idx = headerUpper.findIndex(h => h.includes(expectedUpper) || expectedUpper.includes(h));
+                idx = headerUpper.findIndex(
+                  (h) => h.includes(expectedUpper) || expectedUpper.includes(h),
+                );
               }
               if (idx !== -1) {
                 colIdx[expected] = idx;
@@ -542,7 +677,9 @@ const validateExcelFile = (
                       const num = Number(strValue);
                       if (isNaN(num)) {
                         invalid = true;
-                        allErrors.push(`Row ${rowIdx + 1}, Column "${col}": Invalid number "${strValue}"`);
+                        allErrors.push(
+                          `Row ${rowIdx + 1}, Column "${col}": Invalid number "${strValue}"`,
+                        );
                         record[col] = null;
                       } else {
                         record[col] = num;
@@ -600,6 +737,220 @@ const validateExcelFile = (
   });
 
 // ============================================================================
+// Mismatch Review Dialog
+// ============================================================================
+
+interface MismatchReviewDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  session: CorrectionSession | null;
+  onConfirm: () => void;
+  onCancel: () => void;
+  isSubmitting: boolean;
+}
+
+function MismatchReviewDialog({
+  open,
+  onOpenChange,
+  session,
+  onConfirm,
+  onCancel,
+  isSubmitting,
+}: MismatchReviewDialogProps) {
+  if (!session) return null;
+
+  const getIssueTypeLabel = (type: string) => {
+    switch (type) {
+      case 'MISSING_SUBJECTS':
+        return 'Missing Subjects';
+      case 'EXTRA_SUBJECTS':
+        return 'Extra Subjects';
+      case 'BOTH_MISSING_AND_EXTRA':
+        return 'Missing & Extra Subjects';
+      case 'SCHEME_MISMATCH':
+        return 'Scheme Mismatch';
+      case 'INVALID_PAPERS':
+        return 'Invalid Papers';
+      default:
+        return 'Unknown';
+    }
+  };
+
+  const getIssueTypeColor = (type: string) => {
+    switch (type) {
+      case 'MISSING_SUBJECTS':
+        return 'text-rose-600';
+      case 'EXTRA_SUBJECTS':
+        return 'text-amber-600';
+      case 'BOTH_MISSING_AND_EXTRA':
+        return 'text-red-600';
+      case 'SCHEME_MISMATCH':
+        return 'text-blue-600';
+      case 'INVALID_PAPERS':
+        return 'text-purple-600';
+      default:
+        return 'text-neutral-600';
+    }
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+    >
+      <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-amber-500" />
+            Subject Mismatches Found
+          </DialogTitle>
+          <DialogDescription>
+            {session.mismatch_count} student{session.mismatch_count !== 1 ? 's' : ''} have subject
+            mismatches. Review the issues below before proceeding.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="flex items-center gap-4 rounded-lg bg-amber-50 p-3 dark:bg-amber-950/20">
+            <div className="text-sm">
+              <span className="font-medium">Total Students:</span> {session.total_students}
+            </div>
+            <div className="text-sm text-rose-600">
+              <span className="font-medium">Mismatches:</span> {session.mismatch_count}
+            </div>
+          </div>
+
+          <ScrollArea className="h-[400px] rounded-md border">
+            <Table>
+              <TableHeader className="sticky top-0 bg-neutral-50 dark:bg-neutral-900">
+                <TableRow>
+                  <TableHead className="w-20">Seat</TableHead>
+                  <TableHead className="w-28">Scheme</TableHead>
+                  <TableHead className="w-32">Issue Type</TableHead>
+                  <TableHead>Expected Subjects</TableHead>
+                  <TableHead>Actual Subjects</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {session.mismatches.map((mismatch, idx) => (
+                  <TableRow
+                    key={idx}
+                    className="hover:bg-neutral-50 dark:hover:bg-neutral-900"
+                  >
+                    <TableCell className="font-mono text-sm">{mismatch.seat_number}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        className="font-mono text-xs"
+                      >
+                        {mismatch.scheme}
+                      </Badge>
+                      {mismatch.db_scheme && mismatch.db_scheme !== mismatch.scheme && (
+                        <div className="mt-1 text-[10px] text-neutral-400">
+                          DB: {mismatch.db_scheme}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <span
+                        className={cn(
+                          'text-xs font-medium',
+                          getIssueTypeColor(mismatch.issue_type),
+                        )}
+                      >
+                        {getIssueTypeLabel(mismatch.issue_type)}
+                      </span>
+                      {mismatch.invalid_papers && mismatch.invalid_papers.length > 0 && (
+                        <div className="mt-1 text-[10px] text-red-500">
+                          Invalid: {mismatch.invalid_papers.join(', ')}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {mismatch.expected_subjects.length > 0 ? (
+                          mismatch.expected_subjects.map((code) => (
+                            <Badge
+                              key={code}
+                              variant="secondary"
+                              className="font-mono text-[10px]"
+                            >
+                              {code}
+                            </Badge>
+                          ))
+                        ) : (
+                          <span className="text-xs text-neutral-400">None</span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {mismatch.actual_subjects.length > 0 ? (
+                          mismatch.actual_subjects.map((code) => (
+                            <Badge
+                              key={code}
+                              variant={
+                                mismatch.expected_subjects.includes(code)
+                                  ? 'secondary'
+                                  : 'destructive'
+                              }
+                              className="font-mono text-[10px]"
+                            >
+                              {code}
+                            </Badge>
+                          ))
+                        ) : (
+                          <span className="text-xs text-neutral-400">None</span>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+
+          <div className="rounded-lg bg-neutral-50 p-3 dark:bg-neutral-900/50">
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">
+              <strong>What happens next?</strong> Clicking "Confirm Fix" will auto-correct
+              mismatches using the database records as the source of truth. Students without DB
+              records will keep their assigned subjects.
+            </p>
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button
+            variant="outline"
+            onClick={onCancel}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={onConfirm}
+            disabled={isSubmitting}
+            className="gap-2"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Fixing...
+              </>
+            ) : (
+              <>
+                <Check className="h-4 w-4" />
+                Confirm Fix ({session.mismatch_count})
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ============================================================================
 // Status Alert Component
 // ============================================================================
 
@@ -607,9 +958,11 @@ const StatusAlert = ({ variant, icon: Icon, title, description, children }: any)
   <Alert
     variant={variant}
     className={cn(
-      variant === 'default' && 'border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20',
+      variant === 'default' &&
+        'border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20',
       variant === 'destructive' && '',
-      variant === 'success' && 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/20'
+      variant === 'success' &&
+        'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/20',
     )}
   >
     <Icon className="h-4 w-4" />
@@ -655,7 +1008,7 @@ const InstituteUploadCard = ({
     },
     accept: config.acceptedFormats.reduce(
       (acc, f) => ({ ...acc, [`application/${f.slice(1)}`]: [f], [`text/${f.slice(1)}`]: [f] }),
-      {}
+      {},
     ),
     maxFiles: 1,
     multiple: false,
@@ -729,14 +1082,13 @@ const InstituteUploadCard = ({
         statusConfig.bg,
         isDone && 'cursor-default',
         isProcessed && 'border-green-500',
-        isFailed && 'border-red-500'
+        isFailed && 'border-red-500',
       )}
     >
       <input {...getInputProps()} />
 
       <div className="p-5">
         <div className="flex items-center gap-4">
-          {/* Institute Info */}
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <Building2 className={cn('h-4 w-4', statusConfig.color)} />
@@ -747,17 +1099,25 @@ const InstituteUploadCard = ({
             <div className="mt-1.5 flex items-center gap-3">
               <div className="flex items-center gap-1.5">
                 {statusConfig.icon}
-                <span className={cn('text-xs font-medium', statusConfig.color)}>{statusConfig.label}</span>
+                <span className={cn('text-xs font-medium', statusConfig.color)}>
+                  {statusConfig.label}
+                </span>
               </div>
 
               {state.recordCount && state.recordCount > 0 && (
-                <Badge variant="outline" className="h-5 px-2 py-0 text-[10px]">
+                <Badge
+                  variant="outline"
+                  className="h-5 px-2 py-0 text-[10px]"
+                >
                   {state.recordCount} records
                 </Badge>
               )}
 
               {state.file && (
-                <Badge variant="secondary" className="h-5 max-w-[120px] truncate px-2 py-0 text-[10px]">
+                <Badge
+                  variant="secondary"
+                  className="h-5 max-w-[120px] truncate px-2 py-0 text-[10px]"
+                >
                   {state.file.name}
                 </Badge>
               )}
@@ -765,12 +1125,12 @@ const InstituteUploadCard = ({
 
             {state.uploadedAt && (
               <div className="text-muted-foreground mt-1 text-[10px]">
-                {state.processedAt ? 'Processed' : 'Uploaded'}: {new Date(state.uploadedAt).toLocaleString()}
+                {state.processedAt ? 'Processed' : 'Uploaded'}:{' '}
+                {new Date(state.uploadedAt).toLocaleString()}
               </div>
             )}
           </div>
 
-          {/* Status Badge */}
           {isDone && (
             <div className="flex-shrink-0">
               {isProcessed ? (
@@ -778,12 +1138,18 @@ const InstituteUploadCard = ({
                   <Check className="h-3 w-3" /> Done
                 </Badge>
               ) : isUploaded ? (
-                <Badge variant="default" className="gap-1">
+                <Badge
+                  variant="default"
+                  className="gap-1"
+                >
                   <Clock className="h-3 w-3" /> Uploaded
                 </Badge>
               ) : (
                 isFailed && (
-                  <Badge variant="destructive" className="gap-1">
+                  <Badge
+                    variant="destructive"
+                    className="gap-1"
+                  >
                     <AlertCircle className="h-3 w-3" /> Failed
                   </Badge>
                 )
@@ -791,15 +1157,16 @@ const InstituteUploadCard = ({
             </div>
           )}
 
-          {/* Action Button */}
           {isUploaded && !isProcessed && !isFailed && (
             <Button
               size="sm"
               variant="outline"
               className="flex-shrink-0 gap-1 border-indigo-200 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-400"
-              onClick={e => {
+              onClick={(e) => {
                 e.stopPropagation();
-                const event = new CustomEvent('process-institute', { detail: { instituteId: institute.id } });
+                const event = new CustomEvent('process-institute', {
+                  detail: { instituteId: institute.id },
+                });
                 document.dispatchEvent(event);
               }}
             >
@@ -807,28 +1174,29 @@ const InstituteUploadCard = ({
             </Button>
           )}
 
-          {/* Select indicator for idle state */}
           {!isDone && (
             <div
               className={cn(
                 'h-2 w-2 flex-shrink-0 rounded-full transition-all',
-                isSelected ? 'bg-primary' : 'bg-muted-foreground/30'
+                isSelected ? 'bg-primary' : 'bg-muted-foreground/30',
               )}
             />
           )}
         </div>
 
-        {/* Upload Progress */}
         {isUploading && (
           <div className="mt-3">
-            <Progress value={state.uploadProgress} className="h-1.5" />
+            <Progress
+              value={state.uploadProgress}
+              className="h-1.5"
+            />
           </div>
         )}
 
-        {/* Drag indicator */}
-        {isDragActive && !isDone && <div className="text-primary mt-3 text-xs font-medium">Drop your file here</div>}
+        {isDragActive && !isDone && (
+          <div className="text-primary mt-3 text-xs font-medium">Drop your file here</div>
+        )}
 
-        {/* Error message */}
         {state.error && <div className="mt-2 truncate text-xs text-red-500">{state.error}</div>}
       </div>
     </div>
@@ -901,13 +1269,11 @@ export function UniversalFileUploaderWrapper({
   const [uploadKey, setUploadKey] = useState(0);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  // Institute upload states
   const [instituteStates, setInstituteStates] = useState<Record<string, InstituteUploadState>>({});
   const [allUploaded, setAllUploaded] = useState(false);
 
   const config = FILE_TYPE_CONFIGS[selectedType];
 
-  // Load institutes when seating chart is selected
   useEffect(() => {
     if (selectedType === 'seatingchart') {
       fetchInstitutes();
@@ -918,7 +1284,6 @@ export function UniversalFileUploaderWrapper({
     }
   }, [selectedType]);
 
-  // Listen for process events from cards
   useEffect(() => {
     const handleProcess = (e: CustomEvent) => {
       const { instituteId } = e.detail;
@@ -938,24 +1303,29 @@ export function UniversalFileUploaderWrapper({
 
         const newStates: Record<string, InstituteUploadState> = {};
 
-        const statusPromises = instData.map(async inst => {
+        const statusPromises = instData.map(async (inst) => {
           try {
             const statusResult = await getUploadStatus('seatingchart' as ActionFileType, inst.id);
 
             if (statusResult.success && statusResult.data.fileExists) {
               const { data } = statusResult;
-              const status =
-                data.status === 'UPLOADED'
-                  ? 'uploaded'
-                  : data.status === 'PROCESSING'
-                  ? 'processing'
-                  : data.status === 'PROCESSED'
-                  ? 'processed'
-                  : data.status === 'FAILED'
-                  ? 'failed'
-                  : data.isProcessed
-                  ? 'processed'
-                  : 'uploaded';
+
+              // FIX: Explicitly type the status with proper type
+              let status: UploadStatusType = 'idle';
+
+              if (data.status === 'UPLOADED') {
+                status = 'uploaded';
+              } else if (data.status === 'PROCESSING') {
+                status = 'processing';
+              } else if (data.status === 'PROCESSED') {
+                status = 'processed';
+              } else if (data.status === 'FAILED') {
+                status = 'failed';
+              } else if (data.isProcessed) {
+                status = 'processed';
+              } else {
+                status = 'uploaded';
+              }
 
               return {
                 id: inst.id,
@@ -963,15 +1333,15 @@ export function UniversalFileUploaderWrapper({
                   instituteId: inst.id,
                   instituteCode: inst.CODE,
                   instituteName: inst.NAME,
-                  storedFilename: data.storedFilename || null, // ✅ Store the filename
+                  storedFilename: data.storedFilename || null,
                   file: null,
-                  status,
+                  status, // Now properly typed as UploadStatusType
                   uploadProgress: 0,
                   recordCount: data.recordCount || null,
                   error: null,
                   uploadedAt: data.uploadedAt ? data.uploadedAt.toISOString() : null,
                   processedAt: data.processedAt ? data.processedAt.toISOString() : null,
-                },
+                } as InstituteUploadState, // Type assertion for safety
               };
             }
           } catch (error) {
@@ -986,13 +1356,13 @@ export function UniversalFileUploaderWrapper({
               instituteName: inst.NAME,
               storedFilename: null,
               file: null,
-              status: 'idle',
+              status: 'idle' as UploadStatusType,
               uploadProgress: 0,
               recordCount: null,
               error: null,
               uploadedAt: null,
               processedAt: null,
-            },
+            } as InstituteUploadState,
           };
         });
 
@@ -1008,9 +1378,13 @@ export function UniversalFileUploaderWrapper({
           setSelectedInstituteId(instData[0].id);
         }
 
-        const hasUploaded = Object.values(newStates).some(s => s.status === 'uploaded' || s.status === 'processed');
+        const hasUploaded = Object.values(newStates).some(
+          (s) => s.status === 'uploaded' || s.status === 'processed',
+        );
         if (hasUploaded) {
-          const allDone = Object.values(newStates).every(s => s.status === 'uploaded' || s.status === 'processed');
+          const allDone = Object.values(newStates).every(
+            (s) => s.status === 'uploaded' || s.status === 'processed',
+          );
           setAllUploaded(allDone);
         }
       } else {
@@ -1035,7 +1409,7 @@ export function UniversalFileUploaderWrapper({
       return;
     }
 
-    setInstituteStates(prev => ({
+    setInstituteStates((prev) => ({
       ...prev,
       [instituteId]: {
         ...prev[instituteId],
@@ -1052,7 +1426,7 @@ export function UniversalFileUploaderWrapper({
     formData.append('connected_institute_id', instituteId);
 
     const progressInterval = setInterval(() => {
-      setInstituteStates(prev => ({
+      setInstituteStates((prev) => ({
         ...prev,
         [instituteId]: {
           ...prev[instituteId],
@@ -1077,7 +1451,7 @@ export function UniversalFileUploaderWrapper({
 
       const data = await res.json();
 
-      setInstituteStates(prev => ({
+      setInstituteStates((prev) => ({
         ...prev,
         [instituteId]: {
           ...prev[instituteId],
@@ -1090,12 +1464,14 @@ export function UniversalFileUploaderWrapper({
         },
       }));
 
-      toast.success(`File uploaded for ${instituteStates[instituteId]?.instituteCode || 'institute'}`);
+      toast.success(
+        `File uploaded for ${instituteStates[instituteId]?.instituteCode || 'institute'}`,
+      );
       checkAllUploaded();
       onSuccess?.();
     } catch (err: any) {
       clearInterval(progressInterval);
-      setInstituteStates(prev => ({
+      setInstituteStates((prev) => ({
         ...prev,
         [instituteId]: {
           ...prev[instituteId],
@@ -1108,7 +1484,6 @@ export function UniversalFileUploaderWrapper({
   };
 
   const handleProcessFile = async (instituteId: string) => {
-    // ✅ Get stored filename directly from database
     const result = await getStoredFilename(selectedType as ActionFileType, instituteId);
 
     if (!result.success || !result.data.storedFilename) {
@@ -1119,7 +1494,7 @@ export function UniversalFileUploaderWrapper({
     const storedFilename = result.data.storedFilename;
     const instituteCode = instituteStates[instituteId]?.instituteCode || '';
 
-    setInstituteStates(prev => ({
+    setInstituteStates((prev) => ({
       ...prev,
       [instituteId]: {
         ...prev[instituteId],
@@ -1143,7 +1518,7 @@ export function UniversalFileUploaderWrapper({
 
       const data = await res.json();
 
-      setInstituteStates(prev => ({
+      setInstituteStates((prev) => ({
         ...prev,
         [instituteId]: {
           ...prev[instituteId],
@@ -1157,7 +1532,7 @@ export function UniversalFileUploaderWrapper({
       toast.success(`File processed for ${instituteCode}`);
       onProcessingComplete?.();
     } catch (err: any) {
-      setInstituteStates(prev => ({
+      setInstituteStates((prev) => ({
         ...prev,
         [instituteId]: {
           ...prev[instituteId],
@@ -1168,9 +1543,11 @@ export function UniversalFileUploaderWrapper({
       toast.error(err.message || 'Processing failed');
     }
   };
+
   const checkAllUploaded = () => {
     const states = Object.values(instituteStates);
-    const allDone = states.length > 0 && states.every(s => s.status === 'uploaded' || s.status === 'processed');
+    const allDone =
+      states.length > 0 && states.every((s) => s.status === 'uploaded' || s.status === 'processed');
     setAllUploaded(allDone);
     if (allDone) {
       toast.success('All institutes have been uploaded. Ready to process.');
@@ -1184,8 +1561,11 @@ export function UniversalFileUploaderWrapper({
     if (loadingInstitutes) {
       return (
         <div className="space-y-3">
-          {[1, 2, 3].map(i => (
-            <Skeleton key={i} className="h-24 w-full rounded-xl" />
+          {[1, 2, 3].map((i) => (
+            <Skeleton
+              key={i}
+              className="h-24 w-full rounded-xl"
+            />
           ))}
         </div>
       );
@@ -1193,7 +1573,10 @@ export function UniversalFileUploaderWrapper({
 
     if (institutes.length === 0) {
       return (
-        <Alert variant="default" className="border-amber-200 bg-amber-50 dark:border-amber-800">
+        <Alert
+          variant="default"
+          className="border-amber-200 bg-amber-50 dark:border-amber-800"
+        >
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>No Connected Institutes</AlertTitle>
           <AlertDescription>
@@ -1211,10 +1594,12 @@ export function UniversalFileUploaderWrapper({
     }
 
     const uploadedInst = institutes.filter(
-      i => instituteStates[i.id]?.status === 'uploaded' || instituteStates[i.id]?.status === 'processed'
+      (i) =>
+        instituteStates[i.id]?.status === 'uploaded' ||
+        instituteStates[i.id]?.status === 'processed',
     );
     const notUploadedInst = institutes.filter(
-      i => instituteStates[i.id]?.status === 'idle' || instituteStates[i.id]?.status === 'failed'
+      (i) => instituteStates[i.id]?.status === 'idle' || instituteStates[i.id]?.status === 'failed',
     );
 
     const total = institutes.length;
@@ -1230,11 +1615,16 @@ export function UniversalFileUploaderWrapper({
             </h3>
             <p className="text-muted-foreground text-sm">
               {uploaded}/{total} uploaded •{' '}
-              {uploaded === total ? 'All institutes ready for processing' : 'Upload a file for each institute'}
+              {uploaded === total
+                ? 'All institutes ready for processing'
+                : 'Upload a file for each institute'}
             </p>
           </div>
           {uploaded > 0 && uploaded < total && (
-            <Badge variant="outline" className="gap-1">
+            <Badge
+              variant="outline"
+              className="gap-1"
+            >
               <Clock className="h-3 w-3" />
               {uploaded} uploaded
             </Badge>
@@ -1243,9 +1633,11 @@ export function UniversalFileUploaderWrapper({
 
         {uploadedInst.length > 0 && (
           <div className="space-y-2">
-            <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">Uploaded</p>
+            <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
+              Uploaded
+            </p>
             <div className="space-y-2">
-              {uploadedInst.map(inst => {
+              {uploadedInst.map((inst) => {
                 const state = instituteStates[inst.id];
                 return (
                   <InstituteUploadCard
@@ -1266,10 +1658,12 @@ export function UniversalFileUploaderWrapper({
         {notUploadedInst.length > 0 && (
           <div className="space-y-2">
             {uploadedInst.length > 0 && (
-              <p className="text-muted-foreground pt-1 text-xs font-medium tracking-wider uppercase">Pending Upload</p>
+              <p className="text-muted-foreground pt-1 text-xs font-medium tracking-wider uppercase">
+                Pending Upload
+              </p>
             )}
             <div className="space-y-2">
-              {notUploadedInst.map(inst => {
+              {notUploadedInst.map((inst) => {
                 const state = instituteStates[inst.id];
                 return (
                   <InstituteUploadCard
@@ -1296,9 +1690,11 @@ export function UniversalFileUploaderWrapper({
 
     const stats = {
       total: institutes.length,
-      uploaded: Object.values(instituteStates).filter(s => s.status === 'uploaded' || s.status === 'processed').length,
-      processed: Object.values(instituteStates).filter(s => s.status === 'processed').length,
-      failed: Object.values(instituteStates).filter(s => s.status === 'failed').length,
+      uploaded: Object.values(instituteStates).filter(
+        (s) => s.status === 'uploaded' || s.status === 'processed',
+      ).length,
+      processed: Object.values(instituteStates).filter((s) => s.status === 'processed').length,
+      failed: Object.values(instituteStates).filter((s) => s.status === 'failed').length,
     };
 
     if (stats.uploaded === 0) return null;
@@ -1310,7 +1706,9 @@ export function UniversalFileUploaderWrapper({
         {stats.processed > 0 && <span className="text-blue-600">{stats.processed} processed</span>}
         {stats.failed > 0 && <span className="text-red-600">{stats.failed} failed</span>}
         <span className="text-muted-foreground">of {stats.total}</span>
-        {stats.uploaded === stats.total && <Badge className="ml-2 bg-green-500 text-white">All Uploaded</Badge>}
+        {stats.uploaded === stats.total && (
+          <Badge className="ml-2 bg-green-500 text-white">All Uploaded</Badge>
+        )}
       </div>
     );
   };
@@ -1320,7 +1718,7 @@ export function UniversalFileUploaderWrapper({
     return (
       <div className="space-y-4">
         <div className="flex flex-wrap gap-2">
-          {allowedTypes.map(type => {
+          {allowedTypes.map((type) => {
             const config = FILE_TYPE_CONFIGS[type];
             return (
               <Button
@@ -1348,7 +1746,7 @@ export function UniversalFileUploaderWrapper({
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap gap-2">
-        {allowedTypes.map(type => {
+        {allowedTypes.map((type) => {
           const config = FILE_TYPE_CONFIGS[type];
           return (
             <Button
@@ -1356,7 +1754,7 @@ export function UniversalFileUploaderWrapper({
               variant={selectedType === type ? 'default' : 'outline'}
               onClick={() => {
                 setSelectedType(type);
-                setUploadKey(prev => prev + 1);
+                setUploadKey((prev) => prev + 1);
               }}
               className="flex items-center gap-2"
             >
@@ -1397,7 +1795,11 @@ export function UniversalFileUploader({
 }: UniversalFileUploaderProps) {
   const config = FILE_TYPE_CONFIGS[fileType];
   const schema = VALIDATION_SCHEMAS[fileType];
-  const { status, loading: statusLoading, refetch } = useUploadStatus(fileType, selectedInstituteId);
+  const {
+    status,
+    loading: statusLoading,
+    refetch,
+  } = useUploadStatus(fileType, selectedInstituteId);
 
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -1408,6 +1810,11 @@ export function UniversalFileUploader({
   const [parsedData, setParsedData] = useState<any>(null);
   const [validatedRecordCount, setValidatedRecordCount] = useState(0);
 
+  // Correction flow states
+  const [correctionSession, setCorrectionSession] = useState<CorrectionSession | null>(null);
+  const [showMismatchDialog, setShowMismatchDialog] = useState(false);
+  const [isFixing, setIsFixing] = useState(false);
+
   const validateFile = useCallback(
     async (file: File): Promise<boolean> => {
       setValidationError(null);
@@ -1416,9 +1823,15 @@ export function UniversalFileUploader({
 
       const ext = getFileExtension(file.name);
       if (file.size > config.maxSize)
-        return (setValidationError(`File too large. Max: ${config.maxSize / 1024 / 1024}MB`), false);
+        return (
+          setValidationError(`File too large. Max: ${config.maxSize / 1024 / 1024}MB`),
+          false
+        );
       if (!config.acceptedFormats.includes(ext))
-        return (setValidationError(`Invalid type. Accepted: ${config.acceptedFormats.join(', ')}`), false);
+        return (
+          setValidationError(`Invalid type. Accepted: ${config.acceptedFormats.join(', ')}`),
+          false
+        );
 
       try {
         const isHtml = ['.html', '.htm'].includes(ext);
@@ -1430,7 +1843,7 @@ export function UniversalFileUploader({
         if (!result.valid) return (setValidationError(result.error || 'Validation failed'), false);
         if (result.warnings?.length) {
           setValidationWarnings(result.warnings);
-          result.warnings.forEach(w => toast.warning(w));
+          result.warnings.forEach((w) => toast.warning(w));
         }
 
         setParsedData(result.data);
@@ -1442,7 +1855,7 @@ export function UniversalFileUploader({
         return false;
       }
     },
-    [config, schema, fileType]
+    [config, schema, fileType],
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -1454,7 +1867,7 @@ export function UniversalFileUploader({
     },
     accept: config.acceptedFormats.reduce(
       (acc, f) => ({ ...acc, [`application/${f.slice(1)}`]: [f], [`text/${f.slice(1)}`]: [f] }),
-      {}
+      {},
     ),
     maxFiles: 1,
     multiple: false,
@@ -1479,10 +1892,14 @@ export function UniversalFileUploader({
       formData.append('connected_institute_id', selectedInstituteId);
     }
 
-    const progressInterval = setInterval(() => setUploadProgress(p => Math.min(p + 10, 90)), 200);
+    const progressInterval = setInterval(() => setUploadProgress((p) => Math.min(p + 10, 90)), 200);
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/upload/`, { method: 'POST', body: formData, credentials: 'include' });
+      const res = await fetch(`${BACKEND_URL}/api/upload/`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
       clearInterval(progressInterval);
       setUploadProgress(100);
       if (!res.ok) throw new Error((await res.json()).detail || 'Upload failed');
@@ -1506,18 +1923,120 @@ export function UniversalFileUploader({
 
   const processFile = async () => {
     if (!status?.fileExists) return toast.error('No file to process');
+
+    const storedFilename = status?.storedFilename;
+    if (!storedFilename) {
+      toast.error('No stored filename found');
+      return;
+    }
+
     setProcessing(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/${fileType}/process`, { method: 'POST', credentials: 'include' });
-      if (!res.ok) throw new Error((await res.json()).detail || 'Processing failed');
-      toast.success((await res.json()).message || 'File processed!');
+      const res = await fetch(`${BACKEND_URL}/api/${fileType}/process`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stored_filename: storedFilename }),
+        credentials: 'include',
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.detail || data.error || 'Processing failed');
+      }
+
+      // Check for correction needed
+      // The backend returns status at root level or inside data
+      const rootStatus = data.status;
+      const dataStatus = data.data?.status;
+      const isCorrectionNeeded =
+        rootStatus === 'needs_correction' || dataStatus === 'needs_correction';
+
+      if (isCorrectionNeeded) {
+        const correctionData = data.data || data;
+        setCorrectionSession({
+          temp_session_id: correctionData.temp_session_id,
+          total_students: correctionData.total_students || 0,
+          mismatch_count: correctionData.mismatch_count || 0,
+          mismatches: correctionData.mismatches || [],
+        });
+        setShowMismatchDialog(true);
+        setProcessing(false);
+        return;
+      }
+
+      // Success case
+      toast.success(data.message || 'File processed successfully!');
+      await refetch();
+      onProcessingComplete?.();
+      onSuccess?.();
+    } catch (err: any) {
+      toast.error(err.message || 'Processing failed');
+      onError?.(err.message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleConfirmFix = async () => {
+    if (!correctionSession) return;
+
+    setIsFixing(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/${fileType}/fix-mismatches`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          temp_session_id: correctionSession.temp_session_id,
+          action: 'CONFIRM_FIX',
+        }),
+        credentials: 'include',
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to fix mismatches');
+      }
+
+      toast.success(data.message || 'Mismatches fixed successfully!');
+      setShowMismatchDialog(false);
+      setCorrectionSession(null);
       await refetch();
       onProcessingComplete?.();
     } catch (err: any) {
       toast.error(err.message);
       onError?.(err.message);
     } finally {
-      setProcessing(false);
+      setIsFixing(false);
+    }
+  };
+
+  const handleCancelFix = async () => {
+    if (!correctionSession) return;
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/${fileType}/fix-mismatches`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          temp_session_id: correctionSession.temp_session_id,
+          action: 'CANCEL',
+        }),
+        credentials: 'include',
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to cancel');
+      }
+
+      toast.info('Correction cancelled. No changes were made.');
+      setShowMismatchDialog(false);
+      setCorrectionSession(null);
+    } catch (err: any) {
+      toast.error(err.message);
     }
   };
 
@@ -1530,7 +2049,7 @@ export function UniversalFileUploader({
     try {
       const res = await fetch(
         `${BACKEND_URL}/api/upload/download?file_name=${encodeURIComponent(fileToDownload)}&file_type=${fileType}`,
-        { credentials: 'include' }
+        { credentials: 'include' },
       );
       if (!res.ok) {
         const error = await res.json();
@@ -1563,193 +2082,275 @@ export function UniversalFileUploader({
 
   if (status?.fileExists) {
     return (
-      <Card className={cn('w-full', className)}>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="bg-primary/10 rounded-lg p-2">{config.icon}</div>
-              <div>
-                <CardTitle className="text-xl">{config.name}</CardTitle>
-                <CardDescription>{status.isProcessed ? 'File processed' : 'File uploaded'}</CardDescription>
+      <>
+        <Card className={cn('w-full', className)}>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-primary/10 rounded-lg p-2">{config.icon}</div>
+                <div>
+                  <CardTitle className="text-xl">{config.name}</CardTitle>
+                  <CardDescription>
+                    {status.isProcessed ? 'File processed' : 'File uploaded'}
+                  </CardDescription>
+                </div>
               </div>
+              <Badge variant={status.isProcessed ? 'secondary' : 'default'}>
+                {status.isProcessed ? 'Processed' : 'Uploaded'}
+              </Badge>
             </div>
-            <Badge variant={status.isProcessed ? 'secondary' : 'default'}>
-              {status.isProcessed ? 'Processed' : 'Uploaded'}
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Alert variant={'default'}>
-            {status.isProcessed ? <CheckCircle2 className="h-4 w-4" /> : <FileCheck className="h-4 w-4" />}
-            <AlertTitle>{status.isProcessed ? 'File Processed' : 'File Ready for Processing'}</AlertTitle>
-            <AlertDescription>
-              <div className="mt-2 space-y-1 text-sm">
-                <p>
-                  <span className="font-medium">File:</span> <span className="font-mono">{status.fileName}</span>
-                </p>
-                {status.recordCount !== undefined && status.recordCount !== null && (
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Alert variant={'default'}>
+              {status.isProcessed ? (
+                <CheckCircle2 className="h-4 w-4" />
+              ) : (
+                <FileCheck className="h-4 w-4" />
+              )}
+              <AlertTitle>
+                {status.isProcessed ? 'File Processed' : 'File Ready for Processing'}
+              </AlertTitle>
+              <AlertDescription>
+                <div className="mt-2 space-y-1 text-sm">
                   <p>
-                    <span className="font-medium">Records:</span> {status.recordCount}
+                    <span className="font-medium">File:</span>{' '}
+                    <span className="font-mono">{status.fileName}</span>
                   </p>
-                )}
-                {status.lastUploaded && (
-                  <p>
-                    <span className="font-medium">Uploaded:</span> {new Date(status.lastUploaded).toLocaleString()}
-                  </p>
-                )}
-              </div>
-            </AlertDescription>
-          </Alert>
-          <div className="flex flex-wrap gap-2">
-            {!status.isProcessed && (
-              <Button onClick={processFile} disabled={processing} className="gap-2">
-                {processing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                Process File
+                  {status.recordCount !== undefined && status.recordCount !== null && (
+                    <p>
+                      <span className="font-medium">Records:</span> {status.recordCount}
+                    </p>
+                  )}
+                  {status.lastUploaded && (
+                    <p>
+                      <span className="font-medium">Uploaded:</span>{' '}
+                      {new Date(status.lastUploaded).toLocaleString()}
+                    </p>
+                  )}
+                </div>
+              </AlertDescription>
+            </Alert>
+            <div className="flex flex-wrap gap-2">
+              {!status.isProcessed && (
+                <Button
+                  onClick={processFile}
+                  disabled={processing}
+                  className="gap-2"
+                >
+                  {processing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Play className="h-4 w-4" />
+                  )}
+                  Process File
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                onClick={downloadFile}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" /> Download
               </Button>
-            )}
-            <Button variant="outline" onClick={downloadFile} className="gap-2">
-              <Download className="h-4 w-4" /> Download
-            </Button>
-            <Button variant="ghost" onClick={refetch} className="gap-2">
-              <RefreshCw className="h-4 w-4" /> Refresh
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+              <Button
+                variant="ghost"
+                onClick={refetch}
+                className="gap-2"
+              >
+                <RefreshCw className="h-4 w-4" /> Refresh
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <MismatchReviewDialog
+          open={showMismatchDialog}
+          onOpenChange={setShowMismatchDialog}
+          session={correctionSession}
+          onConfirm={handleConfirmFix}
+          onCancel={handleCancelFix}
+          isSubmitting={isFixing}
+        />
+      </>
     );
   }
 
   return (
-    <Card className={cn('w-full', className)}>
-      <CardHeader>
-        <div className="flex items-center gap-3">
-          <div className="bg-primary/10 rounded-lg p-2">{config.icon}</div>
-          <div>
-            <CardTitle className="text-xl">{config.name}</CardTitle>
-            <CardDescription>{config.description}</CardDescription>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {validationError && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Validation Error</AlertTitle>
-            <AlertDescription>{validationError}</AlertDescription>
-          </Alert>
-        )}
-        {validationWarnings.length > 0 && (
-          <Alert variant="default" className="border-amber-200 bg-amber-50">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Validation Warnings</AlertTitle>
-            <AlertDescription>
-              {validationWarnings.slice(0, 3).map((w, i) => (
-                <p key={i} className="text-sm">
-                  {w}
-                </p>
-              ))}
-              {validationWarnings.length > 3 && (
-                <p className="text-muted-foreground text-sm">+{validationWarnings.length - 3} more</p>
-              )}
-            </AlertDescription>
-          </Alert>
-        )}
-
-        <div
-          {...getRootProps()}
-          className={cn(
-            'cursor-pointer rounded-lg border-2 border-dashed p-8 text-center transition-all',
-            isDragActive && 'border-primary bg-primary/5',
-            file && 'border-green-500 bg-green-50/50 dark:bg-green-950/20',
-            (uploading || processing) && 'pointer-events-none opacity-50'
-          )}
-        >
-          <input {...getInputProps()} />
-          <div className="flex flex-col items-center gap-3">
-            <div className={cn('rounded-full p-3', isDragActive ? 'bg-primary/10' : 'bg-muted')}>
-              <FileUp className={cn('h-8 w-8', isDragActive ? 'text-primary' : 'text-muted-foreground')} />
-            </div>
+    <>
+      <Card className={cn('w-full', className)}>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="bg-primary/10 rounded-lg p-2">{config.icon}</div>
             <div>
-              <p className="text-lg font-medium">
-                {isDragActive ? 'Drop your file here' : file ? file.name : `Upload ${config.name} File`}
-              </p>
-              <p className="text-muted-foreground mt-1 text-sm">
-                {config.acceptedFormats.join(', ')} • Max {config.maxSize / 1024 / 1024}MB
-              </p>
+              <CardTitle className="text-xl">{config.name}</CardTitle>
+              <CardDescription>{config.description}</CardDescription>
             </div>
           </div>
-        </div>
-
-        {file && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between rounded-lg border p-3">
-              <div className="flex items-center gap-3">
-                {config.icon}
-                <div>
-                  <p className="font-medium">{file.name}</p>
-                  <p className="text-muted-foreground text-xs">
-                    {(file.size / 1024).toFixed(0)} KB • {file.type || 'Unknown'}
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {validationError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Validation Error</AlertTitle>
+              <AlertDescription>{validationError}</AlertDescription>
+            </Alert>
+          )}
+          {validationWarnings.length > 0 && (
+            <Alert
+              variant="default"
+              className="border-amber-200 bg-amber-50"
+            >
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Validation Warnings</AlertTitle>
+              <AlertDescription>
+                {validationWarnings.slice(0, 3).map((w, i) => (
+                  <p
+                    key={i}
+                    className="text-sm"
+                  >
+                    {w}
                   </p>
-                  {validatedRecordCount > 0 && (
-                    <p className="text-xs text-green-600">{validatedRecordCount} valid records</p>
-                  )}
-                </div>
+                ))}
+                {validationWarnings.length > 3 && (
+                  <p className="text-muted-foreground text-sm">
+                    +{validationWarnings.length - 3} more
+                  </p>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <div
+            {...getRootProps()}
+            className={cn(
+              'cursor-pointer rounded-lg border-2 border-dashed p-8 text-center transition-all',
+              isDragActive && 'border-primary bg-primary/5',
+              file && 'border-green-500 bg-green-50/50 dark:bg-green-950/20',
+              (uploading || processing) && 'pointer-events-none opacity-50',
+            )}
+          >
+            <input {...getInputProps()} />
+            <div className="flex flex-col items-center gap-3">
+              <div className={cn('rounded-full p-3', isDragActive ? 'bg-primary/10' : 'bg-muted')}>
+                <FileUp
+                  className={cn('h-8 w-8', isDragActive ? 'text-primary' : 'text-muted-foreground')}
+                />
               </div>
-              <Button variant="ghost" size="sm" onClick={() => setFile(null)} disabled={uploading}>
-                <X className="h-4 w-4" />
+              <div>
+                <p className="text-lg font-medium">
+                  {isDragActive
+                    ? 'Drop your file here'
+                    : file
+                      ? file.name
+                      : `Upload ${config.name} File`}
+                </p>
+                <p className="text-muted-foreground mt-1 text-sm">
+                  {config.acceptedFormats.join(', ')} • Max {config.maxSize / 1024 / 1024}MB
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {file && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div className="flex items-center gap-3">
+                  {config.icon}
+                  <div>
+                    <p className="font-medium">{file.name}</p>
+                    <p className="text-muted-foreground text-xs">
+                      {(file.size / 1024).toFixed(0)} KB • {file.type || 'Unknown'}
+                    </p>
+                    {validatedRecordCount > 0 && (
+                      <p className="text-xs text-green-600">{validatedRecordCount} valid records</p>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setFile(null)}
+                  disabled={uploading}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {parsedData && validatedRecordCount > 0 && (
+                <Alert variant="default">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <AlertTitle>Validation Passed</AlertTitle>
+                  <AlertDescription>
+                    Found {validatedRecordCount} valid record{validatedRecordCount !== 1 ? 's' : ''}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {uploading && (
+                <div className="space-y-2">
+                  <Progress
+                    value={uploadProgress}
+                    className="h-2"
+                  />
+                  <p className="text-muted-foreground text-center text-sm">
+                    Uploading... {uploadProgress}%
+                  </p>
+                </div>
+              )}
+
+              <Button
+                onClick={uploadFile}
+                disabled={uploading || processing || !parsedData}
+                className="w-full"
+              >
+                {uploading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading...
+                  </>
+                ) : (
+                  <>
+                    <FileUp className="mr-2 h-4 w-4" /> Upload File
+                  </>
+                )}
               </Button>
             </div>
+          )}
 
-            {parsedData && validatedRecordCount > 0 && (
-              <Alert variant="default">
-                <CheckCircle2 className="h-4 w-4" />
-                <AlertTitle>Validation Passed</AlertTitle>
-                <AlertDescription>
-                  Found {validatedRecordCount} valid record{validatedRecordCount !== 1 ? 's' : ''}
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {uploading && (
-              <div className="space-y-2">
-                <Progress value={uploadProgress} className="h-2" />
-                <p className="text-muted-foreground text-center text-sm">Uploading... {uploadProgress}%</p>
-              </div>
-            )}
-
-            <Button onClick={uploadFile} disabled={uploading || processing || !parsedData} className="w-full">
-              {uploading ? (
+          <Alert
+            variant="default"
+            className="bg-muted/50"
+          >
+            <Info className="h-4 w-4" />
+            <AlertTitle>File Requirements</AlertTitle>
+            <AlertDescription className="mt-2 space-y-1 text-sm">
+              {config.isHtml ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading...
+                  <p>• HTML file should contain the MSBTE timetable table</p>
+                  <p>
+                    • Must include date, session, time slot, subject code, subject name, and scheme
+                    columns
+                  </p>
                 </>
               ) : (
                 <>
-                  <FileUp className="mr-2 h-4 w-4" /> Upload File
+                  <p>• Ensure all required columns are present and correctly formatted</p>
+                  <p>• Remove merged cells and complex formatting</p>
                 </>
               )}
-            </Button>
-          </div>
-        )}
+              <p className="font-mono text-xs">Expected: {config.expectedColumns?.join(', ')}</p>
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
 
-        <Alert variant="default" className="bg-muted/50">
-          <Info className="h-4 w-4" />
-          <AlertTitle>File Requirements</AlertTitle>
-          <AlertDescription className="mt-2 space-y-1 text-sm">
-            {config.isHtml ? (
-              <>
-                <p>• HTML file should contain the MSBTE timetable table</p>
-                <p>• Must include date, session, time slot, subject code, subject name, and scheme columns</p>
-              </>
-            ) : (
-              <>
-                <p>• Ensure all required columns are present and correctly formatted</p>
-                <p>• Remove merged cells and complex formatting</p>
-              </>
-            )}
-            <p className="font-mono text-xs">Expected: {config.expectedColumns?.join(', ')}</p>
-          </AlertDescription>
-        </Alert>
-      </CardContent>
-    </Card>
+      <MismatchReviewDialog
+        open={showMismatchDialog}
+        onOpenChange={setShowMismatchDialog}
+        session={correctionSession}
+        onConfirm={handleConfirmFix}
+        onCancel={handleCancelFix}
+        isSubmitting={isFixing}
+      />
+    </>
   );
 }

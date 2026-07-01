@@ -1,8 +1,9 @@
 // modules/formats/format22.tsx
 'use client';
 
-import ReportLayout from '@/components/layout/msbte-report-layout';
 import { useUserInfo } from '@/hooks/useUserInfo';
+
+import ReportLayout from '@/components/layout/msbte-report-layout';
 
 // ============================================================
 // Format 22 Content Component - PANCHNAMA REPORT
@@ -40,8 +41,9 @@ function Format22Content() {
       {/* Report Body */}
       <div className="space-y-4 text-justify">
         <p>
-          The question paper bundle for the examination session was opened at the examination control room in the
-          presence of the undersigned officers. Following discrepancies were noticed after the opening of bundle;
+          The question paper bundle for the examination session was opened at the examination
+          control room in the presence of the undersigned officers. Following discrepancies were
+          noticed after the opening of bundle;
         </p>
       </div>
 
@@ -62,8 +64,13 @@ function Format22Content() {
           </thead>
           <tbody>
             {Array.from({ length: 10 }).map((_, index) => (
-              <tr key={index} className="h-10">
-                <td className="border border-black p-1 text-center align-middle font-medium">{index + 1}</td>
+              <tr
+                key={index}
+                className="h-10"
+              >
+                <td className="border border-black p-1 text-center align-middle font-medium">
+                  {index + 1}
+                </td>
                 <td className="border border-black p-1 text-center">&nbsp;</td>
                 <td className="border border-black p-1 text-center">&nbsp;</td>
                 <td className="border border-black p-1 text-center">&nbsp;</td>
@@ -128,20 +135,23 @@ function Format22Content() {
         </p>
         <ol className="list-decimal space-y-1 pl-5">
           <li>
-            In case of D Pharmacy institute working as EC, Principal of the institute works as the officer in charge of
-            examination. In such cases the report will bear the signatures of Officer in charge and Controller of
-            examination.
+            In case of D Pharmacy institute working as EC, Principal of the institute works as the
+            officer in charge of examination. In such cases the report will bear the signatures of
+            Officer in charge and Controller of examination.
           </li>
           <li>
-            In case of double shift Polytechnics having two ECs in the same premises, Principal of Polytechnic will act
-            as the Chief Officer in charge of EC in regular shift polytechnic as well as the EC in second shift
-            polytechnic.
+            In case of double shift Polytechnics having two ECs in the same premises, Principal of
+            Polytechnic will act as the Chief Officer in charge of EC in regular shift polytechnic
+            as well as the EC in second shift polytechnic.
           </li>
         </ol>
       </div>
 
       {/* Print CSS for clean borders */}
-      <style jsx global>{`
+      <style
+        jsx
+        global
+      >{`
         @media print {
           table {
             page-break-inside: avoid;

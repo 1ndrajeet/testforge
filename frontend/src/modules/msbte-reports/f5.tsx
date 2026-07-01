@@ -7,13 +7,17 @@ import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { AlertCircle } from 'lucide-react';
 
-import { MultiPageReport, ReportPageData } from '@/components/layout/msbte-report-layout';
-import { SessionSelector } from '@/components/shared/date-selector';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useUserInfo } from '@/hooks/useUserInfo';
 import { getAllocationsByDateSession } from '@/lib/actions/allocation';
 import { getTimetableEntries } from '@/lib/actions/timetable';
+
+import { useUserInfo } from '@/hooks/useUserInfo';
+
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
+
+import { MultiPageReport, ReportPageData } from '@/components/layout/msbte-report-layout';
+
+import { SessionSelector } from '@/components/shared/date-selector';
 
 interface AttendanceData {
   seatNumbers: number[];
@@ -35,27 +39,35 @@ interface AttendanceData {
   sealingSupervisor: string;
 }
 
-const renderFormat5Table = (pageData: ReportPageData) => {
+const renderFormat5Table = (pageData: ReportPageData & { copyIndex?: number }) => {
+  const isEvenCopy = (pageData.copyIndex ?? 0) % 2 === 0;
+
   return (
     <>
       <table className="w-full border-collapse border border-black text-xs">
         <thead>
           <tr>
-            <th className="w-[8%] border border-black p-1 text-center">S.N.</th>
-            <th className="w-[18%] border border-black p-1 text-center">Seat No.</th>
-            <th className="w-[24%] border border-black p-1 text-center">Main Answer Book</th>
-            <th className="w-[24%] border border-black p-1 text-center">Supplements</th>
-            <th className="w-[26%] border border-black p-1 text-center">Signature of Candidate</th>
+            <th className="w-[8%] border border-black text-center">S.N.</th>
+            <th className="w-[18%] border border-black text-center">Seat No.</th>
+            <th className={`${isEvenCopy ? 'w-[29%]' : 'w-[24%]'} border border-black text-center`}>
+              Main Answer Book
+            </th>
+            <th className={`${isEvenCopy ? 'w-[29%]' : 'w-[24%]'} border border-black text-center`}>
+              Supplements
+            </th>
+            <th className={`${isEvenCopy ? 'w-[16%]' : 'w-[26%]'} border border-black text-center`}>
+              {isEvenCopy ? 'Present / Absent' : 'Signature of Candidate'}
+            </th>
           </tr>
         </thead>
         <tbody>
-          {pageData.seatNumbers.map((seat, i) => (
+          {pageData.seatNumbers?.map((seat, i) => (
             <tr key={i}>
-              <td className="border border-black p-1 text-center">{String(i + 1).padStart(2, '0')}</td>
-              <td className="border border-black p-1 text-center font-medium">{seat}</td>
-              <td className="border border-black p-1 text-center"></td>
-              <td className="border border-black p-1 text-center"></td>
-              <td className="border border-black p-1 text-center"></td>
+              <td className="border border-black text-center">{String(i + 1).padStart(2, '0')}</td>
+              <td className="border border-black text-center font-medium">{seat}</td>
+              <td className="border border-black text-center"></td>
+              <td className="border border-black text-center"></td>
+              <td className="border border-black text-center"></td>
             </tr>
           ))}
         </tbody>
@@ -63,7 +75,7 @@ const renderFormat5Table = (pageData: ReportPageData) => {
 
       <div className="mt-2 flex justify-between text-[10pt]">
         <span>
-          <strong>Total Students:</strong> {pageData.seatNumbers.length}
+          <strong>Total Students:</strong> {pageData.seatNumbers?.length}
         </span>
         <span>
           <strong>Present:</strong> _________
@@ -188,7 +200,10 @@ export default function Format5Report() {
             compact
           />
           {!dates.length && !error && (
-            <Alert variant="default" className="border-amber-200 bg-amber-50">
+            <Alert
+              variant="default"
+              className="border-amber-200 bg-amber-50"
+            >
               <AlertCircle className="h-4 w-4 text-amber-600" />
               <AlertDescription>Upload timetable first.</AlertDescription>
             </Alert>
@@ -197,6 +212,7 @@ export default function Format5Report() {
       ) : (
         <MultiPageReport
           pages={pages}
+          compact
           header={{
             title: 'FORMAT NO. 5',
             subtitle: 'Examinees Attendance Report',

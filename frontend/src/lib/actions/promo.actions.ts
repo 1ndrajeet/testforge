@@ -8,7 +8,7 @@ import Razorpay from 'razorpay';
 
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { orgMembers, organizations, payments, promoCodes } from '@/lib/db/schema';
+import { organizations, orgMembers, payments, promoCodes } from '@/lib/db/schema';
 
 async function getCurrentOrg() {
   const session = await auth.api.getSession({ headers: await headers() });

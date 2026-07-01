@@ -1,3 +1,4 @@
+// lib/misc/logger.ts
 // ============================================
 // Logger Configuration
 // ============================================
@@ -12,7 +13,13 @@ const LOG_LEVELS = {
 
 type LogLevel = keyof typeof LOG_LEVELS;
 
-const currentLogLevel: LogLevel = (process.env.LOG_LEVEL as LogLevel) || 'INFO';
+// Check if we're in development environment
+const isDevelopment = process.env.NODE_ENV === 'development';
+
+// Only use LOG_LEVEL in development, otherwise default to NONE
+const currentLogLevel: LogLevel = isDevelopment
+  ? (process.env.LOG_LEVEL as LogLevel) || 'DEBUG'
+  : 'NONE';
 
 function shouldLog(level: LogLevel): boolean {
   return LOG_LEVELS[level] >= LOG_LEVELS[currentLogLevel];
@@ -23,6 +30,8 @@ function formatTimestamp(): string {
 }
 
 function formatLog(level: LogLevel, module: string, message: string, data?: unknown): void {
+  // Only log in development
+  if (!isDevelopment) return;
   if (!shouldLog(level)) return;
 
   const timestamp = formatTimestamp();
@@ -44,8 +53,12 @@ function formatLog(level: LogLevel, module: string, message: string, data?: unkn
 }
 
 export const logger = {
-  debug: (module: string, message: string, data?: unknown) => formatLog('DEBUG', module, message, data),
-  info: (module: string, message: string, data?: unknown) => formatLog('INFO', module, message, data),
-  warn: (module: string, message: string, data?: unknown) => formatLog('WARN', module, message, data),
-  error: (module: string, message: string, data?: unknown) => formatLog('ERROR', module, message, data),
+  debug: (module: string, message: string, data?: unknown) =>
+    formatLog('DEBUG', module, message, data),
+  info: (module: string, message: string, data?: unknown) =>
+    formatLog('INFO', module, message, data),
+  warn: (module: string, message: string, data?: unknown) =>
+    formatLog('WARN', module, message, data),
+  error: (module: string, message: string, data?: unknown) =>
+    formatLog('ERROR', module, message, data),
 };

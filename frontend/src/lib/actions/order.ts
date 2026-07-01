@@ -37,15 +37,15 @@ export async function getOrders(params?: { staffId?: string; orderType?: string;
 
     // Manually fetch staff data if needed
     if (result.length > 0) {
-      const staffIds = [...new Set(result.map(o => o.staffId))];
+      const staffIds = [...new Set(result.map((o) => o.staffId))];
       const staffData = await db.query.staff.findMany({
         where: (staff, { inArray }) => inArray(staff.id, staffIds),
       });
 
-      const staffMap = new Map(staffData.map(s => [s.id, s]));
+      const staffMap = new Map(staffData.map((s) => [s.id, s]));
 
       // Attach staff to orders
-      return result.map(order => ({
+      return result.map((order) => ({
         ...order,
         staff: staffMap.get(order.staffId) || null,
       }));
@@ -97,7 +97,7 @@ export async function updateOrder(
   data: {
     sentAt?: Date;
     orderKey?: string;
-  }
+  },
 ) {
   const examCenter = await getCurrentExamCenter();
   if (!examCenter?.id) throw new Error('Exam center not found');

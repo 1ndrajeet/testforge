@@ -1,8 +1,9 @@
 // modules/formats/format18.tsx
 'use client';
 
-import ReportLayout from '@/components/layout/msbte-report-layout';
 import { useUserInfo } from '@/hooks/useUserInfo';
+
+import ReportLayout from '@/components/layout/msbte-report-layout';
 
 // ============================================================
 // Format 18 Content Component - QP INVENTORY DEMAND (STATIC)
@@ -37,17 +38,30 @@ function Format18Content() {
             <tr>
               <th className="w-[8%] border border-black p-1.5 text-center">Sr.No.</th>
               <th className="w-[12%] border border-black p-1.5 text-center">EC</th>
-              <th className="w-[14%] border border-black p-1.5 text-center">Day and Date of Examination</th>
+              <th className="w-[14%] border border-black p-1.5 text-center">
+                Day and Date of Examination
+              </th>
               <th className="w-[12%] border border-black p-1.5 text-center">Q.P.Code</th>
-              <th className="w-[16%] border border-black p-1.5 text-center">Number of packets as per Inventory</th>
-              <th className="w-[14%] border border-black p-1.5 text-center">Additional number of Packets needed</th>
-              <th className="w-[24%] border border-black p-1.5 text-center">Reason for additional demand</th>
+              <th className="w-[16%] border border-black p-1.5 text-center">
+                Number of packets as per Inventory
+              </th>
+              <th className="w-[14%] border border-black p-1.5 text-center">
+                Additional number of Packets needed
+              </th>
+              <th className="w-[24%] border border-black p-1.5 text-center">
+                Reason for additional demand
+              </th>
             </tr>
           </thead>
           <tbody>
             {Array.from({ length: 10 }).map((_, index) => (
-              <tr key={index} className="h-10">
-                <td className="border border-black p-1 text-center align-middle font-medium">{index + 1}</td>
+              <tr
+                key={index}
+                className="h-10"
+              >
+                <td className="border border-black p-1 text-center align-middle font-medium">
+                  {index + 1}
+                </td>
                 <td className="border border-black p-1 text-center">&nbsp;</td>
                 <td className="border border-black p-1 text-center">&nbsp;</td>
                 <td className="border border-black p-1 text-center">&nbsp;</td>
@@ -96,8 +110,8 @@ function Format18Content() {
       {/* Important Note */}
       <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/20">
         <p className="text-xs text-amber-800 dark:text-amber-300">
-          <strong>Note:</strong> If the number of question papers provided in the inventory is more than the number of
-          appearing students, additional inventory demand shall not be filed.
+          <strong>Note:</strong> If the number of question papers provided in the inventory is more
+          than the number of appearing students, additional inventory demand shall not be filed.
         </p>
       </div>
     </div>

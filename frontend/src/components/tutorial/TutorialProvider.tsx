@@ -4,6 +4,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 
 import { type Driver, driver } from 'driver.js';
+
 import 'driver.js/dist/driver.css';
 
 // ============================================================
@@ -93,7 +94,7 @@ export function TutorialProvider({ children }: { children: React.ReactNode }) {
     stepsRef.current = steps;
 
     // Map steps to driver.js format
-    const driverSteps = steps.map(step => ({
+    const driverSteps = steps.map((step) => ({
       element: step.element,
       popover: {
         title: step.popover?.title || '',

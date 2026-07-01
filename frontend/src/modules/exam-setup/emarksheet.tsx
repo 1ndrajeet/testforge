@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import departments from '@/config/course_codes.json';
 import {
   ArrowDown,
   ArrowUp,
@@ -16,22 +17,38 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { MSBTEContextBar } from '@/components/layout/msbte-context-bar';
-import { PageEmpty, PageHeader, PageToolbar } from '@/components/layout/page-layout';
-import { UniversalFileUploader } from '@/components/shared/file-uploader';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import departments from '@/config/course_codes.json';
-import { useUserInfo } from '@/hooks/useUserInfo';
 import {
   type EMarksheetRecord,
   type EMarksheetStats,
   getEMarksheets,
   hasEMarksheetData,
 } from '@/lib/actions/emarksheet';
+
+import { useUserInfo } from '@/hooks/useUserInfo';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+
+import { MSBTEContextBar } from '@/components/layout/msbte-context-bar';
+import { PageEmpty, PageHeader, PageToolbar } from '@/components/layout/page-layout';
+
+import { UniversalFileUploader } from '@/components/shared/file-uploader';
 
 const getDept = (code: string) => (departments as Record<string, string>)[code] || code;
 
@@ -42,19 +59,27 @@ const getDept = (code: string) => (departments as Record<string, string>)[code] 
 const StatsCards = ({ stats }: { stats: EMarksheetStats }) => (
   <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
     <div className="rounded-lg border border-neutral-100 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
-      <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">{stats.totalRecords}</p>
+      <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
+        {stats.totalRecords}
+      </p>
       <p className="text-xs text-neutral-500">Records</p>
     </div>
     <div className="rounded-lg border border-neutral-100 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
-      <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">{stats.totalSchemes}</p>
+      <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
+        {stats.totalSchemes}
+      </p>
       <p className="text-xs text-neutral-500">Schemes</p>
     </div>
     <div className="rounded-lg border border-neutral-100 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
-      <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">{stats.totalSubjects}</p>
+      <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
+        {stats.totalSubjects}
+      </p>
       <p className="text-xs text-neutral-500">Subjects</p>
     </div>
     <div className="rounded-lg border border-neutral-100 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
-      <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">{stats.processedCount}</p>
+      <p className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
+        {stats.processedCount}
+      </p>
       <p className="text-xs text-neutral-500">Processed</p>
     </div>
   </div>
@@ -78,11 +103,16 @@ const EMarksheetDetailModal = ({
   const isProcessed = !!record.processedAt;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+    >
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>E-Marksheet Details</DialogTitle>
-          <DialogDescription>Complete information for {record.paperCode || 'Unknown Paper'}</DialogDescription>
+          <DialogDescription>
+            Complete information for {record.paperCode || 'Unknown Paper'}
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-6 py-4">
           <div className="grid grid-cols-2 gap-4">
@@ -110,11 +140,17 @@ const EMarksheetDetailModal = ({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-sm font-medium text-neutral-500">Scheme</p>
-              <Badge variant="outline" className="mt-1">
+              <Badge
+                variant="outline"
+                className="mt-1"
+              >
                 {record.scheme || 'N/A'}
               </Badge>
               <br />
-              <Badge variant="default" className="mt-1 h-fit w-full break-words whitespace-normal">
+              <Badge
+                variant="default"
+                className="mt-1 h-fit w-full break-words whitespace-normal"
+              >
                 {getDept(record.scheme?.split('-')[0] || '')}
               </Badge>
             </div>
@@ -160,7 +196,9 @@ const EMarksheetDetailModal = ({
 
           {!record.processedAt && (
             <div className="rounded-md border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-900/50">
-              <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Awaiting Processing</p>
+              <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                Awaiting Processing
+              </p>
               <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
                 This e-marksheet has not been processed yet.
               </p>
@@ -191,11 +229,20 @@ const DataTable = ({
 }) => {
   const getSortIcon = (column: string) => {
     if (sortColumn !== column) return null;
-    return sortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+    return sortDirection === 'asc' ? (
+      <ArrowUp className="h-3 w-3" />
+    ) : (
+      <ArrowDown className="h-3 w-3" />
+    );
   };
 
   if (entries.length === 0) {
-    return <PageEmpty title="No e-marksheet records" description="Upload e-marksheet data to get started." />;
+    return (
+      <PageEmpty
+        title="No e-marksheet records"
+        description="Upload e-marksheet data to get started."
+      />
+    );
   }
 
   return (
@@ -234,12 +281,16 @@ const DataTable = ({
               >
                 Subject Head {getSortIcon('subjectHead')}
               </TableHead>
-              <TableHead className="w-24 text-center text-xs font-medium tracking-wide uppercase">Status</TableHead>
-              <TableHead className="w-12 text-right text-xs font-medium tracking-wide uppercase">View</TableHead>
+              <TableHead className="w-24 text-center text-xs font-medium tracking-wide uppercase">
+                Status
+              </TableHead>
+              <TableHead className="w-12 text-right text-xs font-medium tracking-wide uppercase">
+                View
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {entries.map(record => {
+            {entries.map((record) => {
               const isProcessed = !!record.processedAt;
 
               return (
@@ -248,18 +299,25 @@ const DataTable = ({
                   className="h-12 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-900"
                   onClick={() => onRowClick(record)}
                 >
-                  <TableCell className="px-4 py-3 font-mono text-sm">{record.sheetNo || '-'}</TableCell>
+                  <TableCell className="px-4 py-3 font-mono text-sm">
+                    {record.sheetNo || '-'}
+                  </TableCell>
                   <TableCell className="px-4 py-3 text-sm font-medium">
                     {record.subjectName && record.subjectName?.length > 25
                       ? `${record.subjectName.slice(0, 25)}...`
                       : record.subjectName || '-'}
                   </TableCell>
                   <TableCell className="px-4 py-3">
-                    <Badge variant="outline" className="font-mono text-xs">
+                    <Badge
+                      variant="outline"
+                      className="font-mono text-xs"
+                    >
                       {record.scheme || '-'}
                     </Badge>
                   </TableCell>
-                  <TableCell className="px-4 py-3 font-mono text-sm">{record.paperCode || '-'}</TableCell>
+                  <TableCell className="px-4 py-3 font-mono text-sm">
+                    {record.paperCode || '-'}
+                  </TableCell>
                   <TableCell className="px-4 py-3 text-sm">
                     {record.subjectHead && record.subjectHead?.length > 20
                       ? `${record.subjectHead.slice(0, 20)}...`
@@ -269,7 +327,10 @@ const DataTable = ({
                     {isProcessed ? (
                       <Badge className="bg-green-500 text-[10px]">Processed</Badge>
                     ) : (
-                      <Badge variant="secondary" className="text-[10px]">
+                      <Badge
+                        variant="secondary"
+                        className="text-[10px]"
+                      >
                         Pending
                       </Badge>
                     )}
@@ -279,7 +340,7 @@ const DataTable = ({
                       variant="ghost"
                       size="sm"
                       className="h-7 w-7 p-0"
-                      onClick={e => {
+                      onClick={(e) => {
                         e.stopPropagation();
                         onRowClick(record);
                       }}
@@ -326,7 +387,10 @@ export default function EMarksheetPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [hasDataResult, recordsResult] = await Promise.all([hasEMarksheetData(), getEMarksheets()]);
+      const [hasDataResult, recordsResult] = await Promise.all([
+        hasEMarksheetData(),
+        getEMarksheets(),
+      ]);
 
       if (!hasDataResult.success) throw new Error(hasDataResult.error);
       if (!recordsResult.success) throw new Error(recordsResult.error);
@@ -360,8 +424,16 @@ export default function EMarksheetPage() {
       return;
     }
 
-    const headers = ['Sheet No', 'Subject Name', 'Scheme', 'Subject Head', 'Paper Code', 'File Name', 'Status'];
-    const rows = filteredEntries.map(entry => [
+    const headers = [
+      'Sheet No',
+      'Subject Name',
+      'Scheme',
+      'Subject Head',
+      'Paper Code',
+      'File Name',
+      'Status',
+    ];
+    const rows = filteredEntries.map((entry) => [
       entry.sheetNo || '',
       entry.subjectName || '',
       entry.scheme || '',
@@ -371,7 +443,9 @@ export default function EMarksheetPage() {
       entry.processedAt ? 'Processed' : 'Pending',
     ]);
 
-    const csv = [headers, ...rows].map(row => row.map(cell => `"${cell ?? ''}"`).join(',')).join('\n');
+    const csv = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${cell ?? ''}"`).join(','))
+      .join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -386,7 +460,7 @@ export default function EMarksheetPage() {
     const hasActiveFilters = filters.scheme || filters.search;
     if (!hasActiveFilters) return entries;
 
-    return entries.filter(entry => {
+    return entries.filter((entry) => {
       if (filters.scheme && entry.scheme !== filters.scheme) return false;
       if (filters.search) {
         const search = filters.search.toLowerCase();
@@ -437,11 +511,14 @@ export default function EMarksheetPage() {
   }, [filteredEntries, sortColumn, sortDirection]);
 
   const totalPages = Math.ceil(sortedEntries.length / pageSize);
-  const paginatedEntries = sortedEntries.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const paginatedEntries = sortedEntries.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
 
   const handleSort = (column: string) => {
     if (sortColumn === column) {
-      setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortColumn(column);
       setSortDirection('asc');
@@ -464,8 +541,12 @@ export default function EMarksheetPage() {
       id: 'scheme',
       label: 'Scheme',
       options: [
-        ...new Set(entries.map(e => e.scheme).filter((s): s is string => s !== null && s !== undefined && s !== '')),
-      ].map(s => ({ value: s, label: s })),
+        ...new Set(
+          entries
+            .map((e) => e.scheme)
+            .filter((s): s is string => s !== null && s !== undefined && s !== ''),
+        ),
+      ].map((s) => ({ value: s, label: s })),
       value: filters.scheme || 'all',
     },
   ];
@@ -509,12 +590,19 @@ export default function EMarksheetPage() {
             icon={FileSignature}
           />
           {hasData && (
-            <Button variant="ghost" size="sm" onClick={() => setShowUpload(false)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowUpload(false)}
+            >
               Cancel
             </Button>
           )}
         </div>
-        <MSBTEContextBar season={examCenter?.season as 'Summer' | 'Winter'} year={examCenter?.examYear!} />
+        <MSBTEContextBar
+          season={examCenter?.season as 'Summer' | 'Winter'}
+          year={examCenter?.examYear!}
+        />
         <div className="rounded-lg border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-950">
           <UniversalFileUploader
             fileType="emarksheet"
@@ -535,14 +623,22 @@ export default function EMarksheetPage() {
         description="View and manage e-marksheet data."
         icon={FileSignature}
         actions={
-          <Button variant="outline" size="sm" onClick={() => setShowUpload(true)} className="gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowUpload(true)}
+            className="gap-1.5"
+          >
             <Upload className="h-4 w-4" />
             Upload New
           </Button>
         }
       />
 
-      <MSBTEContextBar season={examCenter?.season as 'Summer' | 'Winter'} year={examCenter?.examYear!} />
+      <MSBTEContextBar
+        season={examCenter?.season as 'Summer' | 'Winter'}
+        year={examCenter?.examYear!}
+      />
 
       {stats && <StatsCards stats={stats} />}
 
@@ -550,13 +646,13 @@ export default function EMarksheetPage() {
         filters={filterOptions}
         onFilterChange={(id, value) => {
           if (id === 'scheme') {
-            setFilters(prev => ({ ...prev, scheme: value === 'all' ? '' : value }));
+            setFilters((prev) => ({ ...prev, scheme: value === 'all' ? '' : value }));
           }
           setCurrentPage(1);
         }}
         searchValue={filters.search}
-        onSearchChange={value => {
-          setFilters(prev => ({ ...prev, search: value }));
+        onSearchChange={(value) => {
+          setFilters((prev) => ({ ...prev, search: value }));
           setCurrentPage(1);
         }}
         searchPlaceholder="Search by subject, sheet, or paper code..."
@@ -572,7 +668,7 @@ export default function EMarksheetPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
               className="h-7 px-2 text-xs"
             >
@@ -584,7 +680,7 @@ export default function EMarksheetPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
               className="h-7 px-2 text-xs"
             >
@@ -602,15 +698,24 @@ export default function EMarksheetPage() {
         onRowClick={handleRowClick}
       />
 
-      {Object.values(filters).some(v => v !== '') && (
+      {Object.values(filters).some((v) => v !== '') && (
         <div className="mt-4 flex justify-end">
-          <Button variant="ghost" size="sm" onClick={handleClearFilters} className="text-xs">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleClearFilters}
+            className="text-xs"
+          >
             Clear all filters
           </Button>
         </div>
       )}
 
-      <EMarksheetDetailModal record={selectedRecord} open={modalOpen} onOpenChange={setModalOpen} />
+      <EMarksheetDetailModal
+        record={selectedRecord}
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+      />
     </div>
   );
 }

@@ -4,17 +4,21 @@
 
 import { useEffect, useState } from 'react';
 
+import departmentMap from '@/config/course_codes.json';
 import { format } from 'date-fns';
 import { AlertCircle } from 'lucide-react';
 
-import { MultiPageReport, ReportPageData } from '@/components/layout/msbte-report-layout';
-import { SessionSelector } from '@/components/shared/date-selector';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Skeleton } from '@/components/ui/skeleton';
-import departmentMap from '@/config/course_codes.json';
-import { useUserInfo } from '@/hooks/useUserInfo';
 import { getAllocationsByDateSession } from '@/lib/actions/allocation';
 import { getTimetableEntries } from '@/lib/actions/timetable';
+
+import { useUserInfo } from '@/hooks/useUserInfo';
+
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
+
+import { MultiPageReport, ReportPageData } from '@/components/layout/msbte-report-layout';
+
+import { SessionSelector } from '@/components/shared/date-selector';
 
 // ============================================================
 // Types
@@ -82,10 +86,16 @@ const renderFormat6Table = (pageData: Format6PageData) => {
               Total seat numbers on computerized mark sheet/s
               <br />1
             </th>
-            <th className="w-[20%] border border-black p-1 text-center font-bold" colSpan={2}>
+            <th
+              className="w-[20%] border border-black p-1 text-center font-bold"
+              colSpan={2}
+            >
               Additional examinees by the institute
             </th>
-            <th className="w-[35%] border border-black p-1 text-center font-bold" colSpan={2}>
+            <th
+              className="w-[35%] border border-black p-1 text-center font-bold"
+              colSpan={2}
+            >
               Examinees absent
             </th>
             <th className="row-span-2 w-[15%] border border-black p-1 text-center font-bold">
@@ -127,7 +137,9 @@ const renderFormat6Table = (pageData: Format6PageData) => {
               {absent.length > 0 ? absent.join(', ') : 'Nil'}
             </td>
             <td className="border border-black p-2 text-center align-top">{absent.length}</td>
-            <td className="border border-black p-2 text-center align-top font-bold">{total - absent.length}</td>
+            <td className="border border-black p-2 text-center align-top font-bold">
+              {total - absent.length}
+            </td>
           </tr>
         </tbody>
       </table>
@@ -175,7 +187,7 @@ export default function Format6Report() {
 
   // Fetch dates
   useEffect(() => {
-    getTimetableEntries().then(result => {
+    getTimetableEntries().then((result) => {
       if (result.success && result.data) {
         const unique = [...new Set(result.data.map((r: any) => r.date))];
         setDates(unique);
@@ -289,7 +301,10 @@ export default function Format6Report() {
             compact
           />
           {!dates.length && !error && (
-            <Alert variant="default" className="border-amber-200 bg-amber-50">
+            <Alert
+              variant="default"
+              className="border-amber-200 bg-amber-50"
+            >
               <AlertCircle className="h-4 w-4 text-amber-600" />
               <AlertDescription>Upload timetable first.</AlertDescription>
             </Alert>

@@ -70,7 +70,7 @@ const BulkAssignSupervisorsSchema = z.object({
     z.object({
       blockNo: z.string(),
       supervisorUid: z.string(),
-    })
+    }),
   ),
 });
 
@@ -125,7 +125,11 @@ export async function getAllocations(params?: {
 
     const allocations = await db.query.blockAllocations.findMany({
       where: and(...conditions),
-      orderBy: [asc(blockAllocations.date), asc(blockAllocations.session), asc(blockAllocations.blockNo)],
+      orderBy: [
+        asc(blockAllocations.date),
+        asc(blockAllocations.session),
+        asc(blockAllocations.blockNo),
+      ],
     });
 
     logger.debug(MODULE_FN, `Fetched ${allocations.length} allocations`, { params });
@@ -178,7 +182,11 @@ export async function getAllocationsBySupervisor(supervisorUid: string) {
   return getAllocations({ supervisorUid });
 }
 
-export async function getSupervisorSchedule(supervisorUid: string, startDate?: Date, endDate?: Date) {
+export async function getSupervisorSchedule(
+  supervisorUid: string,
+  startDate?: Date,
+  endDate?: Date,
+) {
   const MODULE_FN = `${MODULE}.getSupervisorSchedule`;
 
   try {
@@ -206,7 +214,10 @@ export async function getSupervisorSchedule(supervisorUid: string, startDate?: D
       orderBy: [asc(blockAllocations.date), asc(blockAllocations.session)],
     });
 
-    logger.debug(MODULE_FN, `Fetched ${allocations.length} allocations for supervisor ${supervisorUid}`);
+    logger.debug(
+      MODULE_FN,
+      `Fetched ${allocations.length} allocations for supervisor ${supervisorUid}`,
+    );
     return { success: true, data: allocations };
   } catch (error) {
     logger.error(MODULE_FN, 'Failed to fetch supervisor schedule', { error });
@@ -235,7 +246,7 @@ export async function createAllocation(data: z.infer<typeof CreateAllocationSche
         eq(blockAllocations.date, validated.date),
         eq(blockAllocations.session, validated.session),
         eq(blockAllocations.blockId, validated.blockId),
-        eq(blockAllocations.subjectCode, validated.subjectCode)
+        eq(blockAllocations.subjectCode, validated.subjectCode),
       ),
     });
 
@@ -412,7 +423,7 @@ export async function assignSupervisorToAllocation(data: z.infer<typeof AssignSu
           eq(staff.examCenterId, examCenter.id),
           eq(staff.uid, validated.supervisorUid),
           eq(staff.staffType, 'SUPERVISOR'),
-          eq(staff.isDeleted, false)
+          eq(staff.isDeleted, false),
         ),
       });
 
@@ -430,7 +441,12 @@ export async function assignSupervisorToAllocation(data: z.infer<typeof AssignSu
         supervisorName: supervisorName,
         updatedAt: new Date(),
       })
-      .where(and(eq(blockAllocations.id, validated.allocationId), eq(blockAllocations.examCenterId, examCenter.id)))
+      .where(
+        and(
+          eq(blockAllocations.id, validated.allocationId),
+          eq(blockAllocations.examCenterId, examCenter.id),
+        ),
+      )
       .returning();
 
     if (!updated) {
@@ -467,7 +483,7 @@ export async function bulkAssignSupervisors(data: z.infer<typeof BulkAssignSuper
     const examCenter = await requireExamCenter();
 
     // Start transaction
-    const results = await db.transaction(async tx => {
+    const results = await db.transaction(async (tx) => {
       const updates = [];
 
       for (const assignment of validated.assignments) {
@@ -477,7 +493,7 @@ export async function bulkAssignSupervisors(data: z.infer<typeof BulkAssignSuper
             eq(staff.examCenterId, examCenter.id),
             eq(staff.uid, assignment.supervisorUid),
             eq(staff.staffType, 'SUPERVISOR'),
-            eq(staff.isDeleted, false)
+            eq(staff.isDeleted, false),
           ),
         });
 
@@ -498,8 +514,8 @@ export async function bulkAssignSupervisors(data: z.infer<typeof BulkAssignSuper
               eq(blockAllocations.examCenterId, examCenter.id),
               eq(blockAllocations.date, validated.date),
               eq(blockAllocations.session, validated.session),
-              eq(blockAllocations.blockNo, assignment.blockNo)
-            )
+              eq(blockAllocations.blockNo, assignment.blockNo),
+            ),
           )
           .returning();
 
@@ -538,8 +554,6 @@ export async function bulkAssignSupervisors(data: z.infer<typeof BulkAssignSuper
 // Auto Allocation Operations
 // ============================================
 
-// Fix the JSONB query in autoAllocateStudents function
-
 export async function autoAllocateStudents(data: z.infer<typeof AutoAllocateSchema>) {
   const MODULE_FN = `${MODULE}.autoAllocateStudents`;
 
@@ -552,7 +566,7 @@ export async function autoAllocateStudents(data: z.infer<typeof AutoAllocateSche
       where: and(
         eq(timetable.examCenterId, examCenter.id),
         eq(timetable.date, validated.date),
-        eq(timetable.session, validated.session)
+        eq(timetable.session, validated.session),
       ),
       orderBy: [timetable.timeSlot],
     });
@@ -562,7 +576,10 @@ export async function autoAllocateStudents(data: z.infer<typeof AutoAllocateSche
         date: validated.date,
         session: validated.session,
       });
-      return { success: false, error: 'No timetable entries found for the specified date and session' };
+      return {
+        success: false,
+        error: 'No timetable entries found for the specified date and session',
+      };
     }
 
     // Get all available blocks
@@ -590,12 +607,12 @@ export async function autoAllocateStudents(data: z.infer<typeof AutoAllocateSche
           sql`${students.subCodes} @> ${JSON.stringify([entry.subjectCode])}::jsonb`,
           // Fix 2: Also check for exact match if needed
           sql`NOT (${students.subCodes} = '[""]'::jsonb)`,
-          eq(students.isDeleted, false)
+          eq(students.isDeleted, false),
         ),
         orderBy: [asc(students.seatNumber)],
       });
 
-      const studentSeats = studentsList.map(s => s.seatNumber);
+      const studentSeats = studentsList.map((s) => s.seatNumber);
 
       if (studentSeats.length === 0) {
         logger.warn(MODULE_FN, 'No students found for subject', {
@@ -675,8 +692,8 @@ export async function autoAllocateStudents(data: z.infer<typeof AutoAllocateSche
         and(
           eq(blockAllocations.examCenterId, examCenter.id),
           eq(blockAllocations.date, validated.date),
-          eq(blockAllocations.session, validated.session)
-        )
+          eq(blockAllocations.session, validated.session),
+        ),
       );
 
     // Insert new allocations
@@ -723,7 +740,11 @@ export async function getPackingSlip(date: Date, session: string) {
 
     // Get ALL timetable entries for the date/session (don't filter by subject/scheme)
     const timetableEntries = await db.query.timetable.findMany({
-      where: and(eq(timetable.examCenterId, examCenter.id), eq(timetable.date, date), eq(timetable.session, session)),
+      where: and(
+        eq(timetable.examCenterId, examCenter.id),
+        eq(timetable.date, date),
+        eq(timetable.session, session),
+      ),
       orderBy: [timetable.subjectCode, timetable.scheme],
     });
 
@@ -737,7 +758,7 @@ export async function getPackingSlip(date: Date, session: string) {
       where: and(
         eq(blockAllocations.examCenterId, examCenter.id),
         eq(blockAllocations.date, date),
-        eq(blockAllocations.session, session)
+        eq(blockAllocations.session, session),
       ),
       with: {
         connectedInstitute: {
@@ -841,7 +862,7 @@ export async function getSupervisionReport(date: Date, session: string) {
       where: and(
         eq(blockAllocations.examCenterId, examCenter.id),
         eq(blockAllocations.date, date),
-        eq(blockAllocations.session, session)
+        eq(blockAllocations.session, session),
       ),
       orderBy: [asc(blockAllocations.blockNo)],
     });
@@ -915,7 +936,7 @@ export async function getQuestionPaperReport(date: Date, session?: string) {
     });
 
     // TODO: Join with inventory table when available
-    const report = entries.map(entry => ({
+    const report = entries.map((entry) => ({
       scheme: entry.scheme,
       subjectAbbr: entry.subjectAbbr || '',
       subjectCode: entry.subjectCode,
@@ -975,7 +996,12 @@ export async function getAllocationStats() {
       db
         .select({ count: sql<number>`count(*)` })
         .from(blockAllocations)
-        .where(and(eq(blockAllocations.examCenterId, examCenterId), sql`${blockAllocations.supervisorUid} IS NULL`)),
+        .where(
+          and(
+            eq(blockAllocations.examCenterId, examCenterId),
+            sql`${blockAllocations.supervisorUid} IS NULL`,
+          ),
+        ),
       db
         .selectDistinct({ date: blockAllocations.date })
         .from(blockAllocations)
@@ -991,9 +1017,10 @@ export async function getAllocationStats() {
     const stats = {
       totalAllocations: Number(totalResult[0]?.count || 0),
       totalSeats: Number(totalSeatsResult[0]?.sum || 0),
-      allocatedSupervisors: Number(totalResult[0]?.count || 0) - Number(unassignedResult[0]?.count || 0),
+      allocatedSupervisors:
+        Number(totalResult[0]?.count || 0) - Number(unassignedResult[0]?.count || 0),
       unassignedAllocations: Number(unassignedResult[0]?.count || 0),
-      dates: distinctDates.map(d => d.date),
+      dates: distinctDates.map((d) => d.date),
     };
 
     logger.debug(MODULE_FN, 'Allocation stats fetched', stats);
@@ -1058,7 +1085,7 @@ const CreateBlockConfigSchema = z.object({
       startFrom: z.number().int().positive(),
 
       timeslot: z.string(),
-    })
+    }),
   ),
 });
 
@@ -1071,7 +1098,7 @@ export async function createBlockConfiguration(data: z.infer<typeof CreateBlockC
     const validated = CreateBlockConfigSchema.parse(data);
     const examCenter = await requireExamCenter();
 
-    const results = await db.transaction(async tx => {
+    const results = await db.transaction(async (tx) => {
       // Delete existing configurations for this date/session
       await tx
         .delete(blockAllocations)
@@ -1079,8 +1106,8 @@ export async function createBlockConfiguration(data: z.infer<typeof CreateBlockC
           and(
             eq(blockAllocations.examCenterId, examCenter.id),
             eq(blockAllocations.date, validated.date),
-            eq(blockAllocations.session, validated.session)
-          )
+            eq(blockAllocations.session, validated.session),
+          ),
         );
 
       const allocations = [];
@@ -1101,14 +1128,14 @@ export async function createBlockConfiguration(data: z.infer<typeof CreateBlockC
             // Fix: Use proper JSONB contains operator
             sql`${students.subCodes} @> ${JSON.stringify([block.subCode])}::jsonb`,
             eq(students.scheme, block.scheme),
-            eq(students.isDeleted, false)
+            eq(students.isDeleted, false),
           ),
           orderBy: [asc(students.seatNumber)],
           limit: block.numberOfCandidates,
           offset: block.startFrom - 1,
         });
 
-        const seatNumbers = studentsList.map(s => s.seatNumber);
+        const seatNumbers = studentsList.map((s) => s.seatNumber);
         const firstSeat = seatNumbers.length ? seatNumbers[0] : null;
         const lastSeat = seatNumbers.length ? seatNumbers[seatNumbers.length - 1] : null;
 
@@ -1179,8 +1206,8 @@ export async function clearAllocationsForSession(date: Date, session: string) {
         and(
           eq(blockAllocations.examCenterId, examCenter.id),
           eq(blockAllocations.date, date),
-          eq(blockAllocations.session, session)
-        )
+          eq(blockAllocations.session, session),
+        ),
       )
       .returning();
 
@@ -1229,6 +1256,12 @@ export async function bulkCreateBlockConfigurations(data: {
 }> {
   const MODULE_FN = `${MODULE}.bulkCreateBlockConfigurations`;
 
+  // Helper to sanitize scheme (remove non-alphanumeric chars)
+  const sanitizeScheme = (scheme: string): string => {
+    if (!scheme) return '';
+    return scheme.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  };
+
   try {
     const examCenter = await requireExamCenter();
 
@@ -1237,7 +1270,7 @@ export async function bulkCreateBlockConfigurations(data: {
       where: and(
         eq(blockAllocations.examCenterId, examCenter.id),
         eq(blockAllocations.date, data.date),
-        eq(blockAllocations.session, data.session)
+        eq(blockAllocations.session, data.session),
       ),
     });
 
@@ -1246,7 +1279,7 @@ export async function bulkCreateBlockConfigurations(data: {
         success: false,
         error: `Existing allocations found for ${data.date.toLocaleDateString()} - ${data.session}. Please clear existing allocations before creating new ones.`,
         existingCount: existingAllocations.length,
-        existingAllocations: existingAllocations.map(a => ({
+        existingAllocations: existingAllocations.map((a) => ({
           blockName: a.location,
           scheme: a.scheme,
           subjectCode: a.subjectCode,
@@ -1256,9 +1289,9 @@ export async function bulkCreateBlockConfigurations(data: {
       };
     }
 
-    const results = await db.transaction(async tx => {
+    const results = await db.transaction(async (tx) => {
       const allocations = [];
-      let currentBlockNo = 0;
+      let currentBlockNo = 1;
       const blockNumberMap: Record<string, number> = {};
 
       for (const alloc of data.allocations) {
@@ -1267,26 +1300,29 @@ export async function bulkCreateBlockConfigurations(data: {
           currentBlockNo++;
         }
 
-        // Get students for this allocation
+        // Sanitize scheme for matching
+        const sanitizedScheme = sanitizeScheme(alloc.scheme);
+
+        // Get students for this allocation - match using sanitized scheme
         const studentsList = await tx.query.students.findMany({
           where: and(
             eq(students.examCenterId, examCenter.id),
-            sql`${students.subCodes} @> ${JSON.stringify([alloc.subCode])}::jsonb`,
-            eq(students.scheme, alloc.scheme),
-            eq(students.isDeleted, false)
+            sql`${students.subCodes}::jsonb @> ${JSON.stringify([alloc.subCode])}::jsonb`,
+            sql`REPLACE(${students.scheme}, '-', '') = ${sanitizedScheme}`,
+            eq(students.isDeleted, false),
           ),
           orderBy: [asc(students.seatNumber)],
           limit: alloc.numberOfCandidates,
           offset: alloc.startFrom - 1,
         });
 
-        const seatNumbers = studentsList.map(s => s.seatNumber);
+        const seatNumbers = studentsList.map((s) => s.seatNumber);
         const firstSeat = seatNumbers.length ? seatNumbers[0] : null;
         const lastSeat = seatNumbers.length ? seatNumbers[seatNumbers.length - 1] : null;
 
         // Get the connectedInstituteId from the first student
-        // All students in this allocation should have the same institute
-        const connectedInstituteId = studentsList.length > 0 ? studentsList[0].connectedInstituteId : null;
+        const connectedInstituteId =
+          studentsList.length > 0 ? studentsList[0].connectedInstituteId : null;
 
         const blockData = await tx.query.blocks.findFirst({
           where: and(eq(blocks.examCenterId, examCenter.id), eq(blocks.location, alloc.blockName)),
@@ -1298,24 +1334,27 @@ export async function bulkCreateBlockConfigurations(data: {
             eq(staff.examCenterId, examCenter.id),
             eq(staff.uid, alloc.supervisor),
             eq(staff.staffType, 'SUPERVISOR'),
-            eq(staff.isDeleted, false)
+            eq(staff.isDeleted, false),
           ),
         });
 
-        // Get subject name
+        // Get subject name - also sanitize scheme for matching
         const subject = await tx.query.subjects.findFirst({
-          where: and(eq(subjects.code, alloc.subCode), eq(subjects.scheme, alloc.scheme)),
+          where: and(
+            eq(subjects.code, alloc.subCode),
+            sql`REPLACE(${subjects.scheme}, '-', '') = ${sanitizedScheme}`,
+          ),
         });
 
         allocations.push({
           examCenterId: examCenter.id,
-          connectedInstituteId: connectedInstituteId, // <-- ADD THIS
+          connectedInstituteId: connectedInstituteId,
           date: data.date,
           session: data.session,
           timeslot: alloc.timeslot,
           blockNo: String(blockNumberMap[alloc.blockName]),
           location: alloc.blockName,
-          scheme: alloc.scheme,
+          scheme: alloc.scheme, // Keep original scheme format for display
           subjectCode: alloc.subCode,
           subjectName: subject?.name || '',
           seatNumbers,
@@ -1372,7 +1411,7 @@ export async function getUniqueDates(): Promise<{
       .where(eq(timetable.examCenterId, examCenterId))
       .orderBy(timetable.date);
 
-    const dates = results.map(r => r.date);
+    const dates = results.map((r) => r.date);
 
     return { success: true, data: dates };
   } catch (error) {
@@ -1404,7 +1443,7 @@ export async function getUniqueSessions(): Promise<{
       .from(timetable)
       .where(eq(timetable.examCenterId, examCenterId));
 
-    const sessions = results.map(r => r.session);
+    const sessions = results.map((r) => r.session);
 
     return { success: true, data: sessions };
   } catch (error) {
@@ -1446,7 +1485,7 @@ export async function createRelieverOrders(data: z.infer<typeof CreateRelieverOr
       return { success: false, error: 'Reliever IDs and UIDs length mismatch' };
     }
 
-    const createdOrders = await db.transaction(async tx => {
+    const createdOrders = await db.transaction(async (tx) => {
       // Delete existing orders - use the schema import, not local variable
       await tx.delete(ordersTable).where(
         // Rename import to ordersTable
@@ -1454,8 +1493,8 @@ export async function createRelieverOrders(data: z.infer<typeof CreateRelieverOr
           eq(ordersTable.examCenterId, examCenter.id),
           eq(ordersTable.date, validated.date),
           eq(ordersTable.session, validated.session),
-          eq(ordersTable.orderType, 'reliever')
-        )
+          eq(ordersTable.orderType, 'reliever'),
+        ),
       );
 
       const newOrders = [];
@@ -1510,7 +1549,7 @@ export async function getSupervisionReportV2(date: Date, session: string) {
       where: and(
         eq(blockAllocations.examCenterId, examCenter.id),
         eq(blockAllocations.date, date),
-        eq(blockAllocations.session, session)
+        eq(blockAllocations.session, session),
       ),
       orderBy: [asc(blockAllocations.blockNo)],
     });
@@ -1543,10 +1582,10 @@ export async function getSupervisionReportV2(date: Date, session: string) {
 
       // Find existing block-supervisor pair
       let record = groupedData[mainKey].supervisionRecords.find(
-        r =>
+        (r) =>
           r.blockNo === allocation.blockNo &&
           r.location === allocation.location &&
-          r.supervisorName === allocation.supervisorName
+          r.supervisorName === allocation.supervisorName,
       );
 
       if (!record) {
@@ -1594,7 +1633,11 @@ export async function getSupervisionReportV2(date: Date, session: string) {
 // Reliever Assignment (Group blocks by reliever)
 // ============================================
 
-export async function getRelieverAssignments(date: Date, session: string, blocksPerReliever: number = 3) {
+export async function getRelieverAssignments(
+  date: Date,
+  session: string,
+  blocksPerReliever: number = 3,
+) {
   const MODULE_FN = `${MODULE}.getRelieverAssignments`;
 
   try {
@@ -1606,7 +1649,7 @@ export async function getRelieverAssignments(date: Date, session: string, blocks
         eq(blockAllocations.examCenterId, examCenter.id),
         eq(blockAllocations.date, date),
         eq(blockAllocations.session, session),
-        sql`${blockAllocations.supervisorUid} IS NOT NULL`
+        sql`${blockAllocations.supervisorUid} IS NOT NULL`,
       ),
       orderBy: [asc(blockAllocations.blockNo)],
     });
@@ -1621,7 +1664,7 @@ export async function getRelieverAssignments(date: Date, session: string, blocks
         eq(ordersTable.examCenterId, examCenter.id),
         eq(ordersTable.date, date),
         eq(ordersTable.session, session),
-        eq(ordersTable.orderType, 'reliever')
+        eq(ordersTable.orderType, 'reliever'),
       ),
       with: {
         staff: true,
@@ -1643,7 +1686,7 @@ export async function getRelieverAssignments(date: Date, session: string, blocks
         return {
           name: staffMember?.name ?? 'Unknown',
           department: staffMember?.department ?? 'Unknown',
-          blocks: assignedBlocks.map(block => ({
+          blocks: assignedBlocks.map((block) => ({
             blockNo: block.blockNo ?? String(index),
             location: block.location ?? 'Unknown',
             supervisor: block.supervisorName,
@@ -1651,7 +1694,7 @@ export async function getRelieverAssignments(date: Date, session: string, blocks
           })),
         };
       })
-      .filter(item => item.blocks.length > 0);
+      .filter((item) => item.blocks.length > 0);
 
     logger.info(MODULE_FN, 'Generated reliever assignments', {
       examCenterId: examCenter.id,
@@ -1698,7 +1741,7 @@ export async function getQuestionPaperReportV2(date: Date, session?: string) {
         where: and(
           eq(qpInventory.examCenterId, examCenter.id),
           eq(qpInventory.date, date),
-          eq(qpInventory.subjectCode, entry.subjectCode)
+          eq(qpInventory.subjectCode, entry.subjectCode),
         ),
       });
 
@@ -1740,7 +1783,7 @@ export async function getQuestionPaperReportV2(date: Date, session?: string) {
 
 export async function getAllocationsByDateSession(
   date: Date,
-  session: string
+  session: string,
 ): Promise<{
   success: boolean;
   data?: any[];
@@ -1760,7 +1803,7 @@ export async function getAllocationsByDateSession(
       where: and(
         eq(blockAllocations.examCenterId, examCenterId),
         eq(blockAllocations.date, date),
-        eq(blockAllocations.session, session)
+        eq(blockAllocations.session, session),
       ),
       with: {
         connectedInstitute: {
@@ -1774,7 +1817,7 @@ export async function getAllocationsByDateSession(
     });
 
     // Map the results to include institute fields at the top level
-    const transformedAllocations = allocations.map(alloc => {
+    const transformedAllocations = allocations.map((alloc) => {
       const { connectedInstitute, ...rest } = alloc;
       return {
         ...rest,
@@ -1785,12 +1828,16 @@ export async function getAllocationsByDateSession(
 
     // Fetch timetable entries for this date/session to get absent numbers
     const timetableEntries = await db.query.timetable.findMany({
-      where: and(eq(timetable.examCenterId, examCenterId), eq(timetable.date, date), eq(timetable.session, session)),
+      where: and(
+        eq(timetable.examCenterId, examCenterId),
+        eq(timetable.date, date),
+        eq(timetable.session, session),
+      ),
     });
 
     // Create a map of subjectCode+scheme to absentNumbers and cpsStudents
     const timetableMap = new Map<string, { absentNumbers: number[]; cpsStudents: number[] }>();
-    timetableEntries.forEach(entry => {
+    timetableEntries.forEach((entry) => {
       const key = `${entry.subjectCode}_${entry.scheme}`;
       timetableMap.set(key, {
         absentNumbers: entry.absentNumbers || [],
@@ -1799,7 +1846,7 @@ export async function getAllocationsByDateSession(
     });
 
     // Merge absent/cps data into allocations
-    const mergedAllocations = transformedAllocations.map(alloc => {
+    const mergedAllocations = transformedAllocations.map((alloc) => {
       const key = `${alloc.subjectCode}_${alloc.scheme}`;
       const timetableData = timetableMap.get(key);
       return {
@@ -1826,7 +1873,7 @@ export async function getAllocationsByDateSession(
 
 export async function checkExistingAllocations(
   date: Date,
-  session: string
+  session: string,
 ): Promise<{
   success: boolean;
   data: {
@@ -1861,7 +1908,7 @@ export async function checkExistingAllocations(
       where: and(
         eq(blockAllocations.examCenterId, examCenterId),
         eq(blockAllocations.date, date),
-        eq(blockAllocations.session, session)
+        eq(blockAllocations.session, session),
       ),
       with: {
         connectedInstitute: {
@@ -1881,7 +1928,7 @@ export async function checkExistingAllocations(
       },
     });
 
-    const mappedAllocations = allocations.map(alloc => ({
+    const mappedAllocations = allocations.map((alloc) => ({
       id: alloc.id,
       blockName: alloc.location,
       scheme: alloc.scheme,

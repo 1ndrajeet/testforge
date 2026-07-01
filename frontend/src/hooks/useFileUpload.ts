@@ -93,7 +93,7 @@ export function useFileUpload(options: FileUploadOptions = {}): UseFileUploadRet
 
       return { valid: true };
     },
-    [mergedOptions]
+    [mergedOptions],
   );
 
   const validateAll = useCallback((): boolean => {
@@ -134,11 +134,11 @@ export function useFileUpload(options: FileUploadOptions = {}): UseFileUploadRet
         setFiles(updatedFiles);
       }
     },
-    [files, validateFile, mergedOptions.maxFiles]
+    [files, validateFile, mergedOptions.maxFiles],
   );
 
   const removeFile = useCallback((index: number) => {
-    setFiles(prev => prev.filter((_, i) => i !== index));
+    setFiles((prev) => prev.filter((_, i) => i !== index));
     setError(null);
   }, []);
 
@@ -169,14 +169,14 @@ export function useFileUpload(options: FileUploadOptions = {}): UseFileUploadRet
           ? formDataBuilder(files)
           : (() => {
               const fd = new FormData();
-              files.forEach(file => fd.append('files', file));
+              files.forEach((file) => fd.append('files', file));
               return fd;
             })();
 
         const xhr = new XMLHttpRequest();
 
         const uploadPromise = new Promise((resolve, reject) => {
-          xhr.upload.addEventListener('progress', e => {
+          xhr.upload.addEventListener('progress', (e) => {
             if (e.lengthComputable) {
               const percentComplete = Math.round((e.loaded * 100) / e.total);
               setUploadProgress(percentComplete);
@@ -223,7 +223,7 @@ export function useFileUpload(options: FileUploadOptions = {}): UseFileUploadRet
         abortControllerRef.current = null;
       }
     },
-    [files, validateAll, clearFiles]
+    [files, validateAll, clearFiles],
   );
 
   const getTotalSize = useCallback((): string => {

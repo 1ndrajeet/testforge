@@ -1,21 +1,23 @@
-# backend/main.py
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+"""main.py module."""
+
 import logging
 
-from config import settings, db
-from routers import upload_router, timetable_router, seatingchart_router
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from config import db, settings
+from routers import api_router
 
 logging.basicConfig(
     level=logging.INFO if not settings.DEBUG else logging.DEBUG,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    docs_url="/docs" if settings.DEBUG else None
+    docs_url="/docs" if settings.DEBUG else None,
 )
 
 # CORS
@@ -27,10 +29,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register routers
-app.include_router(upload_router, prefix="/api")
-app.include_router(seatingchart_router, prefix="/api")
-app.include_router(timetable_router, prefix="/api")
+# Register routers - just one line!
+app.include_router(api_router)
+
 
 # Health check
 @app.get("/health")
@@ -39,8 +40,9 @@ async def health():
         "status": "healthy",
         "service": settings.APP_NAME,
         "version": settings.APP_VERSION,
-        "testing_mode": settings.TESTING
+        "testing_mode": settings.TESTING,
     }
+
 
 @app.get("/")
 async def root():
@@ -48,8 +50,9 @@ async def root():
         "name": settings.APP_NAME,
         "version": settings.APP_VERSION,
         "status": "running",
-        "testing_mode": settings.TESTING
+        "testing_mode": settings.TESTING,
     }
+
 
 # Startup event
 @app.on_event("startup")
@@ -61,6 +64,7 @@ async def startup():
     logger.info(f"Upload directory: {settings.UPLOAD_DIR}")
     db.connect()
     logger.info("Database connected")
+
 
 # Shutdown event
 @app.on_event("shutdown")

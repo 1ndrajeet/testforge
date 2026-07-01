@@ -14,7 +14,12 @@ const MODULE = 'upload-status';
 // Types
 // ============================================
 
-export type UploadFileType = 'timetable' | 'seatingchart' | 'seatingarrangement' | 'emarksheet' | 'inventory';
+export type UploadFileType =
+  | 'timetable'
+  | 'seatingchart'
+  | 'seatingarrangement'
+  | 'emarksheet'
+  | 'inventory';
 
 export interface UploadRecord {
   exists: boolean;
@@ -47,7 +52,7 @@ export interface UploadStatusData {
 
 export async function getUploadRecord(
   fileType: UploadFileType,
-  connectedInstituteId?: string | null
+  connectedInstituteId?: string | null,
 ): Promise<{
   success: boolean;
   data: UploadRecord;
@@ -156,7 +161,7 @@ export async function getUploadRecord(
 
 export async function getUploadStatus(
   fileType: UploadFileType,
-  connectedInstituteId?: string | null
+  connectedInstituteId?: string | null,
 ): Promise<{
   success: boolean;
   data: UploadStatusData;
@@ -245,7 +250,7 @@ export async function getAllUploads(fileType: UploadFileType): Promise<{
       orderBy: (uploads, { desc }) => [desc(uploads.createdAt)],
     });
 
-    const mappedRecords: UploadRecord[] = records.map(record => ({
+    const mappedRecords: UploadRecord[] = records.map((record) => ({
       exists: true,
       status: record.status as 'UPLOADED' | 'PROCESSING' | 'PROCESSED' | 'FAILED',
       fileName: record.originalFilename,
@@ -282,7 +287,7 @@ export async function updateUploadStatus(
     errorMessage?: string;
     processedAt?: Date;
     connectedInstituteId?: string | null;
-  }
+  },
 ): Promise<{
   success: boolean;
   data?: any;
@@ -352,7 +357,7 @@ export async function updateUploadStatus(
 
 export async function deleteUploadRecord(
   fileType: UploadFileType,
-  connectedInstituteId?: string | null
+  connectedInstituteId?: string | null,
 ): Promise<{
   success: boolean;
   data?: any;
@@ -489,7 +494,7 @@ export async function upsertUploadRecord(data: {
 
 export async function getStoredFilename(
   fileType: UploadFileType,
-  connectedInstituteId: string
+  connectedInstituteId: string,
 ): Promise<{
   success: boolean;
   data: { storedFilename: string | null; status: string | null };
@@ -512,7 +517,7 @@ export async function getStoredFilename(
       where: and(
         eq(uploads.examCenterId, examCenterId),
         eq(uploads.fileType, fileType),
-        eq(uploads.connectedInstituteId, connectedInstituteId)
+        eq(uploads.connectedInstituteId, connectedInstituteId),
       ),
       columns: {
         storedFilename: true,

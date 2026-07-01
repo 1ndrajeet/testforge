@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MSBTE Time Table - Summer 2026</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; }
+        .header-bg { background: linear-gradient(135deg, #1a237e 0%, #283593 50%, #1a237e 100%); }
+        .status-badge { background: #e53935; color: white; padding: 2px 12px; border-radius: 20px; font-size: 14px; font-weight: bold; letter-spacing: 1px; }
+        .nav-tab { cursor: pointer; padding: 12px 20px; border-bottom: 3px solid transparent; transition: all 0.2s; font-weight: 500; color: #666; }
+        .nav-tab:hover { border-bottom-color: #1a237e; color: #1a237e; background: #f5f5f5; }
+        .nav-tab.active { border-bottom-color: #1a237e; color: #1a237e; font-weight: 600; background: white; }
+        .panel { display: none; padding: 24px; background: white; }
+        .panel.active { display: block; }
+        .select-box, .input-box { border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px 14px; width: 100%; transition: all 0.2s; background: white; }
+        .select-box:focus, .input-box:focus { border-color: #1a237e; outline: none; box-shadow: 0 0 0 3px rgba(26, 35, 126, 0.1); }
+        .btn-primary { background: #1a237e; color: white; padding: 10px 24px; border-radius: 8px; font-weight: 600; transition: all 0.2s; cursor: pointer; border: none; }
+        .btn-primary:hover { background: #283593; transform: scale(1.02); }
+        .feature-card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border: 1px solid #e8e8e8; transition: all 0.2s; cursor: pointer; }
+        .feature-card:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+        .icon-circle { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; background: #e8eaf6; color: #1a237e; }
+        .timetable-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .timetable-table th { background: #1a237e; color: white; padding: 10px 12px; text-align: left; font-weight: 600; }
+        .timetable-table td { padding: 8px 12px; border-bottom: 1px solid #e0e0e0; }
+        .timetable-table tr:hover { background: #f5f5f5; }
+        .session-morning { background: #e3f2fd; border-left: 4px solid #1565c0; }
+        .session-afternoon { background: #fff3e0; border-left: 4px solid #ff9800; }
+        .info-box { background: #e3f2fd; border-left: 4px solid #1a237e; }
+        .loading { display: inline-block; width: 20px; height: 20px; border: 3px solid #f3f3f3; border-top: 3px solid #1a237e; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .result-card { max-height: 600px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 8px; }
+        .result-card::-webkit-scrollbar { width: 8px; }
+        .result-card::-webkit-scrollbar-thumb { background: #1a237e; border-radius: 4px; }
+        .result-card::-webkit-scrollbar-track { background: #f0f0f0; }
+        .timetable-header { background: #f8f9fa; padding: 12px 16px; border-radius: 8px 8px 0 0; border-bottom: 2px solid #1a237e; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .timetable-title { font-size: 16px; font-weight: 700; color: #1a237e; }
+        .session-header { padding: 10px 16px; border-radius: 4px; margin: 12px 0 8px 0; font-weight: 600; font-size: 14px; }
+        .session-header.morning { background: #e3f2fd; border-left: 4px solid #1565c0; color: #0d47a1; }
+        .session-header.afternoon { background: #fff3e0; border-left: 4px solid #ff9800; color: #e65100; }
+        .legend { display: flex; justify-content: center; gap: 20px; margin: 10px 0; font-size: 12px; font-weight: 600; }
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .legend-color { width: 15px; height: 15px; border-radius: 2px; border: 1px solid #ddd; }
+        .legend-color.morning { background: #1565c0; }
+        .legend-color.afternoon { background: #ffc266; }
+    </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header-bg text-white shadow-lg">
+    <div class="max-w-7xl mx-auto px-4 py-4">
+        <div class="flex items-center gap-4">
+            <div class="bg-white rounded-lg p-2 w-16 h-16 flex items-center justify-center flex-shrink-0">
+                <svg class="w-12 h-12" viewBox="0 0 100 100" fill="#1a237e">
+                    <circle cx="50" cy="50" r="45" stroke="#1a237e" stroke-width="2" fill="white"/>
+                    <text x="50" y="58" text-anchor="middle" font-size="28" font-weight="bold" fill="#1a237e">MSBTE</text>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-xl md:text-2xl font-bold">Maharashtra State Board of Technical Education, Mumbai</h1>
+                <p class="text-sm opacity-90">Government Polytechnic Building, 49, Kherwadi, Bandra (E), Mumbai 400 051</p>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- TITLE -->
+<div class="max-w-7xl mx-auto px-4 py-6">
+    <div class="bg-white rounded-xl shadow-md p-6">
+        <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+            <h2 class="text-2xl font-bold text-gray-800">Time Table for MSBTE Summer 2026 Theory Examination</h2>
+            <span class="status-badge">FINAL</span>
+        </div>
+        <p class="text-sm text-gray-600 mt-2">FINAL TIMETABLE - Summer 2026</p>
+        <p class="text-sm text-gray-600">For Diploma in Engineering, Pharmacy and Government Approved Short Term (Non-AICTE) Courses</p>
+      
+    </div>
+</div>
+
+<!-- NAVIGATION -->
+<div class="max-w-7xl mx-auto px-4">
+    <div class="bg-white rounded-xl shadow-md overflow-hidden">
+        <div class="flex flex-wrap border-b" id="navTabs">
+            <div class="nav-tab active" data-panel="institute">🏛️ Institute-wise</div>
+            <div class="nav-tab" data-panel="course">📚 Course-wise</div>
+            <div class="nav-tab" data-panel="day">📅 Day-wise</div>
+            <div class="nav-tab" data-panel="paper">💻 Paper Code-wise</div>
+            <div class="nav-tab" data-panel="center">🏢 Exam Center-wise</div>
+        </div>
+
+        <!-- Institute Panel -->
+        <div class="panel active" id="panel-institute">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Institute-wise Timetable</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Select Institute</label>
+                    <select class="select-box" id="instituteSelect"><option value="">-- Select Institute --</option></select>
+                </div>
+                <div class="flex items-end"><button class="btn-primary w-full" onclick="viewInstitute()">View Timetable</button></div>
+            </div>
+            <div id="instituteResult" class="mt-4"></div>
+        </div>
+
+        <!-- Course Panel -->
+        <div class="panel" id="panel-course">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Course-wise Timetable</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Course Code</label>
+                    <select class="select-box" id="courseSelect"><option value="">-- Select Course --</option></select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Year/Semester</label>
+                    <select class="select-box" id="semesterSelect">
+                        <option value="">-- Select Semester --</option>
+                        <option value="1">Semester 1</option><option value="2">Semester 2</option>
+                        <option value="3">Semester 3</option><option value="4">Semester 4</option>
+                        <option value="5">Semester 5</option><option value="6">Semester 6</option>
+                    </select>
+                </div>
+                <div class="flex items-end"><button class="btn-primary w-full" onclick="viewCourse()">View Timetable</button></div>
+            </div>
+            <div id="courseResult" class="mt-4"></div>
+        </div>
+
+        <!-- Day Panel -->
+        <div class="panel" id="panel-day">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Day-wise Timetable</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Day</label>
+                    <select class="select-box" id="daySelect"><option value="">-- Select Day --</option></select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Session</label>
+                    <select class="select-box" id="sessionSelect">
+                        <option value="">-- All --</option>
+                        <option value="M">Morning</option>
+                        <option value="A">Afternoon</option>
+                    </select>
+                </div>
+                <div class="flex items-end"><button class="btn-primary w-full" onclick="viewDay()">View Timetable</button></div>
+            </div>
+            <div id="dayResult" class="mt-4"></div>
+        </div>
+
+        <!-- Paper Panel -->
+        <div class="panel" id="panel-paper">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Paper Code-wise Timetable</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Paper Code</label>
+                    <input type="text" class="input-box" id="paperInput" placeholder="Enter paper code (e.g., 312301)" />
+                </div>
+                <div class="flex items-end"><button class="btn-primary w-full" onclick="viewPaper()">View Timetable</button></div>
+            </div>
+            <div id="paperResult" class="mt-4"></div>
+        </div>
+
+        <!-- Center Panel -->
+        <div class="panel" id="panel-center">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Exam Center-wise Timetable</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Exam Center</label>
+                    <select class="select-box" id="centerSelect"><option value="">-- Select Center --</option></select>
+                </div>
+                <div class="flex items-end"><button class="btn-primary w-full" onclick="viewCenter()">View Timetable</button></div>
+            </div>
+            <div id="centerResult" class="mt-4"></div>
+        </div>
+    </div>
+</div>
+
+
+<script>
+let data = { timetable: [], institutes: {}, courses: {}, paperCodes: {}, examCenters: [] };
+
+async function loadData() {
+    try {
+        const [timetableRes, instituteRes, courseRes, paperRes, centerRes] = await Promise.all([
+            fetch('timetable.json'),
+            fetch('institute_map.json'),
+            fetch('course_map.json'),
+            fetch('papercode_mapping_sorted.json'),
+            fetch('exam_centers_array.json')
+        ]);
+        data.timetable = await timetableRes.json();
+        data.institutes = await instituteRes.json();
+        data.courses = await courseRes.json();
+        data.paperCodes = await paperRes.json();
+        data.examCenters = await centerRes.json();
+        populateAll();
+        console.log('✅ Loaded:', data.timetable.length, 'entries');
+    } catch(e) { console.error('❌ Error loading data:', e); alert('Error loading JSON files. Make sure they are in the same directory.'); }
+}
+
+function populateAll() {
+    // Institutes
+    const instSelect = document.getElementById('instituteSelect');
+    Object.entries(data.institutes).sort((a,b) => +a[0] - +b[0]).forEach(([id, name]) => {
+        instSelect.appendChild(Object.assign(document.createElement('option'), { value: id, text: `${id} - ${name}` }));
+    });
+    // Courses
+    const courseSelect = document.getElementById('courseSelect');
+    Object.entries(data.courses).sort((a,b) => a[0].localeCompare(b[0])).forEach(([code, name]) => {
+        if (code !== '--' && code) courseSelect.appendChild(Object.assign(document.createElement('option'), { value: code, text: `${code} - ${name}` }));
+    });
+    // Centers
+    const centerSelect = document.getElementById('centerSelect');
+    data.examCenters.sort((a,b) => a - b).forEach(id => {
+        const name = data.institutes[id] || `Center ${id}`;
+        centerSelect.appendChild(Object.assign(document.createElement('option'), { value: id, text: `${id} - ${name}` }));
+    });
+    // Days
+    const daySelect = document.getElementById('daySelect');
+    const days = new Set(data.timetable.map(t => t.exam_dayw).filter(Boolean));
+    [...days].sort((a,b) => a - b).forEach(d => {
+        daySelect.appendChild(Object.assign(document.createElement('option'), { value: d, text: `Day ${d}` }));
+    });
+    // Paper codes datalist
+    const input = document.getElementById('paperInput');
+    const dl = document.createElement('datalist');
+    dl.id = 'paperCodesList';
+    const codes = new Set();
+    Object.values(data.paperCodes).forEach(arr => arr.forEach(c => codes.add(c)));
+    [...codes].sort().forEach(c => dl.appendChild(Object.assign(document.createElement('option'), { value: c })));
+    input.setAttribute('list', 'paperCodesList');
+    document.body.appendChild(dl);
+}
+
+function switchTab(tab) {
+    document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(el => el.classList.remove('active'));
+    document.querySelector(`.nav-tab[data-panel="${tab}"]`).classList.add('active');
+    document.getElementById(`panel-${tab}`).classList.add('active');
+}
+document.querySelectorAll('.nav-tab').forEach(el => {
+    el.addEventListener('click', () => switchTab(el.dataset.panel));
+});
+
+function viewInstitute() {
+    const id = document.getElementById('instituteSelect').value;
+    if (!id) return alert('Select an institute');
+    const result = document.getElementById('instituteResult');
+    result.innerHTML = '<div class="loading mx-auto my-8"></div>';
+    const entries = data.timetable.filter(t => (data.paperCodes[id] || []).includes(t.paper_code));
+    displayTimetable(result, entries, `Institute: ${data.institutes[id] || id}`);
+}
+
+function viewCourse() {
+    const code = document.getElementById('courseSelect').value;
+    const sem = document.getElementById('semesterSelect').value;
+    if (!code || !sem) return alert('Select course and semester');
+    const result = document.getElementById('courseResult');
+    result.innerHTML = '<div class="loading mx-auto my-8"></div>';
+    const entries = data.timetable.filter(t => {
+        if (!t.scheme) return false;
+        return t.scheme.split(',').some(s => {
+            const m = s.match(/^([A-Z]+)(\d+)/);
+            return m && m[1] === code && m[2] === sem;
+        });
+    });
+    displayTimetable(result, entries, `Course: ${code} - Semester ${sem}`);
+}
+
+function viewDay() {
+    const day = document.getElementById('daySelect').value;
+    const session = document.getElementById('sessionSelect').value;
+    if (!day) return alert('Select a day');
+    const result = document.getElementById('dayResult');
+    result.innerHTML = '<div class="loading mx-auto my-8"></div>';
+    let entries = data.timetable.filter(t => t.exam_dayw == day);
+    if (session) entries = entries.filter(t => t.daysession === session);
+    displayTimetable(result, entries, `Day ${day}${session ? ' - ' + (session === 'M' ? 'Morning' : 'Afternoon') : ''}`);
+}
+
+function viewPaper() {
+    const code = document.getElementById('paperInput').value.trim();
+    if (!code) return alert('Enter a paper code');
+    const result = document.getElementById('paperResult');
+    result.innerHTML = '<div class="loading mx-auto my-8"></div>';
+    displayTimetable(result, data.timetable.filter(t => t.paper_code === code), `Paper Code: ${code}`);
+}
+
+function viewCenter() {
+    const id = document.getElementById('centerSelect').value;
+    if (!id) return alert('Select a center');
+    const result = document.getElementById('centerResult');
+    result.innerHTML = '<div class="loading mx-auto my-8"></div>';
+    const entries = data.timetable.filter(t => (data.paperCodes[id] || []).includes(t.paper_code));
+    displayTimetable(result, entries, `Exam Center: ${id} - ${data.institutes[id] || ''}`);
+}
+
+function displayTimetable(container, entries, title) {
+    if (!entries.length) {
+        container.innerHTML = '<div class="bg-yellow-50 p-4 rounded text-yellow-800">No entries found.</div>';
+        return;
+    }
+    entries.sort((a,b) => a.exam_dayw - b.exam_dayw || (a.daysession === 'M' ? -1 : 1) || (a.subject_no||0) - (b.subject_no||0));
+    let html = `
+        <div class="timetable-header">
+            <span class="timetable-title">${title}</span>
+            <span class="text-sm text-gray-600">${entries.length} entries</span>
+        </div>
+        <div class="legend">
+            <div class="legend-item"><div class="legend-color morning"></div><span>🌅 Morning Session</span></div>
+            <div class="legend-item"><div class="legend-color afternoon"></div><span>🌇 Afternoon Session</span></div>
+        </div>
+        <div class="result-card rounded-b-lg">
+            <table class="timetable-table">
+                <thead><tr><th>#</th><th>Day</th><th>Date</th><th>Session</th><th>Time</th><th>Paper Code</th><th>Subject Name</th><th>Scheme</th></tr></thead>
+                <tbody>
+    `;
+    entries.forEach((t, i) => {
+        const cls = t.daysession === 'M' ? 'session-morning' : 'session-afternoon';
+        const sess = t.daysession === 'M' ? '🌅 Morning' : '🌇 Afternoon';
+        html += `<tr class="${cls}">
+            <td>${i+1}</td><td>${t.exam_dayw||''}</td><td>${t.date||''}</td>
+            <td>${sess}</td><td>${t.paper_time||''}</td>
+            <td><strong>${t.paper_code||''}</strong></td>
+            <td>${t.subject_name||''}</td>
+            <td class="text-xs">${t.scheme||''}</td>
+        </tr>`;
+    });
+    html += `</tbody></table></div>`;
+    container.innerHTML = html;
+}
+
+document.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+        const active = document.querySelector('.panel.active');
+        if (active) {
+            const id = active.id.replace('panel-', '');
+            const funcs = { institute: viewInstitute, course: viewCourse, day: viewDay, paper: viewPaper, center: viewCenter };
+            if (funcs[id]) funcs[id]();
+        }
+    }
+});
+
+document.addEventListener('DOMContentLoaded', loadData);
+console.log('🚀 MSBTE Timetable Viewer loaded!');
+</script>
+</body>
+</html>

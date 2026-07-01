@@ -1,8 +1,9 @@
 // modules/formats/format19.tsx
 'use client';
 
-import ReportLayout from '@/components/layout/msbte-report-layout';
 import { useUserInfo } from '@/hooks/useUserInfo';
+
+import ReportLayout from '@/components/layout/msbte-report-layout';
 
 // ============================================================
 // Format 19 Content Component - ON THE SPOT INVENTORY DEMAND
@@ -26,8 +27,8 @@ function Format19Content() {
           <span className="font-mono font-semibold">desk42@msbte.com</span>
         </p>
         <p>
-          Contact / Send "sms" to the effect that "on the spot inventory demand is mailed from DC: ________" to mobile
-          number of any one of Deputy Secretary D-42/Asst Secretary D-42
+          Contact / Send "sms" to the effect that "on the spot inventory demand is mailed from DC:
+          ________" to mobile number of any one of Deputy Secretary D-42/Asst Secretary D-42
         </p>
       </div>
 
@@ -58,15 +59,26 @@ function Format19Content() {
             <tr>
               <th className="w-[6%] border border-black p-1.5 text-center">Sr.No.</th>
               <th className="w-[12%] border border-black p-1.5 text-center">EC</th>
-              <th className="w-[15%] border border-black p-1.5 text-center">Q.P. Code needed urgently</th>
-              <th className="w-[18%] border border-black p-1.5 text-center">Additional number of Packets needed</th>
-              <th className="w-[49%] border border-black p-1.5 text-center">Reason for additional demand</th>
+              <th className="w-[15%] border border-black p-1.5 text-center">
+                Q.P. Code needed urgently
+              </th>
+              <th className="w-[18%] border border-black p-1.5 text-center">
+                Additional number of Packets needed
+              </th>
+              <th className="w-[49%] border border-black p-1.5 text-center">
+                Reason for additional demand
+              </th>
             </tr>
           </thead>
           <tbody>
             {Array.from({ length: 8 }).map((_, index) => (
-              <tr key={index} className="h-10">
-                <td className="border border-black p-1 text-center align-middle font-medium">{index + 1}</td>
+              <tr
+                key={index}
+                className="h-10"
+              >
+                <td className="border border-black p-1 text-center align-middle font-medium">
+                  {index + 1}
+                </td>
                 <td className="border border-black p-1 text-center">&nbsp;</td>
                 <td className="border border-black p-1 text-center">&nbsp;</td>
                 <td className="border border-black p-1 text-center">&nbsp;</td>
@@ -115,7 +127,10 @@ function Format19Content() {
       </div>
 
       {/* Print CSS for clean borders */}
-      <style jsx global>{`
+      <style
+        jsx
+        global
+      >{`
         @media print {
           table {
             page-break-inside: avoid;

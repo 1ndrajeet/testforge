@@ -7,9 +7,16 @@ import { format } from 'date-fns';
 import { ChevronLeft, Loader2, RefreshCw, UserCog } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { MSBTEContextBar } from '@/components/layout/msbte-context-bar';
-import { PageEmpty, PageHeader } from '@/components/layout/page-layout';
-import { SessionSelector } from '@/components/shared/date-selector';
+import {
+  getAllocations,
+  getUniqueDates,
+  getUniqueSessions,
+  updateAllocation,
+} from '@/lib/actions/allocation';
+import { getStaff } from '@/lib/actions/staff';
+
+import { useUserInfo } from '@/hooks/useUserInfo';
+
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,12 +28,27 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useUserInfo } from '@/hooks/useUserInfo';
-import { getAllocations, getUniqueDates, getUniqueSessions, updateAllocation } from '@/lib/actions/allocation';
-import { getStaff } from '@/lib/actions/staff';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+
+import { MSBTEContextBar } from '@/components/layout/msbte-context-bar';
+import { PageEmpty, PageHeader } from '@/components/layout/page-layout';
+
+import { SessionSelector } from '@/components/shared/date-selector';
 
 // Fix: Make session more flexible to match database response
 interface Allocation {
@@ -147,10 +169,13 @@ export default function ChangeSupervisorPage() {
         setLoading(false);
       }
     },
-    [groupAllocationsByBlock]
+    [groupAllocationsByBlock],
   );
 
-  const handleSessionSelect = async (session: { date: string; session: 'Morning' | 'Afternoon' | 'All' }) => {
+  const handleSessionSelect = async (session: {
+    date: string;
+    session: 'Morning' | 'Afternoon' | 'All';
+  }) => {
     setSelectedDate(session.date);
     setSelectedSession(session.session);
     await loadAllocations(session.date, session.session);
@@ -164,7 +189,7 @@ export default function ChangeSupervisorPage() {
     }
 
     setSubmitting(true);
-    const sup = supervisors.find(s => s.uid === selectedSupervisor);
+    const sup = supervisors.find((s) => s.uid === selectedSupervisor);
 
     try {
       let successCount = 0;
@@ -189,7 +214,7 @@ export default function ChangeSupervisorPage() {
 
       if (successCount > 0) {
         toast.success(
-          `Updated ${successCount} subject(s) in Block ${selectedBlock.blockNo}${failCount > 0 ? ` (${failCount} failed)` : ''}`
+          `Updated ${successCount} subject(s) in Block ${selectedBlock.blockNo}${failCount > 0 ? ` (${failCount} failed)` : ''}`,
         );
 
         await loadAllocations(selectedDate, selectedSession);
@@ -213,7 +238,11 @@ export default function ChangeSupervisorPage() {
   if (step === 'select') {
     return (
       <div className="mx-auto max-w-[1400px] space-y-5 px-6 py-5">
-        <PageHeader title="Change Supervisor" description="Select examination date and session" icon={UserCog} />
+        <PageHeader
+          title="Change Supervisor"
+          description="Select examination date and session"
+          icon={UserCog}
+        />
         <SessionSelector
           availableDates={dates}
           availableSessions={sessions}
@@ -234,14 +263,22 @@ export default function ChangeSupervisorPage() {
         description={`${format(new Date(selectedDate), 'dd MMM yyyy')} · ${selectedSession}`}
         icon={UserCog}
         actions={
-          <Button variant="ghost" size="sm" onClick={() => setStep('select')} className="gap-1.5">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setStep('select')}
+            className="gap-1.5"
+          >
             <ChevronLeft className="h-4 w-4" />
             Change Session
           </Button>
         }
       />
 
-      <MSBTEContextBar season={examCenter?.season as 'Summer' | 'Winter'} year={examCenter?.examYear!} />
+      <MSBTEContextBar
+        season={examCenter?.season as 'Summer' | 'Winter'}
+        year={examCenter?.examYear!}
+      />
 
       <div className="mb-3 flex items-center justify-between">
         <p className="text-xs text-neutral-500">
@@ -266,25 +303,42 @@ export default function ChangeSupervisorPage() {
           <Skeleton className="h-12 w-full" />
         </div>
       ) : groupedBlocks.length === 0 ? (
-        <PageEmpty title="No allocations found" description="No blocks allocated for this date and session." />
+        <PageEmpty
+          title="No allocations found"
+          description="No blocks allocated for this date and session."
+        />
       ) : (
         <div className="overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-800">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader className="bg-neutral-50 dark:bg-neutral-900">
                 <TableRow>
-                  <TableHead className="w-20 text-xs font-medium tracking-wide uppercase">Block No</TableHead>
-                  <TableHead className="w-28 text-xs font-medium tracking-wide uppercase">Location</TableHead>
-                  <TableHead className="text-xs font-medium tracking-wide uppercase">Subjects</TableHead>
-                  <TableHead className="w-48 text-xs font-medium tracking-wide uppercase">Current Supervisor</TableHead>
+                  <TableHead className="w-20 text-xs font-medium tracking-wide uppercase">
+                    Block No
+                  </TableHead>
+                  <TableHead className="w-28 text-xs font-medium tracking-wide uppercase">
+                    Location
+                  </TableHead>
+                  <TableHead className="text-xs font-medium tracking-wide uppercase">
+                    Subjects
+                  </TableHead>
+                  <TableHead className="w-48 text-xs font-medium tracking-wide uppercase">
+                    Current Supervisor
+                  </TableHead>
                   <TableHead className="w-24 text-xs font-medium tracking-wide uppercase"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {groupedBlocks.map((block, idx) => (
-                  <TableRow key={block.blockNo} className="hover:bg-neutral-50 dark:hover:bg-neutral-900">
+                  <TableRow
+                    key={block.blockNo}
+                    className="hover:bg-neutral-50 dark:hover:bg-neutral-900"
+                  >
                     <TableCell className="px-4 py-3 text-center font-mono text-sm">
-                      <Badge variant="secondary" className="text-xs">
+                      <Badge
+                        variant="secondary"
+                        className="text-xs"
+                      >
                         {idx + 1}
                       </Badge>
                     </TableCell>
@@ -292,13 +346,18 @@ export default function ChangeSupervisorPage() {
                     <TableCell className="px-4 py-3">
                       <div className="space-y-1">
                         {block.subjects.map((sub, subIdx) => (
-                          <div key={subIdx} className="text-sm">
+                          <div
+                            key={subIdx}
+                            className="text-sm"
+                          >
                             <code className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-xs dark:bg-neutral-800">
                               {sub.subjectCode}
                             </code>
                             <span className="mx-1">-</span>
                             <span>{sub.subjectName}</span>
-                            <span className="text-muted-foreground ml-2 text-xs">({sub.assignedCount} students)</span>
+                            <span className="text-muted-foreground ml-2 text-xs">
+                              ({sub.assignedCount} students)
+                            </span>
                           </div>
                         ))}
                       </div>
@@ -338,7 +397,10 @@ export default function ChangeSupervisorPage() {
         </div>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Change Supervisor</DialogTitle>
@@ -352,24 +414,33 @@ export default function ChangeSupervisorPage() {
               <p className="text-muted-foreground text-xs">Current Supervisor</p>
               <p className="mt-1 font-medium">{selectedBlock?.supervisorName || 'Not Assigned'}</p>
               <p className="text-muted-foreground mt-2 text-xs">
-                This will change supervisor for ALL {selectedBlock?.subjects.length} subject(s) in this block
+                This will change supervisor for ALL {selectedBlock?.subjects.length} subject(s) in
+                this block
               </p>
             </div>
 
             <div className="space-y-2">
               <Label>New Supervisor</Label>
-              <Select value={selectedSupervisor} onValueChange={setSelectedSupervisor}>
+              <Select
+                value={selectedSupervisor}
+                onValueChange={setSelectedSupervisor}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a supervisor" />
                 </SelectTrigger>
                 <SelectContent>
-                  {supervisors.map(s => (
-                    <SelectItem key={s.uid} value={s.uid}>
+                  {supervisors.map((s) => (
+                    <SelectItem
+                      key={s.uid}
+                      value={s.uid}
+                    >
                       {s.name} ({s.uid}) - {s.department}
                     </SelectItem>
                   ))}
                   {supervisors.length === 0 && (
-                    <div className="text-muted-foreground px-2 py-4 text-center text-sm">No supervisors available</div>
+                    <div className="text-muted-foreground px-2 py-4 text-center text-sm">
+                      No supervisors available
+                    </div>
                   )}
                 </SelectContent>
               </Select>
@@ -377,10 +448,16 @@ export default function ChangeSupervisorPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setDialogOpen(false)}
+            >
               Cancel
             </Button>
-            <Button onClick={handleChangeSupervisor} disabled={submitting || !selectedSupervisor}>
+            <Button
+              onClick={handleChangeSupervisor}
+              disabled={submitting || !selectedSupervisor}
+            >
               {submitting && (
                 <span className="mr-2 h-4 w-4 animate-spin">
                   <Loader2 />

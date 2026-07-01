@@ -1,6 +1,6 @@
-@import 'tailwindcss' source(none);
-@source '../src';
-@import 'tw-animate-css';
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -47,9 +47,9 @@
   --color-hairline: var(--hairline);
   --color-hairline-emerald: var(--hairline-emerald);
 
-  --font-display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
-  --font-sans: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
   --shadow-tile: 0 1px 0 0 var(--hairline), 0 1px 2px 0 oklch(0 0 0 / 4%);
   --shadow-lift: 0 1px 0 0 var(--hairline), 0 12px 32px -16px oklch(0 0 0 / 14%);
@@ -163,7 +163,7 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
-    font-feature-settings: 'ss01', 'cv11';
+    font-feature-settings: "ss01", "cv11";
   }
 
   h1,

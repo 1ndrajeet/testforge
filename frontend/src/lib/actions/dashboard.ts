@@ -1,9 +1,9 @@
 // lib/actions/dashboard.ts
 'use server';
 
+import departmentsMap from '@/config/course_codes.json';
 import { and, eq, sql } from 'drizzle-orm';
 
-import departmentsMap from '@/config/course_codes.json';
 import { db } from '@/lib/db';
 import {
   blockAllocations,
@@ -151,7 +151,11 @@ export async function getExamOfficerDashboard(): Promise<{
     // ============================================
     // 1. Get Exam Center Details
     // ============================================
-    const centerDetails = await db.select().from(examCenters).where(eq(examCenters.id, examCenterId)).limit(1);
+    const centerDetails = await db
+      .select()
+      .from(examCenters)
+      .where(eq(examCenters.id, examCenterId))
+      .limit(1);
 
     if (!centerDetails || centerDetails.length === 0) {
       return { success: false, error: 'Exam center not found' };
@@ -252,7 +256,9 @@ export async function getExamOfficerDashboard(): Promise<{
       location: block.location,
       strength: block.strength || 40,
       totalAllocated: Number(block.allocated) || 0,
-      utilization: block.strength ? Math.min(Math.round((Number(block.allocated) / block.strength) * 100), 100) : 0,
+      utilization: block.strength
+        ? Math.min(Math.round((Number(block.allocated) / block.strength) * 100), 100)
+        : 0,
     }));
 
     // ============================================
@@ -271,6 +277,7 @@ export async function getExamOfficerDashboard(): Promise<{
             uniqueSchemes: 0,
             totalStudents: 0,
             totalAbsent: 0,
+            students: 0,
             totalCps: 0,
             dateRange: null,
           };
@@ -292,13 +299,14 @@ export async function getExamOfficerDashboard(): Promise<{
 
     const totalExaminees = Number(studentCounts[0]?.totalExaminees) || 0;
     const totalStudents = Number(studentCounts[0]?.uniqueStudents) || 0;
-    const totalPapers = statsData.totalStudents;
+    const totalPapers = statsData.students || 0;
     const totalAbsent = statsData.totalAbsent;
 
     // ============================================
     // 6. Attendance Rate
     // ============================================
-    const attendanceRate = totalExaminees > 0 ? Math.round(((totalExaminees - totalAbsent) / totalExaminees) * 100) : 0;
+    const attendanceRate =
+      totalExaminees > 0 ? Math.round(((totalExaminees - totalAbsent) / totalExaminees) * 100) : 0;
 
     // ============================================
     // 7. Exam Days
@@ -306,7 +314,7 @@ export async function getExamOfficerDashboard(): Promise<{
     let totalExamDays = 0;
     if (statsData.dateRange) {
       const diffTime = Math.abs(
-        new Date(statsData.dateRange.max).getTime() - new Date(statsData.dateRange.min).getTime()
+        new Date(statsData.dateRange.max).getTime() - new Date(statsData.dateRange.min).getTime(),
       );
       totalExamDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
     }
@@ -403,7 +411,8 @@ export async function getExamOfficerDashboard(): Promise<{
     }));
 
     const highest = formattedAttendance.length > 0 ? formattedAttendance[0] : null;
-    const lowest = formattedAttendance.length > 0 ? formattedAttendance[formattedAttendance.length - 1] : null;
+    const lowest =
+      formattedAttendance.length > 0 ? formattedAttendance[formattedAttendance.length - 1] : null;
 
     // ============================================
     // 11. Block Allocations Count
@@ -446,7 +455,9 @@ export async function getExamOfficerDashboard(): Promise<{
       pending: Math.max(0, (Number(qpData[0]?.expected) || 0) - (Number(qpData[0]?.received) || 0)),
       completion:
         (Number(qpData[0]?.expected) || 1) > 0
-          ? Math.round(((Number(qpData[0]?.received) || 0) / (Number(qpData[0]?.expected) || 1)) * 100)
+          ? Math.round(
+              ((Number(qpData[0]?.received) || 0) / (Number(qpData[0]?.expected) || 1)) * 100,
+            )
           : 0,
     };
 
@@ -468,7 +479,7 @@ export async function getExamOfficerDashboard(): Promise<{
                 ${blockAllocations.date} = ${timetable.date} AND 
                 ${blockAllocations.session} = ${timetable.session} AND
                 ${blockAllocations.examCenterId} = ${timetable.examCenterId}
-            `
+            `,
       )
       .where(eq(timetable.examCenterId, examCenterId))
       .groupBy(timetable.date, timetable.session)
@@ -506,8 +517,8 @@ export async function getExamOfficerDashboard(): Promise<{
       .where(
         and(
           eq(timetable.examCenterId, examCenterId),
-          sql`${timetable.cpsStudents} IS NOT NULL AND ${timetable.cpsStudents} != '[]'::jsonb`
-        )
+          sql`${timetable.cpsStudents} IS NOT NULL AND ${timetable.cpsStudents} != '[]'::jsonb`,
+        ),
       );
 
     const cpsByDate = cpsByDateData
@@ -535,7 +546,12 @@ export async function getExamOfficerDashboard(): Promise<{
         count: sql<number>`count(*)`,
       })
       .from(timetable)
-      .where(and(eq(timetable.examCenterId, examCenterId), sql`date(${timetable.date}) = date(${todayStr})`));
+      .where(
+        and(
+          eq(timetable.examCenterId, examCenterId),
+          sql`date(${timetable.date}) = date(${todayStr})`,
+        ),
+      );
 
     const currentHour = today.getHours();
     const currentSession = currentHour < 12 ? 'Morning' : 'Afternoon';

@@ -1,12 +1,16 @@
 import type { Metadata } from 'next';
+
 import { Geist, Geist_Mono, Montserrat } from 'next/font/google';
 
 import { Toaster } from 'sonner';
 
-import { AuthProvider } from '@/components/auth/AuthProvider';
-import { ThemeProvider } from '@/components/layout/theme-provider';
-import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+
+import { TooltipProvider } from '@/components/ui/tooltip';
+
+import { ThemeProvider } from '@/components/layout/theme-provider';
+
+import { AuthProvider } from '@/components/auth/AuthProvider';
 
 import './globals.css';
 
@@ -38,12 +42,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         geist.variable,
         geistMono.variable,
         montserrat.variable,
-        'scroll-smooth font-sans'
+        'scroll-smooth font-sans',
       )}
     >
       <body className="flex min-h-full flex-col">
         <AuthProvider>
-          <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="light"
+            enableSystem
+            disableTransitionOnChange
+          >
             <Toaster closeButton />
             <TooltipProvider>{children}</TooltipProvider>
           </ThemeProvider>

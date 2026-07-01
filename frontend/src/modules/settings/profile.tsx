@@ -23,7 +23,16 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { PageHeader } from '@/components/layout/page-layout';
+import { getCurrentSubscription } from '@/lib/actions/subscription';
+import {
+  getUserBasicInfo,
+  removeUserAvatar,
+  updateUserProfile,
+  uploadUserAvatar,
+} from '@/lib/actions/user';
+import { authClient } from '@/lib/auth-client';
+import { cn } from '@/lib/utils';
+
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -42,10 +51,8 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { getCurrentSubscription } from '@/lib/actions/subscription';
-import { getUserBasicInfo, removeUserAvatar, updateUserProfile, uploadUserAvatar } from '@/lib/actions/user';
-import { authClient } from '@/lib/auth-client';
-import { cn } from '@/lib/utils';
+
+import { PageHeader } from '@/components/layout/page-layout';
 
 // ============================================================================
 // Types
@@ -75,7 +82,7 @@ interface SubscriptionInfo {
 function getInitials(name: string): string {
   return name
     .split(' ')
-    .map(n => n[0])
+    .map((n) => n[0])
     .join('')
     .toUpperCase()
     .slice(0, 2);
@@ -102,13 +109,13 @@ function formatDateShort(date: Date | string): string {
 function getTierColor(tier: string): string {
   switch (tier) {
     case 'enterprise':
-      return 'bg-gradient-to-r from-amber-500 to-amber-600 text-white';
+      return 'from-amber-500 to-amber-600';
     case 'premium':
-      return 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white';
+      return 'from-emerald-500 to-emerald-600';
     case 'trial':
-      return 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white';
+      return 'from-blue-500 to-blue-600';
     default:
-      return 'bg-neutral-500 text-white';
+      return 'from-neutral-500 to-neutral-600';
   }
 }
 
@@ -160,8 +167,10 @@ function SubscriptionCard({ subscription, isLoading }: SubscriptionCardProps) {
               <CreditCard className="h-6 w-6 text-neutral-400" />
             </div>
             <div>
-              <p className="font-medium text-neutral-900 dark:text-neutral-50">No Active Subscription</p>
-              <p className="text-sm text-neutral-500">Please contact support to activate your plan</p>
+              <p className="font-medium text-neutral-900 dark:text-neutral-50">
+                No Active Subscription
+              </p>
+              <p className="text-sm text-neutral-500">Contact support to activate your plan</p>
             </div>
           </div>
         </CardContent>
@@ -175,23 +184,28 @@ function SubscriptionCard({ subscription, isLoading }: SubscriptionCardProps) {
 
   return (
     <Card className="overflow-hidden border-0 shadow-sm">
-      <div className={cn('p-6', tierColor)}>
+      <div className={cn('bg-gradient-to-r p-6 text-white', tierColor)}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-white/80">Current Plan</p>
-            <h3 className="text-2xl font-bold text-white">{subscription.planName}</h3>
+            <h3 className="text-2xl font-bold">{subscription.planName}</h3>
           </div>
           <Badge
             variant="outline"
-            className={cn('border-white/30 text-white', isActive ? 'bg-white/20' : 'bg-rose-500/30')}
+            className={cn(
+              'border-white/30 text-white',
+              isActive ? 'bg-white/20' : 'bg-rose-500/30',
+            )}
           >
             {isActive ? 'Active' : 'Expired'}
           </Badge>
         </div>
-        <div className="mt-4 flex items-center gap-4 text-sm text-white/80">
+        <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-white/80">
           <div className="flex items-center gap-1.5">
             <Calendar className="h-4 w-4" />
-            <span>Expires: {subscription.expiresAt ? formatDate(subscription.expiresAt) : 'Never'}</span>
+            <span>
+              Expires: {subscription.expiresAt ? formatDate(subscription.expiresAt) : 'Never'}
+            </span>
           </div>
           <div className="flex items-center gap-1.5">
             <Shield className="h-4 w-4" />
@@ -201,9 +215,15 @@ function SubscriptionCard({ subscription, isLoading }: SubscriptionCardProps) {
       </div>
       <div className="bg-neutral-50 px-6 py-3 dark:bg-neutral-900/50">
         <div className="flex items-center justify-between text-sm">
-          <span className="text-neutral-500">Subscription ID: {subscription.tier.toUpperCase()}</span>
+          <span className="text-neutral-500">
+            Subscription ID: {subscription.tier.toUpperCase()}
+          </span>
           <Link href="/billing">
-            <Button variant="outline" size="sm" className="h-7 gap-1 text-xs">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1 text-xs"
+            >
               Manage <ChevronRight className="h-3 w-3" />
             </Button>
           </Link>
@@ -250,7 +270,7 @@ function ProfileForm({ user, onUpdate, isLoading }: ProfileFormProps) {
     try {
       await onUpdate({ name: name.trim(), email: email.trim() });
       setIsEditing(false);
-      toast.success('Profile updated successfully');
+      toast.success('Profile updated');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to update profile');
     } finally {
@@ -271,9 +291,16 @@ function ProfileForm({ user, onUpdate, isLoading }: ProfileFormProps) {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-neutral-500">Full Name</p>
-            <p className="text-base font-medium text-neutral-900 dark:text-neutral-50">{user.name}</p>
+            <p className="text-base font-medium text-neutral-900 dark:text-neutral-50">
+              {user.name}
+            </p>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => setIsEditing(true)} className="gap-1.5">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsEditing(true)}
+            className="gap-1.5"
+          >
             Edit
           </Button>
         </div>
@@ -281,7 +308,9 @@ function ProfileForm({ user, onUpdate, isLoading }: ProfileFormProps) {
         <div>
           <p className="text-sm font-medium text-neutral-500">Email Address</p>
           <div className="flex items-center gap-2">
-            <p className="text-base font-medium text-neutral-900 dark:text-neutral-50">{user.email}</p>
+            <p className="text-base font-medium text-neutral-900 dark:text-neutral-50">
+              {user.email}
+            </p>
             {user.emailVerified ? (
               <Badge
                 variant="outline"
@@ -296,7 +325,7 @@ function ProfileForm({ user, onUpdate, isLoading }: ProfileFormProps) {
                 className="border-amber-200 text-amber-600 dark:border-amber-800 dark:text-amber-400"
               >
                 <AlertCircle className="mr-1 h-3 w-3" />
-                Not Verified
+                Unverified
               </Badge>
             )}
           </div>
@@ -304,20 +333,25 @@ function ProfileForm({ user, onUpdate, isLoading }: ProfileFormProps) {
         <Separator />
         <div>
           <p className="text-sm font-medium text-neutral-500">Member Since</p>
-          <p className="text-base font-medium text-neutral-900 dark:text-neutral-50">{formatDate(user.createdAt)}</p>
+          <p className="text-base font-medium text-neutral-900 dark:text-neutral-50">
+            {formatDate(user.createdAt)}
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-4"
+    >
       <div className="space-y-2">
         <Label htmlFor="profile-name">Full Name</Label>
         <Input
           id="profile-name"
           value={name}
-          onChange={e => setName(e.target.value)}
+          onChange={(e) => setName(e.target.value)}
           className={errors.name ? 'border-rose-500' : ''}
           placeholder="Enter your full name"
         />
@@ -330,7 +364,7 @@ function ProfileForm({ user, onUpdate, isLoading }: ProfileFormProps) {
           id="profile-email"
           type="email"
           value={email}
-          onChange={e => setEmail(e.target.value)}
+          onChange={(e) => setEmail(e.target.value)}
           className={errors.email ? 'border-rose-500' : ''}
           placeholder="Enter your email"
         />
@@ -338,7 +372,11 @@ function ProfileForm({ user, onUpdate, isLoading }: ProfileFormProps) {
       </div>
 
       <div className="flex gap-3 pt-2">
-        <Button type="submit" disabled={isSubmitting || isLoading} className="gap-1.5">
+        <Button
+          type="submit"
+          disabled={isSubmitting || isLoading}
+          className="gap-1.5"
+        >
           {isSubmitting ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -351,7 +389,12 @@ function ProfileForm({ user, onUpdate, isLoading }: ProfileFormProps) {
             </>
           )}
         </Button>
-        <Button type="button" variant="outline" onClick={handleCancel} className="gap-1.5">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleCancel}
+          className="gap-1.5"
+        >
           <X className="h-4 w-4" />
           Cancel
         </Button>
@@ -400,7 +443,7 @@ function ChangePassword({ onChangePassword }: ChangePasswordProps) {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-      toast.success('Password changed successfully');
+      toast.success('Password changed');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to change password');
     } finally {
@@ -409,18 +452,23 @@ function ChangePassword({ onChangePassword }: ChangePasswordProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-4"
+    >
       <div className="space-y-2">
         <Label htmlFor="current-password">Current Password</Label>
         <Input
           id="current-password"
           type="password"
           value={currentPassword}
-          onChange={e => setCurrentPassword(e.target.value)}
+          onChange={(e) => setCurrentPassword(e.target.value)}
           className={errors.currentPassword ? 'border-rose-500' : ''}
           placeholder="Enter current password"
         />
-        {errors.currentPassword && <p className="text-xs text-rose-500">{errors.currentPassword}</p>}
+        {errors.currentPassword && (
+          <p className="text-xs text-rose-500">{errors.currentPassword}</p>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -429,7 +477,7 @@ function ChangePassword({ onChangePassword }: ChangePasswordProps) {
           id="new-password"
           type="password"
           value={newPassword}
-          onChange={e => setNewPassword(e.target.value)}
+          onChange={(e) => setNewPassword(e.target.value)}
           className={errors.newPassword ? 'border-rose-500' : ''}
           placeholder="Enter new password (min 8 characters)"
         />
@@ -442,18 +490,24 @@ function ChangePassword({ onChangePassword }: ChangePasswordProps) {
           id="confirm-password"
           type="password"
           value={confirmPassword}
-          onChange={e => setConfirmPassword(e.target.value)}
+          onChange={(e) => setConfirmPassword(e.target.value)}
           className={errors.confirmPassword ? 'border-rose-500' : ''}
           placeholder="Confirm new password"
         />
-        {errors.confirmPassword && <p className="text-xs text-rose-500">{errors.confirmPassword}</p>}
+        {errors.confirmPassword && (
+          <p className="text-xs text-rose-500">{errors.confirmPassword}</p>
+        )}
       </div>
 
-      <Button type="submit" disabled={isSubmitting} className="gap-1.5">
+      <Button
+        type="submit"
+        disabled={isSubmitting}
+        className="gap-1.5"
+      >
         {isSubmitting ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" />
-            Changing Password...
+            Changing...
           </>
         ) : (
           <>
@@ -527,7 +581,12 @@ function AvatarUpload({ user, onAvatarUpdate, onAvatarRemove, isLoading }: Avata
     <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
       <div className="relative">
         <Avatar className="h-24 w-24">
-          {user.image && <AvatarImage src={user.image} alt={user.name} />}
+          {user.image && (
+            <AvatarImage
+              src={user.image}
+              alt={user.name}
+            />
+          )}
           <AvatarFallback className="text-2xl">{getInitials(user.name)}</AvatarFallback>
         </Avatar>
         <TooltipProvider>
@@ -540,7 +599,11 @@ function AvatarUpload({ user, onAvatarUpdate, onAvatarRemove, isLoading }: Avata
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploading || isLoading}
               >
-                {isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+                {isUploading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Camera className="h-3.5 w-3.5" />
+                )}
               </Button>
             </TooltipTrigger>
             <TooltipContent>Change profile picture</TooltipContent>
@@ -572,7 +635,10 @@ function AvatarUpload({ user, onAvatarUpdate, onAvatarRemove, isLoading }: Avata
         )}
       </div>
 
-      <Dialog open={showRemoveDialog} onOpenChange={setShowRemoveDialog}>
+      <Dialog
+        open={showRemoveDialog}
+        onOpenChange={setShowRemoveDialog}
+      >
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Remove Profile Picture</DialogTitle>
@@ -581,10 +647,17 @@ function AvatarUpload({ user, onAvatarUpdate, onAvatarRemove, isLoading }: Avata
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowRemoveDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowRemoveDialog(false)}
+            >
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleRemove} disabled={isUploading}>
+            <Button
+              variant="destructive"
+              onClick={handleRemove}
+              disabled={isUploading}
+            >
               {isUploading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -618,7 +691,7 @@ function SidebarNav({ activeSection, onSectionChange }: SidebarNavProps) {
 
   return (
     <nav className="space-y-1">
-      {navItems.map(item => {
+      {navItems.map((item) => {
         const Icon = item.icon;
         const isActive = activeSection === item.id;
         return (
@@ -626,15 +699,17 @@ function SidebarNav({ activeSection, onSectionChange }: SidebarNavProps) {
             key={item.id}
             onClick={() => onSectionChange(item.id)}
             className={cn(
-              'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all',
+              'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
               isActive
                 ? 'bg-neutral-100 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-50'
-                : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800/50 dark:hover:text-neutral-50'
+                : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800/50 dark:hover:text-neutral-50',
             )}
           >
             <Icon className="h-4 w-4" />
             {item.label}
-            {isActive && <div className="ml-auto h-1.5 w-1.5 rounded-full bg-neutral-900 dark:bg-neutral-50" />}
+            {isActive && (
+              <div className="ml-auto h-1.5 w-1.5 rounded-full bg-neutral-900 dark:bg-neutral-50" />
+            )}
           </button>
         );
       })}
@@ -653,7 +728,6 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState<'profile' | 'security'>('profile');
 
-  // Fetch user data
   const fetchUserData = useCallback(async () => {
     setLoading(true);
     try {
@@ -663,7 +737,6 @@ export default function ProfilePage() {
         return;
       }
 
-      // Get full user data from session for additional fields
       const session = await authClient.getSession();
       const userData = session.data?.user as UserProfile;
 
@@ -674,7 +747,6 @@ export default function ProfilePage() {
         updatedAt: userData?.updatedAt || new Date(),
       });
 
-      // Fetch subscription info
       try {
         const subResult = await getCurrentSubscription();
         if (subResult) {
@@ -706,7 +778,7 @@ export default function ProfilePage() {
     if (!result.success) {
       throw new Error((result.error as string) || 'Failed to update profile');
     }
-    setUser(prev => (prev ? { ...prev, name: data.name, email: data.email } : null));
+    setUser((prev) => (prev ? { ...prev, name: data.name, email: data.email } : null));
   };
 
   const handleChangePassword = async (currentPassword: string, newPassword: string) => {
@@ -729,7 +801,7 @@ export default function ProfilePage() {
       throw new Error(result.error || 'Failed to update avatar');
     }
 
-    setUser(prev => (prev ? { ...prev, image: result.data?.image || null } : null));
+    setUser((prev) => (prev ? { ...prev, image: result.data?.image || null } : null));
   };
 
   const handleAvatarRemove = async () => {
@@ -738,7 +810,7 @@ export default function ProfilePage() {
       throw new Error(result.error || 'Failed to remove avatar');
     }
 
-    setUser(prev => (prev ? { ...prev, image: null } : null));
+    setUser((prev) => (prev ? { ...prev, image: null } : null));
   };
 
   const handleSignOut = async () => {
@@ -769,7 +841,11 @@ export default function ProfilePage() {
       <div className="flex min-h-[400px] flex-col items-center justify-center gap-4">
         <AlertCircle className="h-12 w-12 text-neutral-400" />
         <p className="text-sm text-neutral-500">Failed to load profile data</p>
-        <Button onClick={fetchUserData} variant="outline" size="sm">
+        <Button
+          onClick={fetchUserData}
+          variant="outline"
+          size="sm"
+        >
           Retry
         </Button>
       </div>
@@ -783,44 +859,60 @@ export default function ProfilePage() {
         description="Manage your account settings and preferences"
         icon={UserCircle}
         actions={
-          <Button variant="outline" size="sm" onClick={handleSignOut} className="gap-1.5 text-rose-500">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSignOut}
+            className="gap-1.5 text-rose-500"
+          >
             <LogOut className="h-4 w-4" />
             Sign Out
           </Button>
         }
       />
 
-      <SubscriptionCard subscription={subscription} isLoading={loading} />
+      <SubscriptionCard
+        subscription={subscription}
+        isLoading={loading}
+      />
 
       <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
-        {/* Sidebar */}
         <div className="space-y-4">
           <div className="rounded-lg border bg-white p-4 dark:bg-neutral-950">
-            <SidebarNav activeSection={activeSection} onSectionChange={setActiveSection} />
+            <SidebarNav
+              activeSection={activeSection}
+              onSectionChange={setActiveSection}
+            />
           </div>
 
           <div className="rounded-lg border bg-white p-4 dark:bg-neutral-950">
             <div className="flex items-center gap-3">
               <Avatar className="h-10 w-10">
-                {user.image && <AvatarImage src={user.image} alt={user.name} />}
+                {user.image && (
+                  <AvatarImage
+                    src={user.image}
+                    alt={user.name}
+                  />
+                )}
                 <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
               </Avatar>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-neutral-900 dark:text-neutral-50">{user.name}</p>
+                <p className="truncate text-sm font-medium text-neutral-900 dark:text-neutral-50">
+                  {user.name}
+                </p>
                 <p className="truncate text-xs text-neutral-500">{user.email}</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Content */}
         <AnimatePresence mode="wait">
           {activeSection === 'profile' && (
             <motion.div
               key="profile"
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
+              exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2 }}
             >
               <Card>
@@ -829,7 +921,9 @@ export default function ProfilePage() {
                     <User className="h-4 w-4 text-neutral-500" />
                     Personal Information
                   </CardTitle>
-                  <CardDescription>Update your personal details and profile picture</CardDescription>
+                  <CardDescription>
+                    Update your personal details and profile picture
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <AvatarUpload
@@ -841,7 +935,11 @@ export default function ProfilePage() {
 
                   <Separator />
 
-                  <ProfileForm user={user} onUpdate={handleUpdateProfile} isLoading={loading} />
+                  <ProfileForm
+                    user={user}
+                    onUpdate={handleUpdateProfile}
+                    isLoading={loading}
+                  />
                 </CardContent>
               </Card>
             </motion.div>
@@ -850,9 +948,9 @@ export default function ProfilePage() {
           {activeSection === 'security' && (
             <motion.div
               key="security"
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
+              exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2 }}
             >
               <Card>
@@ -861,19 +959,18 @@ export default function ProfilePage() {
                     <Shield className="h-4 w-4 text-neutral-500" />
                     Password & Security
                   </CardTitle>
-                  <CardDescription>Change your password and manage security settings</CardDescription>
+                  <CardDescription>
+                    Change your password and manage security settings
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <ChangePassword onChangePassword={handleChangePassword} />
 
-                  <Alert
-                    variant="default"
-                    className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20"
-                  >
+                  <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20">
                     <AlertCircle className="h-4 w-4 text-amber-600" />
                     <AlertDescription className="text-sm text-amber-700 dark:text-amber-400">
-                      For enhanced security, we recommend using a strong, unique password. Two-factor authentication
-                      will be available soon.
+                      For enhanced security, we recommend using a strong, unique password.
+                      Two-factor authentication will be available soon.
                     </AlertDescription>
                   </Alert>
                 </CardContent>
@@ -883,7 +980,6 @@ export default function ProfilePage() {
         </AnimatePresence>
       </div>
 
-      {/* Footer */}
       <div className="border-t border-neutral-200 pt-4 dark:border-neutral-800">
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-400">
           <span>User ID: {user.id}</span>

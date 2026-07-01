@@ -17,8 +17,8 @@ import {
   blocks,
   connectedInstitutes,
   examCenters,
-  orgMembers,
   organizations,
+  orgMembers,
   staff,
   students,
   subjects,
@@ -373,7 +373,7 @@ export async function getInstituteByCode(instituteCode: string) {
     const institute = await db.query.connectedInstitutes.findFirst({
       where: and(
         eq(connectedInstitutes.examCenterId, examCenterId),
-        eq(connectedInstitutes.instituteCode, instituteCode)
+        eq(connectedInstitutes.instituteCode, instituteCode),
       ),
     });
 
@@ -400,7 +400,11 @@ export async function getSupervisors() {
     }
 
     const supervisors = await db.query.staff.findMany({
-      where: and(eq(staff.examCenterId, examCenterId), eq(staff.staffType, 'SUPERVISOR'), eq(staff.isDeleted, false)),
+      where: and(
+        eq(staff.examCenterId, examCenterId),
+        eq(staff.staffType, 'SUPERVISOR'),
+        eq(staff.isDeleted, false),
+      ),
       orderBy: (staff, { asc }) => [asc(staff.name)],
     });
 
@@ -424,7 +428,11 @@ export async function getRelievers() {
     }
 
     const relievers = await db.query.staff.findMany({
-      where: and(eq(staff.examCenterId, examCenterId), eq(staff.staffType, 'RELIEVER'), eq(staff.isDeleted, false)),
+      where: and(
+        eq(staff.examCenterId, examCenterId),
+        eq(staff.staffType, 'RELIEVER'),
+        eq(staff.isDeleted, false),
+      ),
       orderBy: (staff, { asc }) => [asc(staff.name)],
     });
 
@@ -448,7 +456,11 @@ export async function getControlRoomStaff() {
     }
 
     const staffMembers = await db.query.staff.findMany({
-      where: and(eq(staff.examCenterId, examCenterId), eq(staff.staffType, 'CONTROL_ROOM'), eq(staff.isDeleted, false)),
+      where: and(
+        eq(staff.examCenterId, examCenterId),
+        eq(staff.staffType, 'CONTROL_ROOM'),
+        eq(staff.isDeleted, false),
+      ),
       orderBy: (staff, { asc }) => [asc(staff.name)],
     });
 
@@ -472,7 +484,11 @@ export async function getStaffByUid(uid: string) {
     }
 
     const staffMember = await db.query.staff.findFirst({
-      where: and(eq(staff.examCenterId, examCenterId), eq(staff.uid, uid), eq(staff.isDeleted, false)),
+      where: and(
+        eq(staff.examCenterId, examCenterId),
+        eq(staff.uid, uid),
+        eq(staff.isDeleted, false),
+      ),
     });
 
     return staffMember;
@@ -514,7 +530,11 @@ export async function getSubjectByCode(code: string, scheme: string) {
 
   try {
     const subject = await db.query.subjects.findFirst({
-      where: and(eq(subjects.code, code), eq(subjects.scheme, scheme), eq(subjects.isDeleted, false)),
+      where: and(
+        eq(subjects.code, code),
+        eq(subjects.scheme, scheme),
+        eq(subjects.isDeleted, false),
+      ),
     });
 
     return subject;
@@ -564,7 +584,11 @@ export async function getBlockByLocation(location: string) {
     }
 
     const block = await db.query.blocks.findFirst({
-      where: and(eq(blocks.examCenterId, examCenterId), eq(blocks.location, location), eq(blocks.isDeleted, false)),
+      where: and(
+        eq(blocks.examCenterId, examCenterId),
+        eq(blocks.location, location),
+        eq(blocks.isDeleted, false),
+      ),
     });
 
     return block;
@@ -637,7 +661,7 @@ export async function getStudentBySeatNumber(seatNumber: number) {
       where: and(
         eq(students.examCenterId, examCenterId),
         eq(students.seatNumber, seatNumber),
-        eq(students.isDeleted, false)
+        eq(students.isDeleted, false),
       ),
     });
 
@@ -652,7 +676,11 @@ export async function getStudentBySeatNumber(seatNumber: number) {
 // Timetable Helpers
 // ============================================
 
-export async function getTimetableEntries(params?: { date?: Date; session?: string; subjectCode?: string }) {
+export async function getTimetableEntries(params?: {
+  date?: Date;
+  session?: string;
+  subjectCode?: string;
+}) {
   const MODULE_FN = `${MODULE}.getTimetableEntries`;
 
   try {
@@ -699,7 +727,10 @@ export async function hasTimetable(): Promise<boolean> {
       return false;
     }
 
-    const result = await db.select({ count: count() }).from(timetable).where(eq(timetable.examCenterId, examCenterId));
+    const result = await db
+      .select({ count: count() })
+      .from(timetable)
+      .where(eq(timetable.examCenterId, examCenterId));
 
     const hasData = result[0]?.count > 0;
 

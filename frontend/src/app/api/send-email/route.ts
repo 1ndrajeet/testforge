@@ -16,7 +16,7 @@ import {
 } from '@/lib/actions/email-usage';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { examCenters, orgMembers, organizations } from '@/lib/db/schema';
+import { examCenters, organizations, orgMembers } from '@/lib/db/schema';
 import { logger } from '@/lib/misc/logger';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -128,11 +128,21 @@ export async function POST(request: Request) {
 
     // Validate subscription
     if (org.subscriptionTier === 'inactive') {
-      return NextResponse.json({ error: 'Email sending requires an active subscription' }, { status: 403 });
+      return NextResponse.json(
+        { error: 'Email sending requires an active subscription' },
+        { status: 403 },
+      );
     }
 
     const body = await request.json();
-    const { recipients, subject, html, from, orderType = 'supervision', orderKey }: EmailRequest = body;
+    const {
+      recipients,
+      subject,
+      html,
+      from,
+      orderType = 'supervision',
+      orderKey,
+    }: EmailRequest = body;
 
     // Validate request
     if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
@@ -140,7 +150,10 @@ export async function POST(request: Request) {
     }
 
     if (recipients.length > 200) {
-      return NextResponse.json({ error: 'Maximum 200 recipients allowed per request' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Maximum 200 recipients allowed per request' },
+        { status: 400 },
+      );
     }
 
     if (!subject) {
@@ -162,20 +175,22 @@ export async function POST(request: Request) {
             monthly: quotaCheck.monthly,
           },
         },
-        { status: 429 }
+        { status: 429 },
       );
     }
 
     // Validate emails
-    const invalidEmails = recipients.filter(r => !r.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.email));
+    const invalidEmails = recipients.filter(
+      (r) => !r.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.email),
+    );
 
     if (invalidEmails.length > 0) {
       return NextResponse.json(
         {
           error: 'Invalid email addresses',
-          invalid: invalidEmails.map(r => r.email),
+          invalid: invalidEmails.map((r) => r.email),
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -237,8 +252,8 @@ export async function POST(request: Request) {
       }
     }
 
-    const successful = results.filter(r => r.success).length;
-    const failed = results.filter(r => !r.success).length;
+    const successful = results.filter((r) => r.success).length;
+    const failed = results.filter((r) => !r.success).length;
 
     logger.info(MODULE_FN, 'Email send completed', {
       orgId,

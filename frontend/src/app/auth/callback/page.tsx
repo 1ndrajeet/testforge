@@ -7,8 +7,10 @@ import { useRouter } from 'next/navigation';
 
 import { HashLoader } from 'react-spinners';
 
-import { useAuth } from '@/components/auth/AuthProvider';
 import { getOnboardingStatus } from '@/lib/actions/onboarding';
+
+import { useAuth } from '@/components/auth/AuthProvider';
+
 import { useAppStore } from '@/stores/appStore';
 
 export default function AuthCallbackPage() {
@@ -50,7 +52,10 @@ export default function AuthCallbackPage() {
         // Redirect based on status
         if (status.status === 'complete') {
           router.replace('/exam-center/dashboard');
-        } else if (status.status === 'needs_subscription' || status.status === 'subscription_expired') {
+        } else if (
+          status.status === 'needs_subscription' ||
+          status.status === 'subscription_expired'
+        ) {
           router.replace('/billing');
         } else {
           // For new users: needs_organization or needs_exam_setup
@@ -68,7 +73,10 @@ export default function AuthCallbackPage() {
 
   return (
     <div className="bg-background/80 fixed inset-0 z-50 flex flex-col items-center justify-center backdrop-blur-sm">
-      <HashLoader size={60} color="#059669" />
+      <HashLoader
+        size={60}
+        color="#059669"
+      />
       <p className="text-muted-foreground mt-6 text-sm font-medium">Completing sign in...</p>
     </div>
   );

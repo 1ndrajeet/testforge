@@ -3,18 +3,22 @@
 
 import { ReactNode, useEffect, useState } from 'react';
 
+import courseCodes from '@/config/course_codes.json';
 import { format } from 'date-fns';
 import { AlertCircle } from 'lucide-react';
 
-import { MultiPageReport, ReportPageData } from '@/components/layout/testforge-report-layout';
-import { SessionSelector } from '@/components/shared/date-selector';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Skeleton } from '@/components/ui/skeleton';
-import courseCodes from '@/config/course_codes.json';
-import { useUserInfo } from '@/hooks/useUserInfo';
 import { getAllocationsByDateSession } from '@/lib/actions/allocation';
 import { getTimetableEntries } from '@/lib/actions/timetable';
 import { cn } from '@/lib/utils';
+
+import { useUserInfo } from '@/hooks/useUserInfo';
+
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
+
+import { MultiPageReport, ReportPageData } from '@/components/layout/testforge-report-layout';
+
+import { SessionSelector } from '@/components/shared/date-selector';
 
 // ============================================================
 // Types
@@ -49,7 +53,7 @@ const renderRelieverTable = (pageData: RelieverPageData) => {
   const { rows, totalBlocks } = pageData;
 
   // Filter out relievers with no blocks
-  const activeRelievers = rows.filter(r => r.blocks.length > 0);
+  const activeRelievers = rows.filter((r) => r.blocks.length > 0);
   type CourseCode = keyof typeof courseCodes;
 
   const departments = Object.entries(courseCodes).map(([code, name]) => ({
@@ -58,7 +62,7 @@ const renderRelieverTable = (pageData: RelieverPageData) => {
   }));
 
   const getDepartmentName = (code: string) => {
-    const dept = departments.find(d => d.code === code);
+    const dept = departments.find((d) => d.code === code);
     return dept ? `${dept.code} - ${dept.name}` : code;
   };
   return (
@@ -88,7 +92,7 @@ const renderRelieverTable = (pageData: RelieverPageData) => {
             </tr>
           </thead>
           <tbody>
-            {activeRelievers.map(reliever => {
+            {activeRelievers.map((reliever) => {
               const rowCount = reliever.blocks.length;
 
               return reliever.blocks.map((block, blockIndex) => {
@@ -98,7 +102,10 @@ const renderRelieverTable = (pageData: RelieverPageData) => {
                 return (
                   <tr
                     key={`${reliever.name}-${blockIndex}`}
-                    className={cn('border-b border-neutral-200', isLast && 'border-b-2 border-neutral-300')}
+                    className={cn(
+                      'border-b border-neutral-200',
+                      isLast && 'border-b-2 border-neutral-300',
+                    )}
                   >
                     {isFirst && (
                       <td
@@ -106,20 +113,33 @@ const renderRelieverTable = (pageData: RelieverPageData) => {
                         className="border border-neutral-300 bg-neutral-50/80 px-3 py-2 align-middle font-medium"
                       >
                         <div className="font-semibold text-neutral-800">{reliever.name}</div>
-                        {rowCount > 1 && <div className="mt-0.5 text-[10px] text-neutral-500">{rowCount} blocks</div>}
+                        {rowCount > 1 && (
+                          <div className="mt-0.5 text-[10px] text-neutral-500">
+                            {rowCount} blocks
+                          </div>
+                        )}
                       </td>
                     )}
                     {isFirst && (
-                      <td rowSpan={rowCount} className="border border-neutral-300 px-3 py-2 align-middle">
+                      <td
+                        rowSpan={rowCount}
+                        className="border border-neutral-300 px-3 py-2 align-middle"
+                      >
                         {getDepartmentName(reliever.department)}
                       </td>
                     )}
                     <td className="border border-neutral-300 px-3 py-2 text-center font-mono text-xs font-medium">
                       {block.blockNo}
                     </td>
-                    <td className="border border-neutral-300 px-3 py-2 text-center">{block.location}</td>
-                    <td className="border border-neutral-300 px-3 py-2 text-center">{block.supervisor}</td>
-                    <td className="border border-neutral-300 px-3 py-2 text-center text-xs">{block.timeslot}</td>
+                    <td className="border border-neutral-300 px-3 py-2 text-center">
+                      {block.location}
+                    </td>
+                    <td className="border border-neutral-300 px-3 py-2 text-center">
+                      {block.supervisor}
+                    </td>
+                    <td className="border border-neutral-300 px-3 py-2 text-center text-xs">
+                      {block.timeslot}
+                    </td>
                   </tr>
                 );
               });
@@ -127,7 +147,10 @@ const renderRelieverTable = (pageData: RelieverPageData) => {
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-neutral-400 bg-neutral-100">
-              <td colSpan={2} className="border border-neutral-300 px-3 py-2 text-right font-bold text-neutral-800">
+              <td
+                colSpan={2}
+                className="border border-neutral-300 px-3 py-2 text-right font-bold text-neutral-800"
+              >
                 GRAND TOTAL
               </td>
               <td className="border border-neutral-300 px-3 py-2 text-center font-mono text-xs text-neutral-600">
@@ -199,7 +222,10 @@ export default function BlankRelieverReport() {
       }
 
       // Group by supervisor to get relievers
-      const relieverMap = new Map<string, { name: string; department: string; blocks: RelieverBlock[] }>();
+      const relieverMap = new Map<
+        string,
+        { name: string; department: string; blocks: RelieverBlock[] }
+      >();
 
       result.data.forEach((alloc: any) => {
         const supervisorName = alloc.supervisorName || 'Unknown';
@@ -222,7 +248,7 @@ export default function BlankRelieverReport() {
       });
 
       const relievers = Array.from(relieverMap.values())
-        .filter(r => r.blocks.length > 0)
+        .filter((r) => r.blocks.length > 0)
         .sort((a, b) => a.name.localeCompare(b.name));
 
       if (relievers.length === 0) {
@@ -243,7 +269,10 @@ export default function BlankRelieverReport() {
     }
   };
 
-  const handleSessionSelect = async (session: { date: string; session: 'Morning' | 'Afternoon' | 'All' | 'All' }) => {
+  const handleSessionSelect = async (session: {
+    date: string;
+    session: 'Morning' | 'Afternoon' | 'All' | 'All';
+  }) => {
     setSelectedDate(session.date);
     setSelectedSession(session.session);
     await fetchData(session.date, session.session);
@@ -338,7 +367,10 @@ export default function BlankRelieverReport() {
             compact
           />
           {!dates.length && !error && (
-            <Alert variant="default" className="border-amber-200 bg-amber-50">
+            <Alert
+              variant="default"
+              className="border-amber-200 bg-amber-50"
+            >
               <AlertCircle className="h-4 w-4 text-amber-600" />
               <AlertDescription>Upload timetable first.</AlertDescription>
             </Alert>
