@@ -16,10 +16,10 @@ const razorpay = new Razorpay({
 
 // Valid plans
 const VALID_PLANS = [
-  { id: 'semester_online', amount: 289900, tier: 'premium', durationDays: 180 },
-  { id: '1year_online', amount: 550000, tier: 'premium', durationDays: 365 },
-  { id: '5year_online', amount: 2600000, tier: 'premium', durationDays: 1825 },
-  { id: 'lifetime_access', amount: 3000000, tier: 'enterprise', durationDays: null },
+  { id: 'semester_online', amount: 289900, tier: 'semester', durationDays: 180 },
+  { id: '1year_online', amount: 550000, tier: 'year', durationDays: 365 },
+  { id: '5year_online', amount: 2600000, tier: '5year', durationDays: 1825 },
+  { id: 'lifetime_access', amount: 3000000, tier: 'lifetime', durationDays: null },
 ];
 
 function getExpiry(durationDays: number | null): Date | null {

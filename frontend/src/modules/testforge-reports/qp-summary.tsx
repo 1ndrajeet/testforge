@@ -462,7 +462,7 @@ export default function QPSummaryReport() {
           },
         }}
         footer={{
-          showTestForgeCredit: true,
+          showApplicationCredit: true,
         }}
         onBack={handleReset}
         backButtonLabel="Clear"

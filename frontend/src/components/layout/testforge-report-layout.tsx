@@ -43,7 +43,7 @@ export interface ReportFooterProps {
     placeholder?: string;
     required?: boolean;
   }>;
-  showTestForgeCredit?: boolean;
+  showApplicationCredit?: boolean;
   creditText?: string;
   className?: string;
 }
@@ -291,13 +291,13 @@ ReportHeader.displayName = 'ReportHeader';
 
 export const ReportFooter = ({
   signatureFields = [],
-  showTestForgeCredit = true,
+  showApplicationCredit = true,
   creditText = 'Generated using TestForge®',
   className,
 }: ReportFooterProps) => {
   const hasSignatures = signatureFields.length > 0;
 
-  if (!hasSignatures && !showTestForgeCredit) {
+  if (!hasSignatures && !showApplicationCredit) {
     return null;
   }
 
@@ -336,7 +336,7 @@ export const ReportFooter = ({
 
       <PrintCredit
         text={creditText}
-        enabled={showTestForgeCredit}
+        enabled={showApplicationCredit}
       />
     </div>
   );

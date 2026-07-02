@@ -1,0 +1,4189 @@
+<<./schemas.py/>>
+"""schemas.py module."""
+
+# backend/schemas.py (empty for now, will be used later)
+from typing import Any, Optional
+
+from pydantic import BaseModel
+
+
+class APIResponse(BaseModel):
+    success: bool
+    message: str
+    data: Optional[Any] = None
+    error: Optional[str] = None
+<<//./schemas.py/
+<<./utils.py/>>
+# backend/utils.py - COMPLETE CLEAN VERSION
+
+import hashlib
+import io
+import logging
+import os
+import re
+import uuid
+from typing import Any, Optional, Tuple
+
+logger = logging.getLogger(__name__)
+
+# ============================================================================
+# Configuration
+# ============================================================================
+
+ALLOWED_FILE_TYPES = ["timetable", "seatingchart", "seatingarrangement", "emarksheet", "inventory"]
+
+# ============================================================================
+# EXCEL_SCHEMAS - Define schemas for validation
+# ============================================================================
+
+EXCEL_SCHEMAS = {
+    "emarksheet": {
+        "Sheet No.": "string",
+        "Subject Name": "string",
+        "Scheme": "string",
+        "Subject Head": "string",
+        "Paper Code": "string",
+        "File Name": "string",
+    },
+    "seatingchart": {
+        "Seat Number": "number",
+        "Enrollment Number": "string",
+        "Name": "string",
+        "Scheme": "string",
+        "Subject Appearing For": "string",
+    },
+    "seatingarrangement": {
+        "SR No": "number",
+        "Seat Number": "number",
+        "Inst Code": "string",
+        "Course Code": "string",
+        "Semester": "number",
+        "Master Code": "string",
+        "Paper Code": "string",
+    },
+    "inventory": {
+        "Region": "string",
+        "DC": "string",
+        "EC": "string",
+        "DAY": "string",
+        "SESSION": "string",
+        "PAPER_CODE": "string",
+        "No_of_Candidates": "number",
+        "No_of_Packets_Required": "number",
+        "Total_Packets_Session": "number",
+        "Total_Packets_Day": "number",
+    },
+}
+
+# ============================================================================
+# HTML Sanitization
+# ============================================================================
+
+
+def sanitize_html(html: str) -> str:
+    """Remove dangerous HTML content while preserving structure"""
+    patterns = [
+        (r"<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>", "", re.IGNORECASE),
+        (r"<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>", "", re.IGNORECASE),
+        (r'<link\b[^>]*rel=["\']?stylesheet["\']?[^>]*>', "", re.IGNORECASE),
+        (r'\s*on\w+="[^"]*"', "", re.IGNORECASE),
+        (r"\s*on\w+='[^']*'", "", re.IGNORECASE),
+        (r"javascript:", "", re.IGNORECASE),
+        (r"<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>", "", re.IGNORECASE),
+        (r"<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>", "", re.IGNORECASE),
+        (r"<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>", "", re.IGNORECASE),
+        (r'<meta[^>]*http-equiv=["\']?refresh["\']?[^>]*>', "", re.IGNORECASE),
+        (r'\sstyle="[^"]*"', "", re.IGNORECASE),
+        (r"\sstyle='[^']*'", "", re.IGNORECASE),
+    ]
+
+    sanitized = html
+    for pattern, replacement, flags in patterns:
+        sanitized = re.sub(pattern, replacement, sanitized, flags=flags)
+    return sanitized
+
+
+# ============================================================================
+# HTML Validation
+# ============================================================================
+
+
+def validate_html_file(
+    content: bytes, file_type: str
+) -> Tuple[bool, Optional[bytes], Optional[str]]:
+    """Validate HTML file for timetable"""
+    try:
+        html = content.decode("utf-8")
+        sanitized = sanitize_html(html)
+
+        if "<table" not in sanitized.lower():
+            return False, None, "No tables found in HTML file"
+
+        if "<html" not in sanitized.lower():
+            sanitized = f"<!DOCTYPE html>\n<html>\n<body>\n{sanitized}\n</body>\n</html>"
+
+        return True, sanitized.encode("utf-8"), None
+
+    except UnicodeDecodeError:
+        return False, None, "File is not valid HTML (encoding error)"
+    except Exception as e:
+        return False, None, f"HTML validation failed: {str(e)}"
+
+
+# ============================================================================
+# Excel Validation - Main Entry Point
+# ============================================================================
+
+
+def validate_excel_file(
+    content: bytes, file_type: str
+) -> Tuple[bool, Optional[bytes], Optional[str]]:
+    """
+    Validate and sanitize Excel file.
+    Returns: (is_valid, sanitized_content, error_message)
+    """
+    try:
+        # Sanitize specific file types first
+        if file_type == "inventory":
+            return _validate_inventory_file(content)
+        elif file_type == "emarksheet":
+            return _validate_emarksheet_file(content)
+        elif file_type == "seatingchart":
+            return _validate_seating_chart_file(content)
+        elif file_type == "seatingarrangement":
+            return _validate_seating_arrangement_file(content)  # ADD THIS
+        else:
+            return _validate_generic_excel_file(content, file_type)
+
+    except Exception as e:
+        logger.error(f"Excel validation error: {e}")
+        return False, content, f"Excel validation failed: {str(e)}"
+
+
+# ============================================================================
+# Excel Validation - Specific File Types
+# ============================================================================
+# ADD THIS NEW FUNCTION
+def _validate_seating_arrangement_file(
+    content: bytes,
+) -> Tuple[bool, Optional[bytes], Optional[str]]:
+    """Validate seating arrangement Excel file - skip header row"""
+    try:
+        from io import BytesIO
+
+        import pandas as pd
+
+        # Read the file with no header (raw data)
+        df = pd.read_excel(BytesIO(content), header=None, dtype=str).fillna("")
+
+        if df.empty:
+            return False, content, "Seating arrangement file is empty"
+
+        # Skip first row (header) and check if we have data
+        if len(df) < 2:
+            return False, content, "No data rows found in seating arrangement file"
+
+        # Check if first row looks like a header (has text like "SR No", "Seat Number", etc.)
+        header_row = df.iloc[0].values
+        header_text = " ".join([str(v).lower() for v in header_row if str(v).strip()])
+
+        is_header = any(
+            keyword in header_text
+            for keyword in ["sr no", "seat number", "inst code", "course code", "paper code"]
+        )
+
+        if not is_header:
+            # If no header, use first row as data
+            return True, content, None
+
+        # Create new DataFrame without the header row
+        data_df = df.iloc[1:].copy()
+        data_df.reset_index(drop=True, inplace=True)
+
+        # Basic validation - check if we have seat numbers and paper codes
+        if len(data_df) == 0:
+            return False, content, "No data rows found after removing header"
+
+        # Check that column 1 (seat number) and column 6 (paper code) exist and have values
+        valid_rows = 0
+        for idx, row in data_df.iterrows():
+            seat_val = str(row[1] if len(row) > 1 else "").strip()
+            paper_val = str(row[6] if len(row) > 6 else "").strip()
+            if seat_val and seat_val.isdigit() and paper_val:
+                valid_rows += 1
+
+        if valid_rows == 0:
+            return (
+                False,
+                content,
+                "No valid seating arrangement records found. Please check the file format.",
+            )
+
+        # Write the data without header to a new Excel file
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            data_df.to_excel(writer, sheet_name="Sheet1", index=False, header=False)
+
+        sanitized_content = output.getvalue()
+
+        logger.info(f"Seating arrangement validated: {valid_rows} rows found")
+        return True, sanitized_content, None
+
+    except Exception as e:
+        logger.error(f"Seating arrangement validation error: {e}")
+        return False, content, f"Seating arrangement validation failed: {str(e)}"
+
+
+def _validate_inventory_file(content: bytes) -> Tuple[bool, Optional[bytes], Optional[str]]:
+    """Validate inventory Excel file"""
+    try:
+        from io import BytesIO
+
+        import pandas as pd
+
+        sanitized = sanitize_inventory_excel(content)
+        df = pd.read_excel(BytesIO(sanitized), dtype=str).fillna("")
+
+        if df.empty:
+            return False, content, "Inventory file is empty after sanitization"
+
+        required = ["Region", "DC", "EC", "DAY", "SESSION", "PAPER_CODE"]
+        actual = [str(c).strip() for c in df.columns]
+        missing = [col for col in required if col not in actual]
+
+        if missing:
+            return False, content, f"Missing columns: {', '.join(missing)}"
+
+        if len(df) < 1:
+            return False, content, "No data rows found"
+
+        return True, sanitized, None
+
+    except Exception as e:
+        logger.error(f"Inventory validation error: {e}")
+        return False, content, f"Inventory validation failed: {str(e)}"
+
+
+def _validate_emarksheet_file(content: bytes) -> Tuple[bool, Optional[bytes], Optional[str]]:
+    """Validate E-Marksheet Excel file"""
+    try:
+        from io import BytesIO
+
+        import pandas as pd
+
+        sanitized = sanitize_emarksheet_excel(content)
+        df = pd.read_excel(BytesIO(sanitized), dtype=str).fillna("")
+
+        if df.empty:
+            return False, content, "E-Marksheet file is empty after sanitization"
+
+        required = [
+            "Sheet No.",
+            "Subject Name",
+            "Scheme",
+            "Subject Head",
+            "Paper Code",
+            "File Name",
+        ]
+        actual = [str(c).strip() for c in df.columns]
+        missing = [col for col in required if col not in actual]
+
+        if missing:
+            return False, content, f"Missing columns: {', '.join(missing)}"
+
+        if len(df) < 1:
+            return False, content, "No data rows found"
+
+        return True, sanitized, None
+
+    except Exception as e:
+        logger.error(f"E-Marksheet validation error: {e}")
+        return False, content, f"E-Marksheet validation failed: {str(e)}"
+
+
+def _validate_generic_excel_file(
+    content: bytes, file_type: str
+) -> Tuple[bool, Optional[bytes], Optional[str]]:
+    """Validate generic Excel file against schema"""
+    try:
+        from io import BytesIO
+
+        import pandas as pd
+
+        schema = EXCEL_SCHEMAS.get(file_type)
+        if not schema:
+            return True, content, None
+
+        df = pd.read_excel(BytesIO(content), nrows=10, header=0, dtype=str).fillna("")
+
+        if df.empty:
+            return False, content, "Excel file is empty"
+
+        required_columns = list(schema.keys())
+        actual_columns = [str(c).strip().upper() for c in df.columns]
+
+        missing_columns = [col for col in required_columns if col.upper() not in actual_columns]
+        if missing_columns:
+            return False, content, f"Missing columns: {', '.join(missing_columns)}"
+
+        return True, content, None
+
+    except Exception as e:
+        logger.error(f"Generic Excel validation error: {e}")
+        return False, content, f"Excel validation failed: {str(e)}"
+
+
+# ============================================================================
+# INVENTORY SANITIZATION
+# ============================================================================
+
+
+def sanitize_inventory_excel(content: bytes) -> bytes:
+    """Sanitize inventory Excel file - remove clutter and keep clean data"""
+    try:
+        from io import BytesIO
+
+        import pandas as pd
+
+        df = pd.read_excel(BytesIO(content), header=None, dtype=str).fillna("")
+
+        if df.empty:
+            logger.warning("Inventory file is empty")
+            return content
+
+        logger.info(f"Inventory sanitization: raw file has {len(df)} rows")
+
+        # Find header row
+        header_row_idx = None
+        for idx in range(min(30, len(df))):
+            row_values = [str(v).strip() for v in df.iloc[idx].values if str(v).strip()]
+            row_text = " ".join([str(v).lower() for v in row_values])
+
+            has_region = "region" in row_text
+            has_dc = "dc" in row_text
+            has_ec = "ec" in row_text
+            has_day = "day" in row_text
+            has_session = "session" in row_text
+            has_paper = "paper" in row_text or "code" in row_text
+            has_candidate = "candidate" in row_text or "student" in row_text
+            has_packet = "packet" in row_text
+
+            matches = sum(
+                [
+                    has_region,
+                    has_dc,
+                    has_ec,
+                    has_day,
+                    has_session,
+                    has_paper,
+                    has_candidate,
+                    has_packet,
+                ]
+            )
+
+            if matches >= 5:
+                header_row_idx = idx
+                logger.info(f"Found inventory header at row {idx}")
+                break
+
+        if header_row_idx is None:
+            logger.warning("Could not find inventory header")
+            return content
+
+        # Map columns
+        header_row = df.iloc[header_row_idx]
+        mapping = {}
+        for col_idx, val in enumerate(header_row):
+            val_str = str(val).strip().lower()
+            if "region" in val_str:
+                mapping["REGION"] = col_idx
+            elif "dc" in val_str:
+                mapping["DC"] = col_idx
+            elif "ec" in val_str:
+                mapping["EC"] = col_idx
+            elif "day" in val_str:
+                mapping["DAY"] = col_idx
+            elif "session" in val_str:
+                mapping["SESSION"] = col_idx
+            elif "paper" in val_str and "code" in val_str:
+                mapping["PAPER_CODE"] = col_idx
+            elif "candidate" in val_str or "student" in val_str:
+                mapping["NO_OF_CANDIDATES"] = col_idx
+            elif "packets required" in val_str or "packet required" in val_str:
+                mapping["NO_OF_PACKETS_REQUIRED"] = col_idx
+
+        # Validate required columns
+        required = ["REGION", "DC", "EC", "DAY", "SESSION", "PAPER_CODE"]
+        for req in required:
+            if req not in mapping:
+                logger.warning(f"Required column '{req}' not found")
+                return content
+
+        def parse_int(val):
+            try:
+                cleaned = str(val).strip().replace(",", "").replace(" ", "")
+                if cleaned in ["nan", "None", "", "-"]:
+                    return 0
+                return int(float(cleaned))
+            except (ValueError, TypeError):
+                return 0
+
+        # Extract data
+        clean_data = []
+        for idx in range(header_row_idx + 1, len(df)):
+            row = df.iloc[idx]
+            if all(str(v).strip() in ["", "nan", "None", "-"] for v in row):
+                continue
+
+            paper_code = str(row[mapping["PAPER_CODE"]]).strip()
+            if not paper_code or paper_code in ["nan", "None", "", "-"]:
+                continue
+            if any(k in paper_code.lower() for k in ["total", "certify", "signature"]):
+                continue
+
+            clean_data.append(
+                {
+                    "Region": str(row[mapping.get("REGION", 0)]).strip(),
+                    "DC": str(row[mapping.get("DC", 0)]).strip(),
+                    "EC": str(row[mapping.get("EC", 0)]).strip(),
+                    "DAY": str(row[mapping.get("DAY", 0)]).strip(),
+                    "SESSION": str(row[mapping.get("SESSION", 0)]).strip().upper(),
+                    "PAPER_CODE": paper_code,
+                    "No_of_Candidates": (
+                        parse_int(row[mapping.get("NO_OF_CANDIDATES", 0)])
+                        if "NO_OF_CANDIDATES" in mapping
+                        else 0
+                    ),
+                    "No_of_Packets_Required": (
+                        parse_int(row[mapping.get("NO_OF_PACKETS_REQUIRED", 0)])
+                        if "NO_OF_PACKETS_REQUIRED" in mapping
+                        else 0
+                    ),
+                }
+            )
+
+        if not clean_data:
+            logger.warning("No valid data rows found")
+            return content
+
+        clean_df = pd.DataFrame(clean_data)
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            clean_df.to_excel(writer, sheet_name="Inventory", index=False)
+
+        logger.info(f"Inventory sanitized: {len(clean_data)} rows extracted")
+        return output.getvalue()
+
+    except Exception as e:
+        logger.error(f"Error sanitizing inventory: {e}")
+        return content
+
+
+# ============================================================================
+# E-MARKSHEET SANITIZATION
+# ============================================================================
+
+
+def sanitize_emarksheet_excel(content: bytes) -> bytes:
+    """Sanitize E-Marksheet Excel file - remove clutter and keep clean data"""
+    try:
+        from io import BytesIO
+
+        import pandas as pd
+
+        df = pd.read_excel(BytesIO(content), header=None, dtype=str).fillna("")
+
+        if df.empty:
+            logger.warning("E-Marksheet file is empty")
+            return content
+
+        logger.info(f"E-Marksheet sanitization: raw file has {len(df)} rows")
+
+        # Find header row
+        header_row_idx = None
+        for idx in range(min(30, len(df))):
+            row_values = [str(v).strip() for v in df.iloc[idx].values if str(v).strip()]
+            row_text = " ".join([str(v).lower() for v in row_values])
+
+            has_sheet = "sheet" in row_text and (
+                "no" in row_text or "no." in row_text or "#" in row_text
+            )
+            has_subject = "subject" in row_text
+            has_scheme = "scheme" in row_text
+            has_head = "head" in row_text
+            has_paper = "paper" in row_text and "code" in row_text
+            has_file = "file" in row_text and "name" in row_text
+
+            matches = sum([has_sheet, has_subject, has_scheme, has_head, has_paper, has_file])
+
+            if matches >= 4:
+                header_row_idx = idx
+                logger.info(f"Found E-Marksheet header at row {idx}")
+                break
+
+        if header_row_idx is None:
+            logger.warning("Could not find E-Marksheet header")
+            return content
+
+        # Map columns
+        header_row = df.iloc[header_row_idx]
+        mapping = {}
+        for col_idx, val in enumerate(header_row):
+            val_str = str(val).strip().lower()
+            if "sheet" in val_str and ("no" in val_str or "no." in val_str or "#" in val_str):
+                mapping["Sheet No."] = col_idx
+            elif "subject" in val_str and "name" in val_str:
+                mapping["Subject Name"] = col_idx
+            elif "scheme" in val_str:
+                mapping["Scheme"] = col_idx
+            elif "subject" in val_str and "head" in val_str:
+                mapping["Subject Head"] = col_idx
+            elif "paper" in val_str and "code" in val_str:
+                mapping["Paper Code"] = col_idx
+            elif "file" in val_str and "name" in val_str:
+                mapping["File Name"] = col_idx
+
+        # Validate required columns
+        required = [
+            "Sheet No.",
+            "Subject Name",
+            "Scheme",
+            "Subject Head",
+            "Paper Code",
+            "File Name",
+        ]
+        for req in required:
+            if req not in mapping:
+                logger.warning(f"Required column '{req}' not found")
+                return content
+
+        # Extract data
+        clean_data = []
+        for idx in range(header_row_idx + 1, len(df)):
+            row = df.iloc[idx]
+            if all(str(v).strip() in ["", "nan", "None", "-"] for v in row):
+                continue
+
+            sheet_no = str(row[mapping["Sheet No."]]).strip()
+            if not sheet_no or sheet_no in ["nan", "None", "", "-"]:
+                continue
+            if any(k in sheet_no.lower() for k in ["total", "certify", "signature"]):
+                continue
+
+            clean_data.append(
+                {
+                    "Sheet No.": sheet_no,
+                    "Subject Name": str(row[mapping.get("Subject Name", 0)]).strip(),
+                    "Scheme": str(row[mapping.get("Scheme", 0)]).strip(),
+                    "Subject Head": str(row[mapping.get("Subject Head", 0)]).strip(),
+                    "Paper Code": str(row[mapping.get("Paper Code", 0)]).strip(),
+                    "File Name": str(row[mapping.get("File Name", 0)]).strip(),
+                }
+            )
+
+        if not clean_data:
+            logger.warning("No valid data rows found")
+            return content
+
+        clean_df = pd.DataFrame(clean_data)
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            clean_df.to_excel(writer, sheet_name="E-Marksheet", index=False)
+
+        logger.info(f"E-Marksheet sanitized: {len(clean_data)} rows extracted")
+        return output.getvalue()
+
+    except Exception as e:
+        logger.error(f"Error sanitizing E-Marksheet: {e}")
+        return content
+
+
+# ============================================================================
+# SEATING CHART SANITIZATION
+# ============================================================================
+
+
+def sanitize_seating_chart_excel(content: bytes) -> bytes:
+    """
+    Sanitize seating chart Excel files - handles multiple formats.
+
+    Format 1: Seat | Enroll | Name | Scheme | Subjects | Status1 | Status2
+    Format 2: SR No | Seat | Enroll | Name | Scheme | Subjects | Status1 | Status2
+    Format 3: SR No | Seat | Roll No | Enrollment | Name | Scheme | Subjects | Status1 | Status2
+    """
+    try:
+        import re
+        from io import BytesIO
+
+        import pandas as pd
+
+        df = pd.read_excel(BytesIO(content), header=None, dtype=str).fillna("")
+
+        if df.empty:
+            logger.warning("Seating chart file is empty")
+            return content
+
+        logger.info(f"Seating chart: {len(df)} rows, {len(df.columns)} columns")
+
+        # ============================================================
+        # STEP 1: Detect data rows and column mapping
+        # ============================================================
+        data_start_row = None
+
+        # First pass - find header row
+        for idx in range(min(30, len(df))):
+            row = df.iloc[idx]
+            row_text = " ".join([str(c).lower() for c in row if str(c).strip()])
+
+            # Look for column headers
+            "sr" in row_text or "sr no" in row_text or "sr." in row_text
+            has_seat = "seat" in row_text or "seat no" in row_text
+            "enroll" in row_text or "enrollment" in row_text
+            has_name = "name" in row_text
+            has_scheme = "scheme" in row_text
+            has_subject = "subject" in row_text or "appearing" in row_text or "paper" in row_text
+
+            if has_seat and has_name and (has_scheme or has_subject):
+                logger.info(f"Found header at row {idx}")
+                data_start_row = idx + 1
+                break
+
+        # If no header found, try to find data directly
+        if data_start_row is None:
+            for idx in range(min(30, len(df))):
+                col0 = str(df.iloc[idx, 0]).strip() if len(df.columns) > 0 else ""
+                col1 = str(df.iloc[idx, 1]).strip() if len(df.columns) > 1 else ""
+
+                # Check if first column is SR (small numbers) and second is seat (large numbers)
+                if col0.isdigit() and col1.isdigit():
+                    sr_num = int(col0)
+                    seat_num = int(col1)
+                    if 1 <= sr_num <= 100 and seat_num > 10000:
+                        data_start_row = idx
+                        logger.info(
+                            f"Found data starting at row {idx} (SR in col A, Seat in col B)"
+                        )
+                        break
+
+                # Check if first column is seat number directly
+                if col0.isdigit() and int(col0) > 10000:
+                    data_start_row = idx
+                    logger.info(f"Found data starting at row {idx} (Seat in col A)")
+                    break
+
+        # If still no data found, try to detect by looking for numeric patterns
+        if data_start_row is None:
+            for idx in range(min(50, len(df))):
+                row = df.iloc[idx]
+                valid_seats = 0
+                for col_idx in range(min(3, len(row))):
+                    val = str(row[col_idx]).strip()
+                    if val.isdigit() and int(val) > 10000:
+                        valid_seats += 1
+                if valid_seats >= 1:
+                    data_start_row = idx
+                    logger.info(f"Found numeric seat data at row {idx}")
+                    break
+
+        if data_start_row is None:
+            logger.warning("Could not find data in seating chart")
+            return content
+
+        # ============================================================
+        # STEP 2: Determine column mapping
+        # ============================================================
+
+        # Examine first data row to understand column structure
+        sample_row = df.iloc[data_start_row] if data_start_row < len(df) else None
+        num_cols = len(df.columns)
+
+        # Initialize mapping
+        col_mapping = {
+            "seat_number": None,
+            "enrollment_number": None,
+            "name": None,
+            "scheme": None,
+            "subject_appearing_for": None,
+            "sr_number": None,
+        }
+
+        if sample_row is not None:
+            # Check each column in the sample row
+            for col_idx in range(min(num_cols, 10)):
+                val = str(sample_row[col_idx]).strip()
+
+                # Detect SR number column (small number, 1-1000)
+                if val.isdigit() and 1 <= int(val) <= 10000 and col_mapping["sr_number"] is None:
+                    # Check if this is a seat number instead (large number)
+                    if int(val) < 10000 and col_idx == 0:
+                        # First column with small number is likely SR
+                        col_mapping["sr_number"] = col_idx
+                        continue
+
+                # Detect Seat Number (large number, usually > 10000)
+                if val.isdigit() and int(val) > 10000 and col_mapping["seat_number"] is None:
+                    col_mapping["seat_number"] = col_idx
+                    continue
+
+                # Detect Enrollment Number (10+ digits)
+                clean_val = re.sub(r"[^0-9]", "", val)
+                if (
+                    len(clean_val) >= 10
+                    and clean_val.isdigit()
+                    and col_mapping["enrollment_number"] is None
+                ):
+                    col_mapping["enrollment_number"] = col_idx
+                    continue
+
+                # Detect Name (contains letters and spaces)
+                if re.search(r"[A-Za-z]", val) and len(val) > 2 and col_mapping["name"] is None:
+                    # Check if it's a scheme (contains hyphen)
+                    if "-" not in val:
+                        col_mapping["name"] = col_idx
+                        continue
+
+                # Detect Scheme (contains hyphen, format like AE-3-I)
+                if "-" in val and col_mapping["scheme"] is None:
+                    col_mapping["scheme"] = col_idx
+                    continue
+
+                # Detect Subjects (contains comma separated codes)
+                if (
+                    "," in val
+                    and ("ESE" in val or "SA" in val)
+                    and col_mapping["subject_appearing_for"] is None
+                ):
+                    col_mapping["subject_appearing_for"] = col_idx
+                    continue
+
+        # ============================================================
+        # STEP 3: Fill missing mapping using position-based defaults
+        # ============================================================
+
+        # If seat number not found, check if column 0 or 1 has it
+        if col_mapping["seat_number"] is None:
+            if sample_row is not None:
+                col0 = str(sample_row[0]).strip() if len(sample_row) > 0 else ""
+                col1 = str(sample_row[1]).strip() if len(sample_row) > 1 else ""
+
+                if col0.isdigit() and int(col0) > 10000:
+                    col_mapping["seat_number"] = 0
+                elif col1.isdigit() and int(col1) > 10000:
+                    col_mapping["seat_number"] = 1
+                else:
+                    col_mapping["seat_number"] = 1  # Default to column 1 (second column)
+
+        # If enrollment not found, look for 10+ digit numbers
+        if col_mapping["enrollment_number"] is None:
+            if sample_row is not None:
+                for col_idx in range(min(num_cols, 8)):
+                    val = str(sample_row[col_idx]).strip()
+                    clean_val = re.sub(r"[^0-9]", "", val)
+                    if (
+                        len(clean_val) >= 10
+                        and clean_val.isdigit()
+                        and col_idx != col_mapping["seat_number"]
+                    ):
+                        col_mapping["enrollment_number"] = col_idx
+                        break
+
+                # If still not found, use next available column
+                if col_mapping["enrollment_number"] is None:
+                    for col_idx in range(min(num_cols, 8)):
+                        if (
+                            col_idx != col_mapping["seat_number"]
+                            and col_idx != col_mapping["sr_number"]
+                        ):
+                            col_mapping["enrollment_number"] = col_idx
+                            break
+
+        # If name not found, look for text columns
+        if col_mapping["name"] is None:
+            if sample_row is not None:
+                for col_idx in range(min(num_cols, 8)):
+                    val = str(sample_row[col_idx]).strip()
+                    if re.search(r"[A-Za-z]", val) and len(val) > 2:
+                        if (
+                            col_idx != col_mapping["seat_number"]
+                            and col_idx != col_mapping["enrollment_number"]
+                        ):
+                            if "-" not in val and "," not in val:
+                                col_mapping["name"] = col_idx
+                                break
+
+                if col_mapping["name"] is None:
+                    # Use first column that's not seat or enrollment
+                    for col_idx in range(min(num_cols, 8)):
+                        if col_idx not in [
+                            col_mapping["seat_number"],
+                            col_mapping["enrollment_number"],
+                        ]:
+                            col_mapping["name"] = col_idx
+                            break
+
+        # If scheme not found, look for columns with hyphen
+        if col_mapping["scheme"] is None:
+            if sample_row is not None:
+                for col_idx in range(min(num_cols, 8)):
+                    val = str(sample_row[col_idx]).strip()
+                    if "-" in val and len(val) >= 3:
+                        if col_idx not in [
+                            col_mapping["seat_number"],
+                            col_mapping["enrollment_number"],
+                            col_mapping["name"],
+                        ]:
+                            col_mapping["scheme"] = col_idx
+                            break
+
+        # If subjects not found, look for comma separated codes
+        if col_mapping["subject_appearing_for"] is None:
+            if sample_row is not None:
+                for col_idx in range(min(num_cols, 8)):
+                    val = str(sample_row[col_idx]).strip()
+                    if "," in val and ("ESE" in val or "SA" in val):
+                        if col_idx not in [
+                            col_mapping["seat_number"],
+                            col_mapping["enrollment_number"],
+                            col_mapping["name"],
+                            col_mapping["scheme"],
+                        ]:
+                            col_mapping["subject_appearing_for"] = col_idx
+                            break
+
+        logger.info(f"Column mapping: {col_mapping}")
+
+        # ============================================================
+        # STEP 4: Extract data
+        # ============================================================
+        clean_data = []
+        seen_seats = set()
+        invalid_count = 0
+
+        for idx in range(data_start_row, len(df)):
+            row = df.iloc[idx]
+
+            # Skip empty rows
+            if not any(str(c).strip() for c in row):
+                continue
+
+            seat_idx = col_mapping.get("seat_number")
+            if seat_idx is None or seat_idx >= len(row):
+                continue
+
+            seat_value = str(row[seat_idx]).strip()
+            if not seat_value:
+                continue
+
+            # Extract seat number - handle both integer and string formats
+            try:
+                # Clean the seat value
+                seat_clean = re.sub(r"[^0-9]", "", seat_value)
+                if not seat_clean:
+                    continue
+                seat_num = int(seat_clean)
+                if seat_num > 999999 or seat_num < 1:
+                    continue
+                # Skip if seat number is too small (likely an SR number that was mis-detected)
+                if seat_num < 1000 and col_mapping.get("sr_number") is None:
+                    # Check if this row might be an SR number
+                    continue
+            except (ValueError, TypeError):
+                continue
+
+            # Skip duplicate seats
+            if seat_num in seen_seats:
+                continue
+            seen_seats.add(seat_num)
+
+            # Extract enrollment
+            enroll_idx = col_mapping.get("enrollment_number")
+            enrollment = ""
+            if enroll_idx is not None and enroll_idx < len(row):
+                enrollment = str(row[enroll_idx]).strip()
+                if enrollment in ["nan", "None", ""]:
+                    enrollment = ""
+                enrollment = re.sub(r"[^0-9]", "", enrollment)
+
+            # Extract name
+            name_idx = col_mapping.get("name")
+            name = ""
+            if name_idx is not None and name_idx < len(row):
+                name = str(row[name_idx]).strip()
+                if name in ["nan", "None", ""]:
+                    name = ""
+                name = " ".join(name.split())
+
+            # Extract scheme
+            scheme_idx = col_mapping.get("scheme")
+            scheme = ""
+            if scheme_idx is not None and scheme_idx < len(row):
+                scheme = str(row[scheme_idx]).strip()
+                if scheme in ["nan", "None", ""]:
+                    scheme = ""
+
+            # Extract subjects
+            subject_idx = col_mapping.get("subject_appearing_for")
+            subjects = ""
+            if subject_idx is not None and subject_idx < len(row):
+                subjects = str(row[subject_idx]).strip()
+                if subjects in ["nan", "None", ""]:
+                    subjects = ""
+                # Clean up subjects
+                subjects = re.sub(r"\s*,\s*", ",", subjects)
+                subjects = re.sub(r",+", ",", subjects)
+
+            # Skip if no meaningful data
+            if not name and not enrollment and not subjects:
+                invalid_count += 1
+                continue
+
+            clean_data.append(
+                {
+                    "Seat Number": str(seat_num),
+                    "Enrollment Number": enrollment,
+                    "Name": name,
+                    "Scheme": scheme,
+                    "Subject Appearing For": subjects,
+                }
+            )
+
+        if not clean_data:
+            logger.warning(f"No valid data rows extracted. Invalid: {invalid_count}")
+            return content
+
+        # ============================================================
+        # STEP 5: Create clean DataFrame and save
+        # ============================================================
+        clean_df = pd.DataFrame(clean_data)
+
+        # Ensure columns are in the right order
+        column_order = [
+            "Seat Number",
+            "Enrollment Number",
+            "Name",
+            "Scheme",
+            "Subject Appearing For",
+        ]
+        clean_df = clean_df[column_order]
+
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            clean_df.to_excel(writer, sheet_name="Seating Chart", index=False)
+
+        logger.info(f"Successfully sanitized seating chart: {len(clean_data)} rows extracted")
+        return output.getvalue()
+
+    except Exception as e:
+        logger.error(f"Error sanitizing seating chart: {e}")
+        import traceback
+
+        traceback.print_exc()
+        return content
+
+
+# ============================================================
+# STRICT validation function
+# ============================================================
+
+
+def _validate_seating_chart_file(content: bytes) -> Tuple[bool, Optional[bytes], Optional[str]]:
+    """Validate seating chart Excel file - STRICT validation"""
+    try:
+        from io import BytesIO
+
+        import pandas as pd
+
+        # Sanitize first
+        sanitized = sanitize_seating_chart_excel(content)
+
+        # Verify sanitized data with STRICT checks
+        try:
+            df = pd.read_excel(BytesIO(sanitized), dtype=str).fillna("")
+
+            if df.empty:
+                return False, content, "No data after sanitization"
+
+            # Check columns
+            actual_cols = [str(c).strip() for c in df.columns]
+
+            # We need at least Seat Number and one of Name/Enrollment/Subjects
+            has_seat = "Seat Number" in actual_cols
+            has_name = "Name" in actual_cols
+            has_enroll = "Enrollment Number" in actual_cols
+            has_subject = "Subject Appearing For" in actual_cols
+
+            if not has_seat:
+                return False, content, "Missing 'Seat Number' column"
+
+            if not (has_name or has_enroll or has_subject):
+                return False, content, "Need at least Name, Enrollment, or Subject columns"
+
+            # Count valid rows (must have at least one seat number)
+            valid_rows = 0
+            for _, row in df.iterrows():
+                seat = str(row.get("Seat Number", "")).strip()
+                if seat and seat.isdigit():
+                    valid_rows += 1
+
+            if valid_rows == 0:
+                return False, content, "No valid seating records found (seat numbers required)"
+
+            logger.info(f"Seating chart validated: {valid_rows} rows found")
+            return True, sanitized, None
+
+        except Exception as e:
+            logger.error(f"Seating chart validation error: {e}")
+            return False, content, f"Validation failed: {str(e)}"
+
+    except Exception as e:
+        logger.error(f"Seating chart validation error: {e}")
+        return False, content, f"Seating chart validation failed: {str(e)}"
+
+
+# ============================================================================
+# Helpers
+# ============================================================================
+
+
+def calculate_file_hash(content: bytes) -> str:
+    """Calculate SHA256 hash of file content"""
+    return hashlib.sha256(content).hexdigest()
+
+
+def generate_stored_filename(exam_center_id: str, file_type: str, original_filename: str) -> str:
+    """Generate unique stored filename"""
+    ext = os.path.splitext(original_filename)[1].lower()
+    unique_id = uuid.uuid4().hex[:8]
+    return f"{file_type}_{exam_center_id}_{unique_id}{ext}"
+
+
+def success_response(data: Any = None, message: str = "Success") -> dict:
+    """Standard success response"""
+    return {"success": True, "message": message, "data": data, "error": None}
+
+
+def error_response(message: str, error: str = None, status_code: int = 400) -> tuple:
+    """Standard error response"""
+    return {
+        "success": False,
+        "message": message,
+        "data": None,
+        "error": error or message,
+    }, status_code
+<<//./utils.py/
+<<./routers/seatingarrangement.py/>>
+# backend/routers/seatingarrangement.py
+
+import json
+import logging
+import os
+from datetime import datetime
+from typing import Dict, List, Optional
+from uuid import uuid4
+
+import pandas as pd
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+
+from auth import get_exam_center_id
+from config import db, settings
+from utils import success_response
+
+router = APIRouter(prefix="/seatingarrangement", tags=["seatingarrangement"])
+logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# Pydantic Models
+# ============================================================================
+
+
+class ProcessSeatingArrangementRequest(BaseModel):
+    stored_filename: str
+
+
+class FixMismatchesRequest(BaseModel):
+    temp_session_id: str
+    action: str  # "CONFIRM_FIX" or "CANCEL"
+
+
+# ============================================================================
+# Seating Arrangement Processor
+# ============================================================================
+
+
+class SeatingArrangementProcessor:
+    """
+    Process MSBTE seating arrangement file.
+
+    Format: SR No | Seat Number | Inst Code | Course Code | Semester | Master Code | Paper Code
+
+    Students appear for multiple papers (one row per paper per student).
+    This processor groups papers by student and validates against DB.
+    """
+
+    def __init__(self, exam_center_id: str):
+        self.exam_center_id = exam_center_id
+        self.temp_sessions = {}  # Store temp data for correction flow
+
+    def _get_uploaded_file(self, stored_filename: str) -> Optional[Dict]:
+        """Get the uploaded seating arrangement file"""
+        result = db.execute_query(
+            """
+            SELECT stored_filename, status, original_filename, connected_institute_id
+            FROM uploads
+            WHERE exam_center_id = :exam_center_id 
+                AND file_type = 'seatingarrangement'
+                AND stored_filename = :stored_filename
+        """,
+            {"exam_center_id": self.exam_center_id, "stored_filename": stored_filename},
+        )
+
+        if not result:
+            return None
+
+        file_path = os.path.join(settings.UPLOAD_DIR, result[0]["stored_filename"])
+        return {
+            "stored_filename": result[0]["stored_filename"],
+            "file_path": file_path,
+            "status": result[0]["status"],
+            "original_filename": result[0]["original_filename"],
+            "connected_institute_id": result[0].get("connected_institute_id"),
+        }
+
+    def _parse_seating_arrangement(self, file_path: str) -> Dict:
+        """
+        Parse seating arrangement Excel file.
+        Returns grouped data: { seat_number: { scheme, paper_codes: [] } }
+        """
+        try:
+            df = pd.read_excel(file_path, dtype=str).fillna("")
+
+            columns = list(df.columns)
+            logger.info(f"Seating arrangement columns: {columns}")
+
+            # Map columns by position (MSBTE format)
+            seat_col = 1
+            inst_col = 2
+            course_col = 3
+            semester_col = 4
+            master_col = 5
+            paper_col = 6
+
+            # Try to find columns by name if available
+            for idx, col in enumerate(columns):
+                col_str = str(col).strip().lower()
+                if "seat" in col_str and "number" in col_str:
+                    seat_col = idx
+                elif "inst" in col_str and "code" in col_str:
+                    inst_col = idx
+                elif "course" in col_str and "code" in col_str:
+                    course_col = idx
+                elif "semester" in col_str:
+                    semester_col = idx
+                elif "master" in col_str and "code" in col_str:
+                    master_col = idx
+                elif "paper" in col_str and "code" in col_str:
+                    paper_col = idx
+
+            grouped = {}
+
+            for _, row in df.iterrows():
+                # Get seat number
+                seat_val = str(row.iloc[seat_col] if seat_col < len(row) else "").strip()
+                if not seat_val or not seat_val.isdigit():
+                    continue
+
+                seat_number = int(seat_val)
+                paper_code = str(row.iloc[paper_col] if paper_col < len(row) else "").strip()
+
+                # Skip if no paper code
+                if not paper_code or paper_code in ["nan", "None", ""]:
+                    continue
+
+                # Get other fields
+                institute_code = str(row.iloc[inst_col] if inst_col < len(row) else "").strip()
+                course_code = str(row.iloc[course_col] if course_col < len(row) else "").strip()
+                semester = str(row.iloc[semester_col] if semester_col < len(row) else "").strip()
+                master_code = str(row.iloc[master_col] if master_col < len(row) else "").strip()
+
+                # Build scheme from Course + Semester + Master
+                scheme = course_code
+                if semester:
+                    scheme += f"-{semester}"
+                if master_code:
+                    scheme += f"-{master_code}"
+
+                # Map institute code to connected institute ID
+                institute_id = self._get_institute_id(institute_code)
+
+                # Initialize student record if not exists
+                if seat_number not in grouped:
+                    grouped[seat_number] = {
+                        "seat_number": seat_number,
+                        "institute_code": institute_code,
+                        "institute_id": institute_id,
+                        "scheme": scheme,
+                        "paper_codes": [],
+                    }
+
+                # Add paper code if not already present
+                if paper_code not in grouped[seat_number]["paper_codes"]:
+                    grouped[seat_number]["paper_codes"].append(paper_code)
+
+            logger.info(f"Parsed {len(grouped)} students from seating arrangement file")
+            return grouped
+
+        except Exception as e:
+            logger.error(f"Error parsing seating arrangement: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return {}
+
+    def _get_institute_id(self, institute_code: str) -> Optional[str]:
+        """Get connected institute ID from code"""
+        if not institute_code:
+            return None
+
+        result = db.execute_query(
+            """
+            SELECT id FROM connected_institutes
+            WHERE exam_center_id = :exam_center_id 
+                AND institute_code = :institute_code 
+                AND is_active = true
+        """,
+            {"exam_center_id": self.exam_center_id, "institute_code": institute_code},
+        )
+
+        return result[0]["id"] if result else None
+
+    def _clean_sub_codes(self, sub_codes) -> List[str]:
+        """
+        Clean sub_codes from database - filter out empty strings and strip whitespace.
+        Returns list of strings that can be converted to int.
+        """
+        if isinstance(sub_codes, str):
+            sub_codes = json.loads(sub_codes) if sub_codes else []
+        elif sub_codes is None:
+            sub_codes = []
+
+        # Filter out empty strings and strip whitespace
+        return [str(code).strip() for code in sub_codes if code and str(code).strip()]
+
+    def _convert_to_int_set(self, codes: List[str]) -> set:
+        """Convert list of string codes to set of integers"""
+        int_set = set()
+        for code in codes:
+            try:
+                int_set.add(int(code))
+            except (ValueError, TypeError):
+                # If code can't be converted to int, skip it
+                pass
+        return int_set
+
+    def _validate_seating_arrangement(self, parsed_data: Dict) -> Dict:
+        """
+        Validate each student's paper codes against DB.
+        Returns validation result with mismatches.
+        """
+        mismatches = []
+
+        # Get existing students from DB for seat number lookup
+        db_students = db.execute_query(
+            """
+            SELECT 
+                seat_number,
+                sub_codes,
+                scheme
+            FROM students
+            WHERE exam_center_id = :exam_center_id AND is_deleted = false
+        """,
+            {"exam_center_id": self.exam_center_id},
+        )
+
+        # Build DB map: seat_number -> set of integer sub_codes
+        db_seat_map = {}
+        for student in db_students:
+            seat = student.get("seat_number")
+            if seat:
+                sub_codes = self._clean_sub_codes(student.get("sub_codes"))
+                db_seat_map[seat] = self._convert_to_int_set(sub_codes)
+
+        # Build parsed map: seat_number -> set of integer paper_codes
+        parsed_seat_map = {}
+        for seat_number, student_data in parsed_data.items():
+            paper_codes = student_data.get("paper_codes", [])
+            paper_codes = [str(p).strip() for p in paper_codes if p and str(p).strip()]
+            parsed_seat_map[seat_number] = self._convert_to_int_set(paper_codes)
+
+        # Compare each seat
+        all_seats = set(parsed_seat_map.keys()) | set(db_seat_map.keys())
+
+        for seat_number in all_seats:
+            parsed_codes = parsed_seat_map.get(seat_number, set())
+            db_codes = db_seat_map.get(seat_number, set())
+
+            # Find differences
+            missing = db_codes - parsed_codes
+            extra = parsed_codes - db_codes
+
+            if missing or extra:
+                mismatches.append(
+                    {
+                        "seat_number": seat_number,
+                        "expected_subjects": sorted(list(db_codes)),
+                        "actual_subjects": sorted(list(parsed_codes)),
+                        "missing_subjects": sorted(list(missing)),
+                        "extra_subjects": sorted(list(extra)),
+                        "issue_type": self._determine_issue_type(missing, extra),
+                    }
+                )
+
+        if mismatches:
+            temp_session_id = str(uuid4())
+            self.temp_sessions[temp_session_id] = {
+                "parsed_data": parsed_data,
+                "mismatches": mismatches,
+                "created_at": datetime.now().isoformat(),
+            }
+            return {
+                "status": "needs_correction",
+                "mismatches": mismatches,
+                "temp_session_id": temp_session_id,
+                "total_students": len(parsed_seat_map),
+                "mismatch_count": len(mismatches),
+            }
+
+        return {"status": "saved", "mismatches": []}
+
+    def _determine_issue_type(self, missing: set, extra: set) -> str:
+        """Determine the type of issue based on missing and extra codes"""
+        if missing and extra:
+            return "BOTH_MISSING_AND_EXTRA"
+        elif missing:
+            return "MISSING_SUBJECTS"
+        elif extra:
+            return "EXTRA_SUBJECTS"
+        return "UNKNOWN"
+
+    def _apply_corrections(self, parsed_data: Dict) -> Dict:
+        """
+        Auto-correct using DB student data as truth.
+        For existing students, use DB sub_codes and scheme.
+        For new students, keep parsed data.
+        """
+        corrected = {}
+
+        # Get existing students from DB
+        db_students = db.execute_query(
+            """
+            SELECT 
+                seat_number,
+                sub_codes,
+                scheme
+            FROM students
+            WHERE exam_center_id = :exam_center_id AND is_deleted = false
+        """,
+            {"exam_center_id": self.exam_center_id},
+        )
+
+        db_seat_map = {}
+        for student in db_students:
+            seat = student.get("seat_number")
+            if seat:
+                sub_codes = self._clean_sub_codes(student.get("sub_codes"))
+                db_seat_map[seat] = {"sub_codes": sub_codes, "scheme": student.get("scheme", "")}
+
+        for seat_number, student_data in parsed_data.items():
+            # If student exists in DB, use DB data
+            if seat_number in db_seat_map:
+                db_data = db_seat_map[seat_number]
+                corrected[seat_number] = {
+                    "seat_number": seat_number,
+                    "institute_code": student_data.get("institute_code", ""),
+                    "institute_id": student_data.get("institute_id"),
+                    "scheme": db_data.get("scheme", student_data.get("scheme", "")),
+                    "paper_codes": db_data.get("sub_codes", []),
+                }
+            else:
+                # New student - keep parsed data
+                paper_codes = student_data.get("paper_codes", [])
+                paper_codes = [str(p).strip() for p in paper_codes if p and str(p).strip()]
+
+                corrected[seat_number] = {
+                    "seat_number": seat_number,
+                    "institute_code": student_data.get("institute_code", ""),
+                    "institute_id": student_data.get("institute_id"),
+                    "scheme": student_data.get("scheme", ""),
+                    "paper_codes": paper_codes,
+                }
+
+        return corrected
+
+    def _insert_seating_arrangement(self, students_data: Dict, connected_institute_id: str) -> Dict:
+        """Insert or update students in database"""
+
+        inserted = 0
+        updated = 0
+        skipped = 0
+
+        for seat_number, student_data in students_data.items():
+            institute_id = student_data.get("institute_id") or connected_institute_id
+
+            if not institute_id:
+                logger.warning(f"No institute ID for seat {seat_number}, skipping")
+                skipped += 1
+                continue
+
+            # Get institute info
+            inst = db.execute_query(
+                """
+                SELECT id, institute_code, institute_name
+                FROM connected_institutes
+                WHERE id = :institute_id AND exam_center_id = :exam_center_id AND is_active = true
+            """,
+                {"institute_id": institute_id, "exam_center_id": self.exam_center_id},
+            )
+
+            if not inst:
+                logger.warning(f"Institute {institute_id} not found, skipping seat {seat_number}")
+                skipped += 1
+                continue
+
+            institute_code = inst[0]["institute_code"]
+
+            paper_codes = student_data.get("paper_codes", [])
+            scheme = student_data.get("scheme", "")
+
+            # Get subject names for display (subjects array)
+            subjects = []
+            if paper_codes:
+                subject_result = db.execute_query(
+                    """
+                    SELECT name FROM subjects
+                    WHERE code = ANY(:codes) AND scheme = :scheme AND is_deleted = false
+                """,
+                    {"codes": paper_codes, "scheme": scheme},
+                )
+                subjects = [row["name"] for row in subject_result]
+
+            subjects_json = json.dumps(subjects)
+            sub_codes_json = json.dumps(paper_codes)
+
+            # Check if student exists
+            existing = db.execute_query(
+                """
+                SELECT id FROM students
+                WHERE exam_center_id = :exam_center_id AND seat_number = :seat_number
+                AND is_deleted = false
+            """,
+                {"exam_center_id": self.exam_center_id, "seat_number": seat_number},
+            )
+
+            if existing:
+                db.execute_update(
+                    """
+                    UPDATE students
+                    SET connected_institute_id = :institute_id,
+                        institute_code = :institute_code,
+                        scheme = :scheme,
+                        subjects = CAST(:subjects AS jsonb),
+                        sub_codes = CAST(:sub_codes AS jsonb),
+                        updated_at = NOW()
+                    WHERE exam_center_id = :exam_center_id AND seat_number = :seat_number
+                """,
+                    {
+                        "exam_center_id": self.exam_center_id,
+                        "institute_id": institute_id,
+                        "institute_code": institute_code,
+                        "seat_number": seat_number,
+                        "scheme": scheme,
+                        "subjects": subjects_json,
+                        "sub_codes": sub_codes_json,
+                    },
+                )
+                updated += 1
+            else:
+                db.execute_update(
+                    """
+                    INSERT INTO students (
+                        id, exam_center_id, connected_institute_id, seat_number,
+                        institute_code, scheme, subjects, sub_codes, is_deleted
+                    ) VALUES (
+                        gen_random_uuid(), :exam_center_id, :institute_id, :seat_number,
+                        :institute_code, :scheme, CAST(:subjects AS jsonb), 
+                        CAST(:sub_codes AS jsonb), false
+                    )
+                """,
+                    {
+                        "exam_center_id": self.exam_center_id,
+                        "institute_id": institute_id,
+                        "institute_code": institute_code,
+                        "seat_number": seat_number,
+                        "scheme": scheme,
+                        "subjects": subjects_json,
+                        "sub_codes": sub_codes_json,
+                    },
+                )
+                inserted += 1
+
+        return {
+            "inserted": inserted,
+            "updated": updated,
+            "skipped": skipped,
+            "total": inserted + updated + skipped,
+        }
+
+    def _update_timetable_counts(self) -> int:
+        """Update timetable student counts based on seating arrangement"""
+        # Get all students grouped by subject and scheme
+        students = db.execute_query(
+            """
+            SELECT sub_codes, scheme
+            FROM students
+            WHERE exam_center_id = :exam_center_id AND is_deleted = false
+        """,
+            {"exam_center_id": self.exam_center_id},
+        )
+
+        # Count students per subject+scheme
+        subject_counts = {}
+        for student in students:
+            sub_codes = self._clean_sub_codes(student.get("sub_codes"))
+            scheme = str(student.get("scheme", "")).strip()
+
+            for code in sub_codes:
+                key = f"{code}_{scheme}"
+                subject_counts[key] = subject_counts.get(key, 0) + 1
+
+        # Update timetable
+        timetable_entries = db.execute_query(
+            """
+            SELECT id, subject_code, scheme
+            FROM timetable
+            WHERE exam_center_id = :exam_center_id
+        """,
+            {"exam_center_id": self.exam_center_id},
+        )
+
+        updated = 0
+        for entry in timetable_entries:
+            key = f"{entry['subject_code']}_{entry['scheme']}"
+            count = subject_counts.get(key, 0)
+
+            db.execute_update(
+                """
+                UPDATE timetable
+                SET total_students = :count, updated_at = NOW()
+                WHERE id = :id
+            """,
+                {"count": count, "id": entry["id"]},
+            )
+            updated += 1
+
+        logger.info(f"Updated {updated} timetable entries with student counts")
+        return updated
+
+    # ============================================================
+    # MAIN PROCESSING
+    # ============================================================
+
+    def process(self, stored_filename: str) -> Dict:
+        """Main processing function"""
+
+        upload = self._get_uploaded_file(stored_filename)
+        if not upload:
+            return {"success": False, "error": f"File not found: {stored_filename}"}
+
+        if not os.path.exists(upload["file_path"]):
+            return {"success": False, "error": f"File not found on server: {stored_filename}"}
+
+        connected_institute_id = upload.get("connected_institute_id")
+
+        # Update status to PROCESSING
+        db.execute_update(
+            """
+            UPDATE uploads 
+            SET status = 'PROCESSING', updated_at = NOW()
+            WHERE exam_center_id = :exam_center_id 
+                AND file_type = 'seatingarrangement'
+                AND stored_filename = :stored_filename
+        """,
+            {"exam_center_id": self.exam_center_id, "stored_filename": stored_filename},
+        )
+
+        # Parse the file
+        parsed_data = self._parse_seating_arrangement(upload["file_path"])
+
+        if not parsed_data:
+            db.execute_update(
+                """
+                UPDATE uploads 
+                SET status = 'FAILED', 
+                    error_message = 'No valid seating arrangement data found',
+                    updated_at = NOW()
+                WHERE exam_center_id = :exam_center_id 
+                    AND file_type = 'seatingarrangement'
+                    AND stored_filename = :stored_filename
+            """,
+                {"exam_center_id": self.exam_center_id, "stored_filename": stored_filename},
+            )
+            return {"success": False, "error": "No valid seating arrangement data found in file"}
+
+        # STEP 1: Validate against DB
+        validation_result = self._validate_seating_arrangement(parsed_data)
+
+        # STEP 2: If validation fails, return correction request
+        if validation_result["status"] == "needs_correction":
+            return {
+                "success": True,
+                "status": "needs_correction",
+                "data": {
+                    "temp_session_id": validation_result["temp_session_id"],
+                    "total_students": validation_result["total_students"],
+                    "mismatch_count": validation_result["mismatch_count"],
+                    "mismatches": validation_result["mismatches"],
+                },
+                "message": f"Found {validation_result['mismatch_count']} mismatches. Please review and confirm fixes.",
+            }
+
+        # STEP 3: No mismatches - insert directly
+        stats = self._insert_seating_arrangement(parsed_data, connected_institute_id)
+        timetable_updated = self._update_timetable_counts()
+
+        # Update status to PROCESSED
+        db.execute_update(
+            """
+            UPDATE uploads 
+            SET status = 'PROCESSED', 
+                record_count = :count,
+                processed_at = NOW(),
+                updated_at = NOW()
+            WHERE exam_center_id = :exam_center_id 
+                AND file_type = 'seatingarrangement'
+                AND stored_filename = :stored_filename
+        """,
+            {
+                "count": stats["total"],
+                "exam_center_id": self.exam_center_id,
+                "stored_filename": stored_filename,
+            },
+        )
+
+        logger.info(
+            f"Seating arrangement processed: {stats['inserted']} inserted, {stats['updated']} updated"
+        )
+
+        return {
+            "success": True,
+            "status": "saved",
+            "message": "Seating arrangement processed successfully",
+            "data": {
+                "total_students": stats["total"],
+                "inserted": stats["inserted"],
+                "updated": stats["updated"],
+                "skipped": stats["skipped"],
+                "timetable_entries_updated": timetable_updated,
+                "exam_center_id": self.exam_center_id,
+                "connected_institute_id": connected_institute_id,
+                "stored_filename": stored_filename,
+            },
+        }
+
+    # ============================================================
+    # FIX MISMATCHES
+    # ============================================================
+
+    def fix_mismatches(self, temp_session_id: str, action: str) -> Dict:
+        """Apply fixes to mismatches or cancel the session"""
+
+        if temp_session_id not in self.temp_sessions:
+            return {"success": False, "error": "Invalid or expired session ID"}
+
+        session_data = self.temp_sessions[temp_session_id]
+        parsed_data = session_data["parsed_data"]
+        mismatches = session_data["mismatches"]
+
+        if action == "CANCEL":
+            del self.temp_sessions[temp_session_id]
+            return {
+                "success": True,
+                "status": "cancelled",
+                "message": f"Cancelled correction for {len(mismatches)} mismatches. No changes made.",
+            }
+
+        if action == "CONFIRM_FIX":
+            # Apply corrections using DB truth
+            corrected_data = self._apply_corrections(parsed_data)
+
+            # Get connected_institute_id from the first student or from session
+            connected_institute_id = None
+            for seat, data in corrected_data.items():
+                if data.get("institute_id"):
+                    connected_institute_id = data["institute_id"]
+                    break
+
+            # Insert corrected data
+            stats = self._insert_seating_arrangement(corrected_data, connected_institute_id)
+            timetable_updated = self._update_timetable_counts()
+
+            # Get stored_filename from session
+            stored_filename = session_data.get("stored_filename", "unknown")
+
+            # Update upload status
+            db.execute_update(
+                """
+                UPDATE uploads 
+                SET status = 'PROCESSED', 
+                    record_count = :count,
+                    processed_at = NOW(),
+                    updated_at = NOW()
+                WHERE exam_center_id = :exam_center_id 
+                    AND file_type = 'seatingarrangement'
+                    AND stored_filename = :stored_filename
+            """,
+                {
+                    "count": stats["total"],
+                    "exam_center_id": self.exam_center_id,
+                    "stored_filename": stored_filename,
+                },
+            )
+
+            del self.temp_sessions[temp_session_id]
+
+            return {
+                "success": True,
+                "status": "fixed",
+                "message": f"Fixed {len(mismatches)} mismatches and saved data",
+                "data": {
+                    "total_students": stats["total"],
+                    "inserted": stats["inserted"],
+                    "updated": stats["updated"],
+                    "skipped": stats["skipped"],
+                    "timetable_entries_updated": timetable_updated,
+                    "mismatches_fixed": len(mismatches),
+                },
+            }
+
+        return {"success": False, "error": "Invalid action. Use CONFIRM_FIX or CANCEL"}
+
+
+# ============================================================================
+# API Endpoints
+# ============================================================================
+
+
+@router.post("/process")
+async def process_seating_arrangement(
+    request: ProcessSeatingArrangementRequest, exam_center_id: str = Depends(get_exam_center_id)
+):
+    """Process a specific uploaded seating arrangement file with validation"""
+    processor = SeatingArrangementProcessor(exam_center_id)
+    result = processor.process(request.stored_filename)
+
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["error"])
+
+    return success_response(
+        data=result.get("data"), message=result.get("message", "Processing complete")
+    )
+
+
+@router.post("/fix-mismatches")
+async def fix_seating_mismatches(
+    request: FixMismatchesRequest, exam_center_id: str = Depends(get_exam_center_id)
+):
+    """Fix mismatches in seating arrangement data"""
+    processor = SeatingArrangementProcessor(exam_center_id)
+    result = processor.fix_mismatches(request.temp_session_id, request.action)
+
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["error"])
+
+    return success_response(data=result.get("data"), message=result.get("message"))
+
+
+@router.get("/temp-session/{temp_session_id}")
+async def get_temp_session_status(
+    temp_session_id: str, exam_center_id: str = Depends(get_exam_center_id)
+):
+    """Get status of a temporary correction session"""
+    processor = SeatingArrangementProcessor(exam_center_id)
+
+    if temp_session_id not in processor.temp_sessions:
+        raise HTTPException(status_code=404, detail="Session not found or expired")
+
+    session_data = processor.temp_sessions[temp_session_id]
+
+    return success_response(
+        data={
+            "temp_session_id": temp_session_id,
+            "mismatch_count": len(session_data.get("mismatches", [])),
+            "created_at": session_data.get("created_at"),
+            "mismatches": session_data.get("mismatches", []),
+        },
+        message=f"Found {len(session_data.get('mismatches', []))} mismatches",
+    )
+<<//./routers/seatingarrangement.py/
+<<./routers/inventory.py/>>
+# backend/routers/inventory.py - FIXED VERSION
+
+import logging
+import os
+import re
+from typing import Dict, List, Optional
+
+import pandas as pd
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+
+from auth import get_exam_center_id
+from config import db, settings
+from utils import success_response
+
+router = APIRouter(prefix="/inventory", tags=["inventory"])
+logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# Pydantic Models
+# ============================================================================
+
+
+class ProcessInventoryRequest(BaseModel):
+    stored_filename: str
+
+
+# ============================================================================
+# Inventory Processor
+# ============================================================================
+
+
+class InventoryProcessor:
+    """Process inventory from uploaded Excel files"""
+
+    def __init__(self, exam_center_id: str):
+        self.exam_center_id = exam_center_id
+
+    def _get_uploaded_file(self, stored_filename: str) -> Optional[Dict]:
+        """Get a specific uploaded inventory file by stored_filename"""
+        result = db.execute_query(
+            """
+            SELECT stored_filename, status, original_filename
+            FROM uploads
+            WHERE exam_center_id = :exam_center_id 
+                AND file_type = 'inventory'
+                AND stored_filename = :stored_filename
+        """,
+            {"exam_center_id": self.exam_center_id, "stored_filename": stored_filename},
+        )
+
+        if not result:
+            return None
+
+        file_path = os.path.join(settings.UPLOAD_DIR, result[0]["stored_filename"])
+        return {
+            "stored_filename": result[0]["stored_filename"],
+            "file_path": file_path,
+            "status": result[0]["status"],
+            "original_filename": result[0]["original_filename"],
+        }
+
+    def _sanitize_paper_code(self, code: str) -> str:
+        """Clean paper code by removing spaces, special characters, and standardizing"""
+        if not code:
+            return ""
+        # Remove extra spaces
+        code = code.strip()
+        # Remove hyphens and special chars
+        code = re.sub(r"[^a-zA-Z0-9]", "", code)
+        return code.upper()
+
+    def _get_timetable_date_session(self, paper_code: str) -> Optional[Dict]:
+        """Get date and session for a paper code from timetable"""
+        # Try exact match first
+        result = db.execute_query(
+            """
+            SELECT date, session, subject_code, scheme
+            FROM timetable
+            WHERE exam_center_id = :exam_center_id 
+                AND subject_code = :paper_code
+            LIMIT 1
+        """,
+            {"exam_center_id": self.exam_center_id, "paper_code": paper_code},
+        )
+
+        if result:
+            return {
+                "date": result[0]["date"],
+                "session": result[0]["session"],
+                "subject_code": result[0]["subject_code"],
+                "scheme": result[0]["scheme"],
+            }
+
+        # Try sanitized match (remove hyphens)
+        sanitized = self._sanitize_paper_code(paper_code)
+        result = db.execute_query(
+            """
+            SELECT date, session, subject_code, scheme
+            FROM timetable
+            WHERE exam_center_id = :exam_center_id 
+                AND REPLACE(subject_code, '-', '') = :sanitized
+            LIMIT 1
+        """,
+            {"exam_center_id": self.exam_center_id, "sanitized": sanitized},
+        )
+
+        if result:
+            return {
+                "date": result[0]["date"],
+                "session": result[0]["session"],
+                "subject_code": result[0]["subject_code"],
+                "scheme": result[0]["scheme"],
+            }
+
+        # Try partial match (if paper_code contains subject_code)
+        result = db.execute_query(
+            """
+            SELECT date, session, subject_code, scheme
+            FROM timetable
+            WHERE exam_center_id = :exam_center_id 
+                AND :paper_code LIKE '%' || subject_code || '%'
+            LIMIT 1
+        """,
+            {"exam_center_id": self.exam_center_id, "paper_code": paper_code},
+        )
+
+        if result:
+            return {
+                "date": result[0]["date"],
+                "session": result[0]["session"],
+                "subject_code": result[0]["subject_code"],
+                "scheme": result[0]["scheme"],
+            }
+
+        logger.warning(f"No timetable entry found for paper code: {paper_code}")
+        return None
+
+    def _parse_excel_file(self, file_path: str) -> List[Dict]:
+        """Parse inventory Excel file - handles both sanitized and raw MSBTE format"""
+        try:
+            # First try to read with headers (sanitized format)
+            df = pd.read_excel(file_path, dtype=str).fillna("")
+
+            # Check if this is sanitized (has clean columns)
+            clean_columns = ["Region", "DC", "EC", "DAY", "SESSION", "PAPER_CODE"]
+            actual_columns = [str(c).strip() for c in df.columns]
+
+            # If sanitized, parse directly
+            if all(any(h in col for col in actual_columns) for h in clean_columns):
+                items = []
+                for _, row in df.iterrows():
+                    paper_code = str(row.get("PAPER_CODE", "")).strip()
+                    if not paper_code or paper_code in ["nan", "None", ""]:
+                        continue
+
+                    # Skip summary rows
+                    if any(k in paper_code.lower() for k in ["total", "certify", "signature"]):
+                        continue
+
+                    # Get timetable info for this paper code
+                    timetable_info = self._get_timetable_date_session(paper_code)
+
+                    def parse_int(val):
+                        try:
+                            cleaned = str(val).strip().replace(",", "").replace(" ", "")
+                            if cleaned in ["nan", "None", "", "-"]:
+                                return 0
+                            return int(float(cleaned))
+                        except (ValueError, TypeError):
+                            return 0
+
+                    items.append(
+                        {
+                            "region": str(row.get("Region", "")).strip(),
+                            "dc": str(row.get("DC", "")).strip(),
+                            "ec": str(row.get("EC", "")).strip(),
+                            "day": (
+                                int(str(row.get("DAY", "0")).strip())
+                                if str(row.get("DAY", "0")).strip().isdigit()
+                                else 0
+                            ),
+                            "session": str(row.get("SESSION", "M")).strip().upper(),
+                            "paper_code": paper_code,
+                            "no_of_candidates": parse_int(row.get("No_of_Candidates", 0)),
+                            "no_of_packets_required": parse_int(
+                                row.get("No_of_Packets_Required", 0)
+                            ),
+                            "total_packets_session": parse_int(row.get("Total_Packets_Session", 0)),
+                            "total_packets_day": parse_int(row.get("Total_Packets_Day", 0)),
+                            "timetable_date": timetable_info["date"] if timetable_info else None,
+                            "timetable_session": (
+                                timetable_info["session"] if timetable_info else None
+                            ),
+                            "subject_code": (
+                                timetable_info["subject_code"] if timetable_info else paper_code
+                            ),
+                            "scheme": timetable_info["scheme"] if timetable_info else "",
+                        }
+                    )
+
+                logger.info(f"Parsed {len(items)} items from sanitized file")
+                return items
+
+            # Otherwise parse raw MSBTE format
+            df_raw = pd.read_excel(file_path, header=None, dtype=str).fillna("")
+
+            # Find header row
+            header_row_idx = None
+            expected_headers = [
+                "Region",
+                "DC",
+                "EC",
+                "DAY",
+                "SESSION",
+                "PAPER CODE",
+                "No. of Candidate",
+                "No. of packets Required",
+            ]
+
+            for idx in range(min(20, len(df_raw))):
+                row_values = [str(v).strip() for v in df_raw.iloc[idx].values if str(v).strip()]
+                header_matches = sum(
+                    1
+                    for h in expected_headers
+                    if any(h.lower() in str(v).lower() for v in row_values)
+                )
+                if header_matches >= 4:
+                    header_row_idx = idx
+                    logger.info(f"Found header row at index {idx}")
+                    break
+
+            if header_row_idx is None:
+                raise ValueError("Could not find header row in the file")
+
+            # Map columns
+            header_row = df_raw.iloc[header_row_idx].values
+            header_mapping = {}
+
+            for idx, val in enumerate(header_row):
+                val_str = str(val).strip().lower()
+                if "region" in val_str:
+                    header_mapping["region"] = idx
+                elif "dc" in val_str:
+                    header_mapping["dc"] = idx
+                elif "ec" in val_str:
+                    header_mapping["ec"] = idx
+                elif "day" in val_str:
+                    header_mapping["day"] = idx
+                elif "session" in val_str:
+                    header_mapping["session"] = idx
+                elif "paper" in val_str:
+                    header_mapping["paper_code"] = idx
+                elif "candidate" in val_str:
+                    header_mapping["no_of_candidates"] = idx
+                elif "packets required" in val_str:
+                    header_mapping["no_of_packets_required"] = idx
+
+            required = ["region", "dc", "ec", "day", "session", "paper_code"]
+            for req in required:
+                if req not in header_mapping:
+                    raise ValueError(f"Required column '{req}' not found")
+
+            items = []
+            for idx in range(header_row_idx + 1, len(df_raw)):
+                row = df_raw.iloc[idx]
+
+                if all(str(v).strip() in ["", "nan", "None"] for v in row.values):
+                    continue
+
+                paper_code = str(row[header_mapping["paper_code"]]).strip()
+                if not paper_code or paper_code in ["nan", "None", ""]:
+                    continue
+                if "total" in paper_code.lower() or "certify" in paper_code.lower():
+                    continue
+
+                # Get timetable info for this paper code
+                timetable_info = self._get_timetable_date_session(paper_code)
+
+                def parse_int(val):
+                    try:
+                        cleaned = str(val).strip().replace(",", "").replace(" ", "")
+                        if cleaned in ["nan", "None", "", "-"]:
+                            return 0
+                        return int(float(cleaned))
+                    except (ValueError, TypeError):
+                        return 0
+
+                items.append(
+                    {
+                        "region": str(row[header_mapping["region"]]).strip(),
+                        "dc": str(row[header_mapping["dc"]]).strip(),
+                        "ec": str(row[header_mapping["ec"]]).strip(),
+                        "day": (
+                            int(str(row[header_mapping["day"]]).strip())
+                            if str(row[header_mapping["day"]]).strip().isdigit()
+                            else 0
+                        ),
+                        "session": str(row[header_mapping["session"]]).strip().upper(),
+                        "paper_code": paper_code,
+                        "no_of_candidates": (
+                            parse_int(row[header_mapping["no_of_candidates"]])
+                            if "no_of_candidates" in header_mapping
+                            else 0
+                        ),
+                        "no_of_packets_required": (
+                            parse_int(row[header_mapping["no_of_packets_required"]])
+                            if "no_of_packets_required" in header_mapping
+                            else 0
+                        ),
+                        "total_packets_session": 0,
+                        "total_packets_day": 0,
+                        "timetable_date": timetable_info["date"] if timetable_info else None,
+                        "timetable_session": timetable_info["session"] if timetable_info else None,
+                        "subject_code": (
+                            timetable_info["subject_code"] if timetable_info else paper_code
+                        ),
+                        "scheme": timetable_info["scheme"] if timetable_info else "",
+                    }
+                )
+
+            logger.info(f"Parsed {len(items)} items from raw file")
+            return items
+
+        except Exception as e:
+            logger.error(f"Error parsing inventory file: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return []
+
+    def _insert_inventory_items(self, items: List[Dict]) -> Dict:
+        """Insert inventory items into qpInventory table with proper date from timetable"""
+
+        db.execute_update(
+            """
+            DELETE FROM qp_inventory 
+            WHERE exam_center_id = :exam_center_id
+        """,
+            {"exam_center_id": self.exam_center_id},
+        )
+
+        inserted = 0
+        skipped_no_timetable = 0
+
+        for item in items:
+            # Skip items without timetable info (can't determine date/session)
+            if not item.get("timetable_date"):
+                logger.warning(f"Skipping {item['paper_code']} - no timetable found")
+                skipped_no_timetable += 1
+                continue
+
+            db.execute_update(
+                """
+                INSERT INTO qp_inventory (
+                    exam_center_id,
+                    day,
+                    date,
+                    session,
+                    subject_code,
+                    expected_students,
+                    expected_packets
+                ) VALUES (
+                    :exam_center_id,
+                    :day,
+                    :date,
+                    :session,
+                    :paper_code,
+                    :no_of_candidates,
+                    :no_of_packets_required
+                )
+            """,
+                {
+                    "exam_center_id": self.exam_center_id,
+                    "day": item["day"],
+                    "date": item["timetable_date"],  # ✅ Use date from timetable
+                    "session": item["timetable_session"],  # ✅ Use session from timetable
+                    "paper_code": item["paper_code"],
+                    "no_of_candidates": item["no_of_candidates"],
+                    "no_of_packets_required": item["no_of_packets_required"],
+                },
+            )
+            inserted += 1
+
+        logger.info(f"Inserted {inserted}, Skipped {skipped_no_timetable} (no timetable)")
+        return {"inserted": inserted, "total": len(items), "skipped": skipped_no_timetable}
+
+    def process(self, stored_filename: str) -> Dict:
+        """Main processing function"""
+
+        upload = self._get_uploaded_file(stored_filename)
+        if not upload:
+            return {"success": False, "error": f"File not found: {stored_filename}"}
+
+        if not os.path.exists(upload["file_path"]):
+            return {"success": False, "error": f"File not found on server: {stored_filename}"}
+
+        # Update status to PROCESSING
+        db.execute_update(
+            """
+            UPDATE uploads SET status = 'PROCESSING', updated_at = NOW()
+            WHERE exam_center_id = :exam_center_id AND file_type = 'inventory' AND stored_filename = :stored_filename
+        """,
+            {"exam_center_id": self.exam_center_id, "stored_filename": stored_filename},
+        )
+
+        # Parse file
+        items = self._parse_excel_file(upload["file_path"])
+
+        if not items:
+            db.execute_update(
+                """
+                UPDATE uploads SET status = 'FAILED', error_message = 'No valid inventory data found', updated_at = NOW()
+                WHERE exam_center_id = :exam_center_id AND file_type = 'inventory' AND stored_filename = :stored_filename
+            """,
+                {"exam_center_id": self.exam_center_id, "stored_filename": stored_filename},
+            )
+            return {"success": False, "error": "No valid inventory data found in file"}
+
+        # Insert items into qp_inventory
+        stats = self._insert_inventory_items(items)
+
+        # Update status to PROCESSED
+        db.execute_update(
+            """
+            UPDATE uploads SET status = 'PROCESSED', record_count = :count, processed_at = NOW(), updated_at = NOW()
+            WHERE exam_center_id = :exam_center_id AND file_type = 'inventory' AND stored_filename = :stored_filename
+        """,
+            {
+                "count": stats["inserted"],
+                "exam_center_id": self.exam_center_id,
+                "stored_filename": stored_filename,
+            },
+        )
+
+        logger.info(
+            f"Inventory processed: {stats['inserted']} items for exam center {self.exam_center_id}"
+        )
+
+        return {
+            "success": True,
+            "message": "Inventory processed successfully",
+            "data": {
+                "total_items": stats["total"],
+                "inserted": stats["inserted"],
+                "skipped": stats.get("skipped", 0),
+                "exam_center_id": self.exam_center_id,
+                "stored_filename": stored_filename,
+            },
+        }
+
+
+# ============================================================================
+# API Endpoint - ONLY PROCESS
+# ============================================================================
+
+
+@router.post("/process")
+async def process_inventory(
+    request: ProcessInventoryRequest, exam_center_id: str = Depends(get_exam_center_id)
+):
+    """Process a specific uploaded inventory file"""
+    processor = InventoryProcessor(exam_center_id)
+    result = processor.process(request.stored_filename)
+
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["error"])
+
+    return success_response(data=result.get("data"), message=result["message"])
+<<//./routers/inventory.py/
+<<./routers/emarksheet.py/>>
+# backend/routers/emarksheet.py - E-MARKSHEET MODULE (PROCESS ONLY)
+
+import logging
+import os
+from typing import Dict, List, Optional
+
+import pandas as pd
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+
+from auth import get_exam_center_id
+from config import db, settings
+from utils import success_response
+
+router = APIRouter(prefix="/emarksheet", tags=["emarksheet"])
+logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# Pydantic Models
+# ============================================================================
+
+
+class ProcessEMarksheetRequest(BaseModel):
+    stored_filename: str
+
+
+# ============================================================================
+# E-Marksheet Processor
+# ============================================================================
+
+
+class EMarksheetProcessor:
+    """Process E-Marksheet from uploaded Excel files"""
+
+    def __init__(self, exam_center_id: str):
+        self.exam_center_id = exam_center_id
+
+    def _get_uploaded_file(self, stored_filename: str) -> Optional[Dict]:
+        """Get a specific uploaded emarksheet file by stored_filename"""
+        result = db.execute_query(
+            """
+            SELECT stored_filename, status, original_filename
+            FROM uploads
+            WHERE exam_center_id = :exam_center_id 
+                AND file_type = 'emarksheet'
+                AND stored_filename = :stored_filename
+        """,
+            {"exam_center_id": self.exam_center_id, "stored_filename": stored_filename},
+        )
+
+        if not result:
+            return None
+
+        file_path = os.path.join(settings.UPLOAD_DIR, result[0]["stored_filename"])
+        return {
+            "stored_filename": result[0]["stored_filename"],
+            "file_path": file_path,
+            "status": result[0]["status"],
+            "original_filename": result[0]["original_filename"],
+        }
+
+    def _parse_excel_file(self, file_path: str) -> List[Dict]:
+        """Parse E-Marksheet Excel file"""
+        try:
+            df = pd.read_excel(file_path, dtype=str).fillna("")
+
+            logger.info(f"E-Marksheet file columns: {list(df.columns)}")
+
+            items = []
+            for _, row in df.iterrows():
+                sheet_no = str(row.get("Sheet No.", "")).strip()
+                if not sheet_no or sheet_no in ["nan", "None", ""]:
+                    continue
+
+                # Skip summary rows
+                if any(k in sheet_no.lower() for k in ["total", "certify", "signature"]):
+                    continue
+
+                items.append(
+                    {
+                        "sheet_no": sheet_no,
+                        "subject_name": str(row.get("Subject Name", "")).strip(),
+                        "scheme": str(row.get("Scheme", "")).strip(),
+                        "subject_head": str(row.get("Subject Head", "")).strip(),
+                        "paper_code": str(row.get("Paper Code", "")).strip(),
+                        "file_name": str(row.get("File Name", "")).strip(),
+                    }
+                )
+
+            logger.info(f"Parsed {len(items)} E-Marksheet items from {file_path}")
+            return items
+
+        except Exception as e:
+            logger.error(f"Error parsing E-Marksheet file {file_path}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return []
+
+    def _insert_emarksheet_items(self, items: List[Dict]) -> Dict:
+        """Insert E-Marksheet items into eMarksheets table"""
+
+        # First, delete existing emarksheet entries for this exam center
+        db.execute_update(
+            """
+            DELETE FROM e_marksheets 
+            WHERE exam_center_id = :exam_center_id
+        """,
+            {"exam_center_id": self.exam_center_id},
+        )
+
+        inserted = 0
+        for item in items:
+            db.execute_update(
+                """
+                INSERT INTO e_marksheets (
+                    exam_center_id,
+                    sheet_no,
+                    subject_name,
+                    scheme,
+                    subject_head,
+                    paper_code,
+                    file_name,
+                    processed_at
+                ) VALUES (
+                    :exam_center_id,
+                    :sheet_no,
+                    :subject_name,
+                    :scheme,
+                    :subject_head,
+                    :paper_code,
+                    :file_name,
+                    NOW()
+                )
+            """,
+                {
+                    "exam_center_id": self.exam_center_id,
+                    "sheet_no": item["sheet_no"],
+                    "subject_name": item["subject_name"],
+                    "scheme": item["scheme"],
+                    "subject_head": item["subject_head"],
+                    "paper_code": item["paper_code"],
+                    "file_name": item["file_name"],
+                },
+            )
+            inserted += 1
+
+        return {"inserted": inserted, "total": len(items)}
+
+    def process(self, stored_filename: str) -> Dict:
+        """Main processing function"""
+
+        upload = self._get_uploaded_file(stored_filename)
+        if not upload:
+            return {"success": False, "error": f"File not found: {stored_filename}"}
+
+        if not os.path.exists(upload["file_path"]):
+            return {"success": False, "error": f"File not found on server: {stored_filename}"}
+
+        # Update status to PROCESSING
+        db.execute_update(
+            """
+            UPDATE uploads SET status = 'PROCESSING', updated_at = NOW()
+            WHERE exam_center_id = :exam_center_id AND file_type = 'emarksheet' AND stored_filename = :stored_filename
+        """,
+            {"exam_center_id": self.exam_center_id, "stored_filename": stored_filename},
+        )
+
+        # Parse file
+        items = self._parse_excel_file(upload["file_path"])
+
+        if not items:
+            db.execute_update(
+                """
+                UPDATE uploads SET status = 'FAILED', error_message = 'No valid E-Marksheet data found', updated_at = NOW()
+                WHERE exam_center_id = :exam_center_id AND file_type = 'emarksheet' AND stored_filename = :stored_filename
+            """,
+                {"exam_center_id": self.exam_center_id, "stored_filename": stored_filename},
+            )
+            return {"success": False, "error": "No valid E-Marksheet data found in file"}
+
+        # Insert items
+        stats = self._insert_emarksheet_items(items)
+
+        # Update status to PROCESSED
+        db.execute_update(
+            """
+            UPDATE uploads SET status = 'PROCESSED', record_count = :count, processed_at = NOW(), updated_at = NOW()
+            WHERE exam_center_id = :exam_center_id AND file_type = 'emarksheet' AND stored_filename = :stored_filename
+        """,
+            {
+                "count": stats["total"],
+                "exam_center_id": self.exam_center_id,
+                "stored_filename": stored_filename,
+            },
+        )
+
+        logger.info(
+            f"E-Marksheet processed: {stats['inserted']} items for exam center {self.exam_center_id}"
+        )
+
+        return {
+            "success": True,
+            "message": "E-Marksheet processed successfully",
+            "data": {
+                "total_items": stats["total"],
+                "inserted": stats["inserted"],
+                "exam_center_id": self.exam_center_id,
+                "stored_filename": stored_filename,
+            },
+        }
+
+
+# ============================================================================
+# API Endpoint - ONLY PROCESS
+# ============================================================================
+
+
+@router.post("/process")
+async def process_emarksheet(
+    request: ProcessEMarksheetRequest, exam_center_id: str = Depends(get_exam_center_id)
+):
+    """Process a specific uploaded E-Marksheet file"""
+    processor = EMarksheetProcessor(exam_center_id)
+    result = processor.process(request.stored_filename)
+
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["error"])
+
+    return success_response(data=result.get("data"), message=result["message"])
+<<//./routers/emarksheet.py/
+<<./routers/__init__.py/>>
+from fastapi import APIRouter
+
+from .emarksheet import router as emarksheet_router
+from .inventory import router as inventory_router
+from .seatingarrangement import router as seatingarrangement_router
+from .seatingchart import router as seatingchart_router
+from .timetable import router as timetable_router
+from .upload import router as upload_router
+
+# Create a main router that includes all sub-routers
+api_router = APIRouter(prefix="/api")
+
+# Register all routers
+api_router.include_router(upload_router)
+api_router.include_router(timetable_router)
+api_router.include_router(seatingchart_router)
+api_router.include_router(seatingarrangement_router)
+api_router.include_router(inventory_router)
+api_router.include_router(emarksheet_router)
+
+# Export only the api_router
+__all__ = ["api_router"]
+<<//./routers/__init__.py/
+<<./routers/upload.py/>>
+# backend/routers/upload.py - COMPLETE CLEAN VERSION
+
+import json
+import logging
+import os
+from datetime import datetime
+from typing import Optional
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse
+
+from auth import get_exam_center_id
+from config import db, settings
+from utils import (
+    ALLOWED_FILE_TYPES,
+    calculate_file_hash,
+    generate_stored_filename,
+    sanitize_emarksheet_excel,
+    sanitize_inventory_excel,
+    sanitize_seating_chart_excel,
+    success_response,
+    validate_excel_file,
+    validate_html_file,
+)
+
+router = APIRouter(prefix="/upload", tags=["upload"])
+logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# UPLOAD ENDPOINT
+# ============================================================================
+
+
+@router.post("/")
+async def upload_file(
+    file: UploadFile = File(...),
+    file_type: str = Form(...),
+    connected_institute_id: str = Form(None),
+    exam_center_id: str = Depends(get_exam_center_id),
+):
+    """Unified file upload endpoint with automatic sanitization"""
+
+    if file_type not in ALLOWED_FILE_TYPES:
+        raise HTTPException(400, f"Invalid file_type. Allowed: {', '.join(ALLOWED_FILE_TYPES)}")
+
+    ext = os.path.splitext(file.filename)[1].lower()
+    if file_type == "timetable":
+        if ext not in [".html", ".htm"]:
+            raise HTTPException(400, "Timetable only accepts HTML files (.html, .htm)")
+    else:
+        if ext not in [".xlsx", ".xls"]:
+            raise HTTPException(400, f"{file_type} only accepts Excel files (.xlsx, .xls)")
+
+    content = await file.read()
+
+    if len(content) > settings.MAX_UPLOAD_SIZE:
+        raise HTTPException(
+            400, f"File too large. Max size: {settings.MAX_UPLOAD_SIZE // 1024 // 1024}MB"
+        )
+
+    # SANITIZE files before validation
+    if file_type == "inventory":
+        content = sanitize_inventory_excel(content)
+        logger.info("Inventory file sanitized")
+
+    if file_type == "seatingchart":
+        content = sanitize_seating_chart_excel(content)
+        logger.info("Seating chart file sanitized")
+
+    if file_type == "emarksheet":
+        content = sanitize_emarksheet_excel(content)
+        logger.info("E-Marksheet file sanitized")
+
+    # Validate connected_institute_id for seating chart
+    if file_type == "seatingchart" and connected_institute_id:
+        try:
+            UUID(connected_institute_id)
+
+            institute = db.execute_query(
+                """
+                SELECT id, institute_code, institute_name
+                FROM connected_institutes
+                WHERE id = :institute_id AND exam_center_id = :exam_center_id AND is_active = true
+            """,
+                {"institute_id": connected_institute_id, "exam_center_id": exam_center_id},
+            )
+
+            if not institute:
+                raise HTTPException(404, "Connected institute not found or inactive")
+
+            logger.info(
+                f"Uploading seating chart for institute: {institute[0]['institute_code']} - {institute[0]['institute_name']}"
+            )
+        except ValueError:
+            raise HTTPException(400, "Invalid connected_institute_id format")
+
+    # Validate file content
+    if file_type == "timetable":
+        is_valid, processed_content, error = validate_html_file(content, file_type)
+    else:
+        is_valid, processed_content, error = validate_excel_file(content, file_type)
+
+    if not is_valid:
+        raise HTTPException(400, detail=error)
+
+    # Generate stored filename
+    stored_filename = generate_stored_filename(exam_center_id, file_type, file.filename)
+
+    # Add institute code to filename for seating chart
+    if file_type == "seatingchart" and connected_institute_id:
+        institute = db.execute_query(
+            """
+            SELECT institute_code FROM connected_institutes
+            WHERE id = :institute_id
+        """,
+            {"institute_id": connected_institute_id},
+        )
+
+        if institute:
+            institute_code = institute[0]["institute_code"]
+            base_name = (
+                stored_filename.rsplit(".", 1)[0] if "." in stored_filename else stored_filename
+            )
+            ext_part = stored_filename.rsplit(".", 1)[1] if "." in stored_filename else "xlsx"
+            file_parts = base_name.split("_")
+            if len(file_parts) >= 2:
+                stored_filename = f"{file_parts[0]}_{file_parts[1]}_{institute_code}_{'_'.join(file_parts[2:])}.{ext_part}"
+
+    file_path = os.path.join(settings.UPLOAD_DIR, stored_filename)
+    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+
+    # Save file
+    with open(file_path, "wb") as f:
+        if file_type == "timetable":
+            f.write(processed_content)
+        else:
+            f.write(content)
+
+    file_hash = calculate_file_hash(content)
+
+    metadata_json = json.dumps(
+        {
+            "uploaded_at": datetime.now().isoformat(),
+            "original_ext": ext,
+            "connected_institute_id": connected_institute_id,
+            "sanitized": file_type == "seatingchart",
+        }
+    )
+
+    # Upsert logic with EXISTS check
+    if connected_institute_id:
+        # Check if record exists for this institute
+        existing = db.execute_query(
+            """
+            SELECT id FROM uploads
+            WHERE exam_center_id = :exam_center_id 
+                AND file_type = :file_type 
+                AND connected_institute_id = :connected_institute_id
+        """,
+            {
+                "exam_center_id": exam_center_id,
+                "file_type": file_type,
+                "connected_institute_id": connected_institute_id,
+            },
+        )
+
+        if existing:
+            db.execute_update(
+                """
+                UPDATE uploads SET
+                    original_filename = :original_filename,
+                    stored_filename = :stored_filename,
+                    file_hash = :file_hash,
+                    file_size = :file_size,
+                    status = 'UPLOADED',
+                    metadata = CAST(:metadata AS jsonb),
+                    error_message = NULL,
+                    updated_at = NOW()
+                WHERE exam_center_id = :exam_center_id 
+                    AND file_type = :file_type 
+                    AND connected_institute_id = :connected_institute_id
+            """,
+                {
+                    "exam_center_id": exam_center_id,
+                    "file_type": file_type,
+                    "original_filename": file.filename,
+                    "stored_filename": stored_filename,
+                    "file_hash": file_hash,
+                    "file_size": len(content),
+                    "connected_institute_id": connected_institute_id,
+                    "metadata": metadata_json,
+                },
+            )
+        else:
+            db.execute_update(
+                """
+                INSERT INTO uploads (
+                    exam_center_id, file_type, original_filename, stored_filename,
+                    file_hash, file_size, status, connected_institute_id, metadata
+                ) VALUES (
+                    :exam_center_id, :file_type, :original_filename, :stored_filename,
+                    :file_hash, :file_size, 'UPLOADED', :connected_institute_id, CAST(:metadata AS jsonb)
+                )
+            """,
+                {
+                    "exam_center_id": exam_center_id,
+                    "file_type": file_type,
+                    "original_filename": file.filename,
+                    "stored_filename": stored_filename,
+                    "file_hash": file_hash,
+                    "file_size": len(content),
+                    "connected_institute_id": connected_institute_id,
+                    "metadata": metadata_json,
+                },
+            )
+    else:
+        # For files without institute (timetable, emarksheet, etc.)
+        existing = db.execute_query(
+            """
+            SELECT id FROM uploads
+            WHERE exam_center_id = :exam_center_id 
+                AND file_type = :file_type 
+                AND connected_institute_id IS NULL
+        """,
+            {"exam_center_id": exam_center_id, "file_type": file_type},
+        )
+
+        if existing:
+            db.execute_update(
+                """
+                UPDATE uploads SET
+                    original_filename = :original_filename,
+                    stored_filename = :stored_filename,
+                    file_hash = :file_hash,
+                    file_size = :file_size,
+                    status = 'UPLOADED',
+                    metadata = CAST(:metadata AS jsonb),
+                    error_message = NULL,
+                    updated_at = NOW()
+                WHERE exam_center_id = :exam_center_id 
+                    AND file_type = :file_type 
+                    AND connected_institute_id IS NULL
+            """,
+                {
+                    "exam_center_id": exam_center_id,
+                    "file_type": file_type,
+                    "original_filename": file.filename,
+                    "stored_filename": stored_filename,
+                    "file_hash": file_hash,
+                    "file_size": len(content),
+                    "metadata": metadata_json,
+                },
+            )
+        else:
+            db.execute_update(
+                """
+                INSERT INTO uploads (
+                    exam_center_id, file_type, original_filename, stored_filename,
+                    file_hash, file_size, status, connected_institute_id, metadata
+                ) VALUES (
+                    :exam_center_id, :file_type, :original_filename, :stored_filename,
+                    :file_hash, :file_size, 'UPLOADED', NULL, CAST(:metadata AS jsonb)
+                )
+            """,
+                {
+                    "exam_center_id": exam_center_id,
+                    "file_type": file_type,
+                    "original_filename": file.filename,
+                    "stored_filename": stored_filename,
+                    "file_hash": file_hash,
+                    "file_size": len(content),
+                    "metadata": metadata_json,
+                },
+            )
+
+    logger.info(f"File uploaded: {file_type} | {file.filename} -> {stored_filename}")
+
+    return success_response(
+        data={
+            "stored_filename": stored_filename,
+            "original_filename": file.filename,
+            "file_type": file_type,
+            "file_size": len(content),
+            "file_hash": file_hash,
+            "uploaded_at": datetime.now().isoformat(),
+            "connected_institute_id": connected_institute_id,
+            "sanitized": file_type == "seatingchart",
+        },
+        message=f"File uploaded successfully. Stored as: {stored_filename}",
+    )
+
+
+# ============================================================================
+# DOWNLOAD & DELETE
+# ============================================================================
+
+
+@router.get("/download")
+async def download_file(
+    file_name: str,
+    file_type: str,
+    connected_institute_id: Optional[str] = None,
+    exam_center_id: str = Depends(get_exam_center_id),
+):
+    """Download an uploaded file"""
+    if file_type not in ALLOWED_FILE_TYPES:
+        raise HTTPException(400, f"Invalid file_type. Allowed: {', '.join(ALLOWED_FILE_TYPES)}")
+
+    query = """
+        SELECT original_filename, stored_filename, file_type
+        FROM uploads
+        WHERE exam_center_id = :exam_center_id 
+            AND file_type = :file_type 
+            AND stored_filename = :file_name
+    """
+    params = {"exam_center_id": exam_center_id, "file_type": file_type, "file_name": file_name}
+
+    if connected_institute_id:
+        query += " AND connected_institute_id = :institute_id"
+        params["institute_id"] = connected_institute_id
+
+    result = db.execute_query(query, params)
+
+    if not result:
+        raise HTTPException(404, "File not found or access denied")
+
+    record = result[0]
+    file_path = os.path.join(settings.UPLOAD_DIR, file_name)
+
+    if not os.path.exists(file_path):
+        raise HTTPException(404, "File not found on server")
+
+    ext = os.path.splitext(file_name)[1].lower()
+    media_type = (
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        if ext in [".xlsx"]
+        else (
+            "application/vnd.ms-excel"
+            if ext in [".xls"]
+            else "text/html" if ext in [".html", ".htm"] else "application/octet-stream"
+        )
+    )
+
+    return FileResponse(
+        path=file_path,
+        filename=record["original_filename"],
+        media_type=media_type,
+        headers={"Content-Disposition": f"attachment; filename={record['original_filename']}"},
+    )
+<<//./routers/upload.py/
+<<./routers/timetable.py/>>
+# backend/routers/timetable.py
+import logging
+import os
+import re
+from typing import Dict, List, Optional
+
+from bs4 import BeautifulSoup
+from fastapi import APIRouter, Depends, HTTPException
+
+from auth import get_exam_center_id
+from config import db, settings
+from utils import success_response
+
+router = APIRouter(prefix="/timetable", tags=["timetable"])
+logger = logging.getLogger(__name__)
+
+
+class TimetableProcessor:
+    """Process timetable from uploaded HTML file"""
+
+    def __init__(self, exam_center_id: str):
+        self.exam_center_id = exam_center_id
+        self.subject_cache = self._load_subject_cache()
+
+    def _normalize_scheme(self, scheme: str) -> str:
+        """Remove hyphens and extra characters from scheme for matching"""
+        if not scheme:
+            return ""
+        # Remove hyphens and trim
+        return scheme.replace("-", "").strip()
+
+    def _load_subject_cache(self) -> Dict[str, Dict]:
+        """Load subjects into cache with multiple key variations"""
+        result = db.execute_query("""
+            SELECT code, scheme, abbr, id, name
+            FROM subjects
+            WHERE is_deleted = false
+        """)
+
+        cache = {}
+        for row in result:
+            # Store with original scheme
+            original_key = f"{row['code']}_{row['scheme']}"
+            cache[original_key] = {
+                "abbr": row["abbr"],
+                "id": row["id"],
+                "name": row["name"],
+                "original_scheme": row["scheme"],
+            }
+
+            # Store with normalized scheme (no hyphens)
+            normalized_scheme = self._normalize_scheme(row["scheme"])
+            if normalized_scheme != row["scheme"]:
+                norm_key = f"{row['code']}_{normalized_scheme}"
+                if norm_key not in cache:
+                    cache[norm_key] = {
+                        "abbr": row["abbr"],
+                        "id": row["id"],
+                        "name": row["name"],
+                        "original_scheme": row["scheme"],
+                    }
+
+        logger.info(f"Loaded {len(result)} subjects with {len(cache)} cache entries")
+        return cache
+
+    def _get_uploaded_file(self) -> Optional[Dict]:
+        """Get the most recent uploaded timetable file"""
+        result = db.execute_query(
+            """
+            SELECT stored_filename, status
+            FROM uploads
+            WHERE exam_center_id = :exam_center_id AND file_type = 'timetable'
+            ORDER BY created_at DESC
+            LIMIT 1
+        """,
+            {"exam_center_id": self.exam_center_id},
+        )
+
+        if not result:
+            return None
+
+        file_path = os.path.join(settings.UPLOAD_DIR, result[0]["stored_filename"])
+        return {
+            "stored_filename": result[0]["stored_filename"],
+            "file_path": file_path,
+            "status": result[0]["status"],
+        }
+
+    def _parse_html(self, file_path: str) -> List[Dict]:
+        """Parse timetable HTML and extract entries"""
+        with open(file_path, "r", encoding="utf-8") as f:
+            html = f.read()
+
+        soup = BeautifulSoup(html, "html.parser")
+        entries = []
+
+        # Find all tables
+        tables = soup.find_all("table")
+
+        for table in tables:
+            # Find the session header div BEFORE the table
+            # MSBTE structure: <div class="timetable-session-header">...</div> followed by <table>
+            header = table.find_previous_sibling(
+                "div", class_=re.compile(r"timetable-session-header|session-header")
+            )
+
+            if not header:
+                # Try finding any div with date info before the table
+                header = table.find_previous_sibling("div")
+
+            if not header:
+                # Last resort: look for any previous element containing date pattern
+                prev = table.find_previous_sibling()
+                if prev and ("Date:" in prev.get_text() or "Date" in prev.get_text()):
+                    header = prev
+
+            if not header:
+                logger.warning("No header found for table, skipping")
+                continue
+
+            header_text = header.get_text(" ", strip=True)
+            logger.debug(f"Header text: {header_text}")
+
+            # Extract date - Format: "Date: 24-04-2026"
+            date_match = re.search(r"Date:\s*(\d{2}-\d{2}-\d{4})", header_text)
+            if not date_match:
+                # Try alternative format
+                date_match = re.search(r"(\d{2}-\d{2}-\d{4})", header_text)
+
+            if not date_match:
+                logger.warning(f"No date found in header: {header_text}")
+                continue
+
+            date_str = date_match.group(1)
+            # Convert from DD-MM-YYYY to YYYY-MM-DD
+            parts = date_str.split("-")
+            formatted_date = f"{parts[2]}-{parts[1]}-{parts[0]}"
+
+            # Extract exam day
+            day_match = re.search(r"Day:\s*(\d+)", header_text)
+            exam_day = int(day_match.group(1)) if day_match else 0
+
+            # Extract session (Morning/Afternoon)
+            session = "Morning"
+            if "Afternoon" in header_text or "🌙" in header_text:
+                session = "Afternoon"
+            elif "Morning" in header_text or "🌅" in header_text:
+                session = "Morning"
+
+            # Parse table rows
+            rows = table.find_all("tr")
+            for row in rows:
+                cells = row.find_all("td")
+
+                # MSBTE timetable has 7+ columns
+                if len(cells) >= 7:
+                    # Column indices based on actual MSBTE structure
+                    # 0: SR No.
+                    # 1: Seat No. (or empty)
+                    # 2: Enrollment (or empty)
+                    # 3: Time
+                    # 4: Subject Code
+                    # 5: Subject Name
+                    # 6: Scheme
+
+                    sr_no = cells[0].get_text(strip=True) if len(cells) > 0 else ""
+
+                    # Skip header rows (SR No is not a number)
+                    if not sr_no or not sr_no.isdigit():
+                        continue
+
+                    time_slot = cells[3].get_text(strip=True) if len(cells) > 3 else ""
+                    subject_code = cells[4].get_text(strip=True) if len(cells) > 4 else ""
+                    subject_name = cells[5].get_text(strip=True) if len(cells) > 5 else ""
+                    schemes_raw = cells[6].get_text(strip=True) if len(cells) > 6 else ""
+
+                    if not subject_code or not subject_name:
+                        continue
+
+                    # Handle multiple schemes (comma separated)
+                    schemes = [s.strip() for s in schemes_raw.split(",") if s.strip()]
+                    if not schemes:
+                        schemes = [""]  # Empty scheme if none provided
+
+                    for scheme in schemes:
+                        entries.append(
+                            {
+                                "exam_day": exam_day,
+                                "date": formatted_date,
+                                "session": session,
+                                "time_slot": time_slot,
+                                "subject_code": subject_code,
+                                "subject_name": subject_name,
+                                "scheme": scheme if scheme else None,
+                            }
+                        )
+
+        if not entries:
+            # Try alternative parsing method - look for tables within divs
+            logger.warning("No entries found with primary parser, trying alternative...")
+            entries = self._parse_html_alternative(soup)
+
+        if not entries:
+            raise ValueError("No valid timetable entries found in HTML")
+
+        logger.info(f"Parsed {len(entries)} timetable entries")
+        return entries
+
+    def _parse_html_alternative(self, soup: BeautifulSoup) -> List[Dict]:
+        """Alternative parser for different MSBTE HTML structures"""
+        entries = []
+
+        # Look for any div containing session info followed by a table
+        session_blocks = soup.find_all("div", class_=re.compile(r"session|header", re.I))
+
+        for block in session_blocks:
+            header_text = block.get_text(" ", strip=True)
+
+            # Check if this looks like a session header
+            if "Date:" not in header_text and "date" not in header_text.lower():
+                continue
+
+            # Find the next table
+            table = block.find_next("table")
+            if not table:
+                continue
+
+            # Extract date
+            date_match = re.search(r"Date:\s*(\d{2}-\d{2}-\d{4})", header_text)
+            if not date_match:
+                date_match = re.search(r"(\d{2}-\d{2}-\d{4})", header_text)
+
+            if not date_match:
+                continue
+
+            date_str = date_match.group(1)
+            parts = date_str.split("-")
+            formatted_date = f"{parts[2]}-{parts[1]}-{parts[0]}"
+
+            # Extract day
+            day_match = re.search(r"Day:\s*(\d+)", header_text)
+            exam_day = int(day_match.group(1)) if day_match else 0
+
+            # Extract session
+            session = "Morning"
+            if "Afternoon" in header_text or "🌙" in header_text:
+                session = "Afternoon"
+            elif "Morning" in header_text or "🌅" in header_text:
+                session = "Morning"
+
+            # Parse rows
+            rows = table.find_all("tr")
+            for row in rows:
+                cells = row.find_all("td")
+                if len(cells) >= 4:
+                    sr_no = cells[0].get_text(strip=True) if len(cells) > 0 else ""
+                    if not sr_no or not sr_no.isdigit():
+                        continue
+
+                    # Try different column mappings
+                    time_slot = ""
+                    subject_code = ""
+                    subject_name = ""
+                    schemes_raw = ""
+
+                    if len(cells) >= 7:
+                        time_slot = cells[3].get_text(strip=True)
+                        subject_code = cells[4].get_text(strip=True)
+                        subject_name = cells[5].get_text(strip=True)
+                        schemes_raw = cells[6].get_text(strip=True)
+                    elif len(cells) >= 5:
+                        time_slot = cells[1].get_text(strip=True)
+                        subject_code = cells[2].get_text(strip=True)
+                        subject_name = cells[3].get_text(strip=True)
+                        schemes_raw = cells[4].get_text(strip=True)
+
+                    if subject_code and subject_name:
+                        for scheme in [s.strip() for s in schemes_raw.split(",") if s.strip()]:
+                            entries.append(
+                                {
+                                    "exam_day": exam_day,
+                                    "date": formatted_date,
+                                    "session": session,
+                                    "time_slot": time_slot,
+                                    "subject_code": subject_code,
+                                    "subject_name": subject_name,
+                                    "scheme": scheme if scheme else None,
+                                }
+                            )
+
+        return entries
+
+    def _get_subject_info(self, subject_code: str, scheme: str) -> Optional[Dict]:
+        """Get subject ID and abbreviation from cache"""
+        if not scheme:
+            # Try to find subject without scheme
+            for key, value in self.subject_cache.items():
+                if key.startswith(f"{subject_code}_"):
+                    return value
+            return None
+
+        # Try exact match first
+        key = f"{subject_code}_{scheme}"
+        if key in self.subject_cache:
+            return self.subject_cache[key]
+
+        # Try normalized scheme (no hyphens)
+        normalized_scheme = self._normalize_scheme(scheme)
+        if normalized_scheme != scheme:
+            norm_key = f"{subject_code}_{normalized_scheme}"
+            if norm_key in self.subject_cache:
+                return self.subject_cache[norm_key]
+
+        # Try finding by subject code only (fallback)
+        for cache_key, cache_value in self.subject_cache.items():
+            if cache_key.startswith(f"{subject_code}_"):
+                logger.debug(
+                    f"Fallback match for {subject_code} scheme '{scheme}' -> '{cache_value['original_scheme']}'"
+                )
+                return cache_value
+
+        return None
+
+    def _insert_timetable_entries(self, entries: List[Dict]) -> int:
+        """Insert parsed entries into timetable table"""
+        # First, delete existing entries for this exam center
+        db.execute_update(
+            """
+            DELETE FROM timetable WHERE exam_center_id = :exam_center_id
+        """,
+            {"exam_center_id": self.exam_center_id},
+        )
+
+        inserted = 0
+        for entry in entries:
+            # Get subject info from cache
+            subject_info = self._get_subject_info(entry["subject_code"], entry["scheme"])
+
+            db.execute_update(
+                """
+                INSERT INTO timetable (
+                    exam_center_id, exam_day, date, session, time_slot,
+                    subject_code, subject_name, scheme, subject_id, subject_abbr
+                ) VALUES (
+                    :exam_center_id, :exam_day, :date, :session, :time_slot,
+                    :subject_code, :subject_name, :scheme, :subject_id, :subject_abbr
+                )
+            """,
+                {
+                    "exam_center_id": self.exam_center_id,
+                    "exam_day": entry["exam_day"],
+                    "date": entry["date"],
+                    "session": entry["session"],
+                    "time_slot": entry["time_slot"],
+                    "subject_code": entry["subject_code"],
+                    "subject_name": entry["subject_name"],
+                    "scheme": entry["scheme"],
+                    "subject_id": subject_info["id"] if subject_info else None,
+                    "subject_abbr": subject_info["abbr"] if subject_info else None,
+                },
+            )
+            inserted += 1
+
+        return inserted
+
+    def process(self) -> Dict:
+        """Main processing function"""
+        upload = self._get_uploaded_file()
+        if not upload:
+            return {"success": False, "error": "No timetable file found. Please upload first."}
+
+        if upload["status"] == "PROCESSED":
+            return {"success": False, "error": "Timetable already processed"}
+
+        if not os.path.exists(upload["file_path"]):
+            return {"success": False, "error": f'File not found: {upload["stored_filename"]}'}
+
+        try:
+            # Parse HTML
+            entries = self._parse_html(upload["file_path"])
+
+            # Insert into timetable table
+            count = self._insert_timetable_entries(entries)
+
+            # Update upload status to PROCESSED
+            db.execute_update(
+                """
+                UPDATE uploads 
+                SET status = 'PROCESSED', 
+                    record_count = :count,
+                    processed_at = NOW(),
+                    updated_at = NOW()
+                WHERE exam_center_id = :exam_center_id AND file_type = 'timetable'
+            """,
+                {"count": count, "exam_center_id": self.exam_center_id},
+            )
+
+            logger.info(
+                f"Timetable processed: {count} entries for exam center {self.exam_center_id}"
+            )
+
+            return {
+                "success": True,
+                "message": "Timetable processed successfully",
+                "data": {"record_count": count, "exam_center_id": self.exam_center_id},
+            }
+
+        except ValueError as e:
+            return {"success": False, "error": str(e)}
+        except Exception as e:
+            logger.error(f"Timetable processing failed: {e}")
+            return {"success": False, "error": f"Processing failed: {str(e)}"}
+
+
+@router.post("/process")
+async def process_timetable(exam_center_id: str = Depends(get_exam_center_id)):
+    """Process uploaded timetable HTML file"""
+    processor = TimetableProcessor(exam_center_id)
+    result = processor.process()
+
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["error"])
+
+    return success_response(data=result.get("data"), message=result["message"])
+<<//./routers/timetable.py/
+<<./routers/seatingchart.py/>>
+# backend/routers/seatingchart.py - COMPLETE FIXED VERSION
+
+import json
+import logging
+import os
+import re
+from typing import Dict, List, Optional
+
+import pandas as pd
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+
+from auth import get_exam_center_id
+from config import db, settings
+from utils import success_response
+
+router = APIRouter(prefix="/seatingchart", tags=["seatingchart"])
+logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# Pydantic Models
+# ============================================================================
+
+
+class StudentSeatingData(BaseModel):
+    seat_number: int
+    enrollment_number: Optional[str] = None
+    name: Optional[str] = None
+    scheme: str
+    subjects: List[str] = []
+    sub_codes: List[str] = []
+
+
+class ProcessFileRequest(BaseModel):
+    stored_filename: str
+
+
+# ============================================================================
+# Seating Chart Processor
+# ============================================================================
+
+
+class SeatingChartProcessor:
+    """Process seating chart from uploaded Excel files (V2 schema)"""
+
+    def __init__(self, exam_center_id: str):
+        self.exam_center_id = exam_center_id
+        self.scheme_data = self._load_scheme_data()
+        self.institute_cache = self._load_institute_cache()
+
+    def _sanitize_scheme(self, scheme: str) -> str:
+        """Convert scheme to alphanumeric only for matching"""
+        if not scheme:
+            return ""
+        # Remove all non-alphanumeric characters (keep only letters and numbers)
+        return re.sub(r"[^a-zA-Z0-9]", "", scheme).upper()
+
+    def _load_scheme_data(self) -> Dict[str, Dict[str, str]]:
+        """Load scheme data mapping (scheme -> abbr -> code)"""
+        result = db.execute_query("""
+            SELECT code, abbr, scheme
+            FROM subjects
+            WHERE is_deleted = false
+        """)
+
+        scheme_data = {}
+        for row in result:
+            scheme = row["scheme"]
+            # Store with both original and sanitized scheme
+            sanitized = self._sanitize_scheme(scheme)
+
+            if scheme not in scheme_data:
+                scheme_data[scheme] = {}
+            if sanitized not in scheme_data:
+                scheme_data[sanitized] = {}
+
+            if row["abbr"]:
+                scheme_data[scheme][row["abbr"]] = row["code"]
+                scheme_data[sanitized][row["abbr"]] = row["code"]
+
+        logger.info(f"Loaded scheme data for {len(scheme_data)} schemes")
+        return scheme_data
+
+    def _load_institute_cache(self) -> Dict[str, Dict]:
+        """Load connected institutes for this exam center"""
+        result = db.execute_query(
+            """
+            SELECT id, institute_code, institute_name
+            FROM connected_institutes
+            WHERE exam_center_id = :exam_center_id AND is_active = true
+        """,
+            {"exam_center_id": self.exam_center_id},
+        )
+
+        cache = {}
+        for row in result:
+            cache[row["institute_code"]] = {"id": row["id"], "name": row["institute_name"]}
+
+        logger.info(f"Loaded {len(cache)} connected institutes")
+        return cache
+
+    def _get_uploaded_file(self, stored_filename: str) -> Optional[Dict]:
+        """Get a specific uploaded seating chart file by stored_filename"""
+        result = db.execute_query(
+            """
+            SELECT stored_filename, status, connected_institute_id, original_filename
+            FROM uploads
+            WHERE exam_center_id = :exam_center_id 
+                AND file_type = 'seatingchart'
+                AND stored_filename = :stored_filename
+        """,
+            {"exam_center_id": self.exam_center_id, "stored_filename": stored_filename},
+        )
+
+        if not result:
+            return None
+
+        file_path = os.path.join(settings.UPLOAD_DIR, result[0]["stored_filename"])
+        return {
+            "stored_filename": result[0]["stored_filename"],
+            "file_path": file_path,
+            "status": result[0]["status"],
+            "connected_institute_id": result[0].get("connected_institute_id"),
+            "original_filename": result[0]["original_filename"],
+        }
+
+    def _get_subject_codes(self, subject_string: str, scheme: str) -> tuple:
+        """Extract subject abbreviations and codes from subject string"""
+        if not subject_string or subject_string == "nan":
+            return [], []
+
+        subjects = set()
+        for sub in subject_string.split(","):
+            sub = sub.strip().upper()
+            if sub:
+                subjects.add(sub)
+
+        sub_codes = set()
+
+        # Try with original scheme
+        scheme_subjects = self.scheme_data.get(scheme, {})
+        if not scheme_subjects:
+            # Try with sanitized scheme
+            sanitized = self._sanitize_scheme(scheme)
+            scheme_subjects = self.scheme_data.get(sanitized, {})
+
+        for subject in subjects:
+            if subject in scheme_subjects:
+                sub_codes.add(scheme_subjects[subject])
+            else:
+                # Try partial matching
+                base_subject = subject.split("-")[0] if "-" in subject else subject
+                for abbr, code in scheme_subjects.items():
+                    if abbr and abbr.startswith(base_subject):
+                        sub_codes.add(code)
+                        break
+
+        return list(subjects), list(sub_codes)
+
+    def _parse_excel_file(self, file_path: str, institute_code: str) -> List[Dict]:
+        """Parse seating chart Excel file - handles sanitized files with headers"""
+        try:
+            df = pd.read_excel(file_path, header=0, dtype=str).fillna("")
+
+            logger.info(f"Columns in file: {list(df.columns)}")
+
+            students = []
+
+            for idx, row in df.iterrows():
+                seat_value = str(row.get("Seat Number", "")).strip()
+                if not seat_value or not seat_value.isdigit():
+                    seat_value = str(row.get("Seat", "")).strip()
+                    if not seat_value or not seat_value.isdigit():
+                        continue
+
+                enrollment_number = str(row.get("Enrollment Number", "")).strip()
+                if not enrollment_number or enrollment_number == "nan":
+                    enrollment_number = str(row.get("Enroll", "")).strip()
+                    if not enrollment_number or enrollment_number == "nan":
+                        enrollment_number = None
+
+                name = str(row.get("Name", "")).strip()
+                if not name or name == "nan":
+                    name = str(row.get("Candidate Name", "")).strip()
+                    if not name or name == "nan":
+                        name = None
+
+                scheme = str(row.get("Scheme", "")).strip()
+                if scheme == "nan":
+                    scheme = ""
+
+                subject_string = str(row.get("Subject Appearing For", "")).strip()
+                if subject_string == "nan":
+                    subject_string = str(row.get("Subject", "")).strip()
+                    if subject_string == "nan":
+                        subject_string = ""
+
+                if not name and not enrollment_number and not subject_string:
+                    continue
+
+                subjects, sub_codes = self._get_subject_codes(subject_string, scheme)
+
+                students.append(
+                    {
+                        "seat_number": int(seat_value),
+                        "enrollment_number": enrollment_number,
+                        "name": name,
+                        "scheme": scheme,
+                        "subjects": subjects,
+                        "sub_codes": sub_codes,
+                        "institute_code": institute_code,
+                    }
+                )
+
+            logger.info(f"Parsed {len(students)} students from {file_path}")
+            return students
+
+        except Exception as e:
+            logger.error(f"Error parsing Excel file {file_path}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return []
+
+    def _insert_students(self, students: List[Dict], connected_institute_id: str) -> Dict:
+        """Insert or update students in database with specific connected_institute_id"""
+
+        inserted = 0
+        updated = 0
+        skipped = 0
+
+        # Get institute info
+        inst = db.execute_query(
+            """
+            SELECT id, institute_code, institute_name
+            FROM connected_institutes
+            WHERE id = :institute_id AND exam_center_id = :exam_center_id AND is_active = true
+        """,
+            {"institute_id": connected_institute_id, "exam_center_id": self.exam_center_id},
+        )
+
+        if not inst:
+            logger.error(f"Connected institute {connected_institute_id} not found")
+            return {"inserted": 0, "updated": 0, "skipped": len(students), "total": len(students)}
+
+        institute_id = inst[0]["id"]
+        institute_code = inst[0]["institute_code"]
+
+        for student in students:
+            student["institute_code"] = institute_code
+
+            # Convert lists to JSON strings
+            subjects_json = json.dumps(student["subjects"])
+            sub_codes_json = json.dumps(student["sub_codes"])
+
+            # Check if student already exists for this seat number
+            existing = db.execute_query(
+                """
+                SELECT id FROM students
+                WHERE exam_center_id = :exam_center_id AND seat_number = :seat_number
+                AND is_deleted = false
+            """,
+                {"exam_center_id": self.exam_center_id, "seat_number": student["seat_number"]},
+            )
+
+            if existing:
+                # Update existing student
+                db.execute_update(
+                    """
+                    UPDATE students
+                    SET connected_institute_id = :institute_id,
+                        enrollment_number = :enrollment_number,
+                        name = :name,
+                        scheme = :scheme,
+                        subjects = CAST(:subjects AS jsonb),
+                        sub_codes = CAST(:sub_codes AS jsonb),
+                        updated_at = NOW()
+                    WHERE exam_center_id = :exam_center_id AND seat_number = :seat_number
+                """,
+                    {
+                        "exam_center_id": self.exam_center_id,
+                        "institute_id": institute_id,
+                        "seat_number": student["seat_number"],
+                        "enrollment_number": student["enrollment_number"],
+                        "name": student["name"],
+                        "scheme": student["scheme"],
+                        "subjects": subjects_json,
+                        "sub_codes": sub_codes_json,
+                    },
+                )
+                updated += 1
+            else:
+                # Insert new student
+                db.execute_update(
+                    """
+                    INSERT INTO students (
+                        id, exam_center_id, connected_institute_id, seat_number,
+                        institute_code, enrollment_number, name, scheme,
+                        subjects, sub_codes, is_deleted
+                    ) VALUES (
+                        gen_random_uuid(), :exam_center_id, :institute_id, :seat_number,
+                        :institute_code, :enrollment_number, :name, :scheme,
+                        CAST(:subjects AS jsonb), CAST(:sub_codes AS jsonb), false
+                    )
+                """,
+                    {
+                        "exam_center_id": self.exam_center_id,
+                        "institute_id": institute_id,
+                        "seat_number": student["seat_number"],
+                        "institute_code": institute_code,
+                        "enrollment_number": student["enrollment_number"],
+                        "name": student["name"],
+                        "scheme": student["scheme"],
+                        "subjects": subjects_json,
+                        "sub_codes": sub_codes_json,
+                    },
+                )
+                inserted += 1
+
+        logger.info(f"Inserted {inserted}, Updated {updated}, Skipped {skipped}")
+        return {
+            "inserted": inserted,
+            "updated": updated,
+            "skipped": skipped,
+            "total": len(students),
+        }
+
+    def _update_timetable_counts(self) -> int:
+        """Update total_students in timetable table based on seating chart data"""
+
+        # ============================================
+        # Step 1: Create lookup maps for fast matching
+        # ============================================
+
+        # Get all subjects for lookup
+        all_subjects = db.execute_query("""
+            SELECT code, abbr, scheme
+            FROM subjects
+            WHERE is_deleted = false
+        """)
+
+        # Create maps: (code, scheme_sanitized) -> count
+        subject_lookup = {}
+        for sub in all_subjects:
+            code = sub["code"]
+            scheme = sub["scheme"]
+            scheme_sanitized = self._sanitize_scheme(scheme)
+            abbr = sub["abbr"]
+
+            # Store by code + sanitized scheme
+            key = (code, scheme_sanitized)
+            subject_lookup[key] = {
+                "code": code,
+                "scheme": scheme,
+                "scheme_sanitized": scheme_sanitized,
+                "abbr": abbr,
+            }
+
+            # Store by abbr + sanitized scheme if abbr exists
+            if abbr:
+                key_abbr = (abbr, scheme_sanitized)
+                subject_lookup[key_abbr] = {
+                    "code": code,
+                    "scheme": scheme,
+                    "scheme_sanitized": scheme_sanitized,
+                    "abbr": abbr,
+                }
+
+        logger.info(f"Loaded {len(subject_lookup)} subject lookup entries")
+
+        # ============================================
+        # Step 2: Get all students and count by subject
+        # ============================================
+
+        students = db.execute_query(
+            """
+            SELECT 
+                s.sub_codes,
+                s.scheme
+            FROM students s
+            WHERE s.exam_center_id = :exam_center_id AND s.is_deleted = false
+        """,
+            {"exam_center_id": self.exam_center_id},
+        )
+
+        # Count students per subject (code + sanitized scheme)
+        subject_counts = {}
+
+        for student in students:
+            sub_codes = student.get("sub_codes", [])
+            if isinstance(sub_codes, str):
+                sub_codes = json.loads(sub_codes)
+
+            scheme = student.get("scheme", "")
+            scheme_sanitized = self._sanitize_scheme(scheme)
+
+            for sub_code in sub_codes:
+                if not sub_code:
+                    continue
+
+                # Try to find the subject code in the lookup
+                found_code = None
+                found_scheme = None
+
+                # Try direct match with sanitized scheme
+                key = (sub_code, scheme_sanitized)
+                if key in subject_lookup:
+                    found_code = sub_code
+                    found_scheme = scheme_sanitized
+                else:
+                    # Try to find by abbr
+                    for lookup_key, lookup_val in subject_lookup.items():
+                        if lookup_val["code"] == sub_code:
+                            found_code = lookup_val["code"]
+                            found_scheme = lookup_val["scheme_sanitized"]
+                            break
+
+                if found_code and found_scheme:
+                    count_key = (found_code, found_scheme)
+                    subject_counts[count_key] = subject_counts.get(count_key, 0) + 1
+                else:
+                    # Store with original code and sanitized scheme even if not in lookup
+                    # This will be used to update timetable entries that might not have a subject record
+                    count_key = (sub_code, scheme_sanitized)
+                    subject_counts[count_key] = subject_counts.get(count_key, 0) + 1
+
+        logger.info(f"Calculated counts for {len(subject_counts)} subjects")
+
+        # ============================================
+        # Step 3: Update timetable entries
+        # ============================================
+
+        # Get all timetable entries for this exam center
+        timetable_entries = db.execute_query(
+            """
+            SELECT id, subject_code, scheme
+            FROM timetable
+            WHERE exam_center_id = :exam_center_id
+        """,
+            {"exam_center_id": self.exam_center_id},
+        )
+
+        updated = 0
+
+        for entry in timetable_entries:
+            subject_code = entry["subject_code"]
+            scheme = entry["scheme"]
+            scheme_sanitized = self._sanitize_scheme(scheme)
+
+            count = 0
+
+            # Try with sanitized scheme
+            key = (subject_code, scheme_sanitized)
+            if key in subject_counts:
+                count = subject_counts[key]
+            else:
+                # Try to find by abbr in the subject lookup
+                for lookup_key, lookup_val in subject_lookup.items():
+                    if (
+                        lookup_val["code"] == subject_code
+                        and lookup_val["scheme_sanitized"] == scheme_sanitized
+                    ):
+                        if lookup_key in subject_counts:
+                            count = subject_counts[lookup_key]
+                            break
+
+            # Always update to ensure counts are correct (even if 0)
+            db.execute_update(
+                """
+                UPDATE timetable
+                SET total_students = :count, updated_at = NOW()
+                WHERE id = :id
+            """,
+                {"count": count, "id": entry["id"]},
+            )
+            updated += 1
+
+        logger.info(f"Updated {updated} timetable entries with student counts")
+        return updated
+
+    def process(self, stored_filename: str) -> Dict:
+        """Main processing function for a specific file"""
+
+        # Get the specific uploaded file
+        upload = self._get_uploaded_file(stored_filename)
+        if not upload:
+            return {"success": False, "error": f"File not found: {stored_filename}"}
+
+        if not os.path.exists(upload["file_path"]):
+            return {"success": False, "error": f"File not found on server: {stored_filename}"}
+
+        # Get connected_institute_id from the upload record
+        connected_institute_id = upload.get("connected_institute_id")
+        if not connected_institute_id:
+            return {"success": False, "error": "No connected_institute_id found for this file"}
+
+        # Update status to PROCESSING
+        db.execute_update(
+            """
+            UPDATE uploads 
+            SET status = 'PROCESSING', updated_at = NOW()
+            WHERE exam_center_id = :exam_center_id 
+                AND file_type = 'seatingchart'
+                AND stored_filename = :stored_filename
+        """,
+            {"exam_center_id": self.exam_center_id, "stored_filename": stored_filename},
+        )
+
+        # Parse the file
+        students = self._parse_excel_file(upload["file_path"], "")
+
+        if not students:
+            # Update status to FAILED
+            db.execute_update(
+                """
+                UPDATE uploads 
+                SET status = 'FAILED', 
+                    error_message = 'No valid student data found in file',
+                    updated_at = NOW()
+                WHERE exam_center_id = :exam_center_id 
+                    AND file_type = 'seatingchart'
+                    AND stored_filename = :stored_filename
+            """,
+                {"exam_center_id": self.exam_center_id, "stored_filename": stored_filename},
+            )
+            return {"success": False, "error": "No valid student data found in file"}
+
+        # Insert students with the connected_institute_id
+        stats = self._insert_students(students, connected_institute_id)
+
+        # Update timetable counts
+        timetable_updated = self._update_timetable_counts()
+
+        # Update upload status to PROCESSED
+        db.execute_update(
+            """
+            UPDATE uploads 
+            SET status = 'PROCESSED', 
+                record_count = :count,
+                processed_at = NOW(),
+                updated_at = NOW()
+            WHERE exam_center_id = :exam_center_id 
+                AND file_type = 'seatingchart'
+                AND stored_filename = :stored_filename
+        """,
+            {
+                "count": stats["total"],
+                "exam_center_id": self.exam_center_id,
+                "stored_filename": stored_filename,
+            },
+        )
+
+        logger.info(
+            f"Seating chart processed: {stats['inserted']} inserted, {stats['updated']} updated"
+        )
+
+        return {
+            "success": True,
+            "message": "Seating chart processed successfully",
+            "data": {
+                "total_students": stats["total"],
+                "inserted": stats["inserted"],
+                "updated": stats["updated"],
+                "skipped": stats["skipped"],
+                "timetable_entries_updated": timetable_updated,
+                "exam_center_id": self.exam_center_id,
+                "connected_institute_id": connected_institute_id,
+                "stored_filename": stored_filename,
+            },
+        }
+
+
+# ============================================================================
+# API Endpoints
+# ============================================================================
+
+
+@router.post("/process")
+async def process_seating_chart(
+    request: ProcessFileRequest, exam_center_id: str = Depends(get_exam_center_id)
+):
+    """Process a specific uploaded seating chart file"""
+    processor = SeatingChartProcessor(exam_center_id)
+    result = processor.process(request.stored_filename)
+
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["error"])
+
+    return success_response(data=result.get("data"), message=result["message"])
+<<//./routers/seatingchart.py/
+<<./main.py/>>
+"""main.py module."""
+
+import logging
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from config import db, settings
+from routers import api_router
+
+logging.basicConfig(
+    level=logging.INFO if not settings.DEBUG else logging.DEBUG,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+app = FastAPI(
+    title=settings.APP_NAME,
+    version=settings.APP_VERSION,
+    docs_url="/docs" if settings.DEBUG else None,
+)
+
+# CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Register routers - just one line!
+app.include_router(api_router)
+
+
+# Health check
+@app.get("/health")
+async def health():
+    return {
+        "status": "healthy",
+        "service": settings.APP_NAME,
+        "version": settings.APP_VERSION,
+        "testing_mode": settings.TESTING,
+    }
+
+
+@app.get("/")
+async def root():
+    return {
+        "name": settings.APP_NAME,
+        "version": settings.APP_VERSION,
+        "status": "running",
+        "testing_mode": settings.TESTING,
+    }
+
+
+# Startup event
+@app.on_event("startup")
+async def startup():
+    logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
+    logger.info(f"Testing mode: {settings.TESTING}")
+    if settings.TESTING:
+        logger.info(f"Using test exam center ID: {settings.TEST_EXAM_CENTER_ID}")
+    logger.info(f"Upload directory: {settings.UPLOAD_DIR}")
+    db.connect()
+    logger.info("Database connected")
+
+
+# Shutdown event
+@app.on_event("shutdown")
+async def shutdown():
+    logger.info(f"Shutting down {settings.APP_NAME}")
+<<//./main.py/
+<<./auth.py/>>
+# backend/auth.py
+import logging
+
+import httpx
+from fastapi import HTTPException, Request
+
+from config import db, settings
+
+logger = logging.getLogger(__name__)
+
+
+async def get_exam_center_id(request: Request) -> str:
+    """Get exam center ID from BetterAuth session"""
+
+    if settings.TESTING:
+        return settings.TEST_EXAM_CENTER_ID
+
+    token = request.cookies.get("better-auth.session_token")
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing session")
+
+    try:
+        async with httpx.AsyncClient() as client:
+            # Use the correct endpoint - this should work with BetterAuth's [...all] route
+            resp = await client.get(
+                f"{settings.APP_URL}/api/auth/get-session",
+                cookies={"better-auth.session_token": token},
+                timeout=5.0,
+            )
+
+            if resp.status_code != 200:
+                logger.error(f"Session validation failed: {resp.status_code}")
+                raise HTTPException(status_code=401, detail="Invalid session")
+
+            data = resp.json()
+            user_id = data.get("user", {}).get("id")
+
+            if not user_id:
+                raise HTTPException(status_code=401, detail="User not found")
+
+        # Get exam center ID from database
+        result = db.execute_query(
+            """
+            SELECT ec.id FROM exam_centers ec
+            JOIN org_members om ON om.org_id = ec.org_id
+            WHERE om.user_id = :user_id
+        """,
+            {"user_id": user_id},
+        )
+
+        if not result:
+            raise HTTPException(status_code=404, detail="Exam center not found")
+
+        return result[0]["id"]
+
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="Auth service timeout")
+    except Exception as e:
+        logger.error(f"Auth error: {e}")
+        raise HTTPException(status_code=401, detail="Authentication failed")
+<<//./auth.py/
+<<./config.py/>>
+# backend/config.py
+import logging
+
+# backend/config.py
+import os
+from contextlib import contextmanager
+from typing import Dict, List, Optional, Union
+from urllib.parse import urlparse
+
+from dotenv import load_dotenv
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
+
+load_dotenv()
+
+logger = logging.getLogger(__name__)
+
+
+class Settings:
+    # Database - Use DATABASE_URL from environment
+    DATABASE_URL: str = os.getenv(
+        "DATABASE_URL", "postgresql://postgres:password@localhost:5432/testforge"
+    )
+
+    # App
+    APP_NAME: str = "TestForge API"
+    APP_VERSION: str = "1.0.0"
+    DEBUG: bool = os.getenv("DEBUG", "False").lower() == "true"
+
+    # Upload
+    UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", "uploads")
+    MAX_UPLOAD_SIZE: int = int(os.getenv("MAX_UPLOAD_SIZE", 10485760))
+
+    APP_URL = os.getenv("NEXT_PUBLIC_APP_URL", "http://localhost:3000")
+    # Security
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-here")
+    CORS_ORIGINS: list = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+
+    # Testing
+    TESTING: bool = os.getenv("TESTING", "True").lower() == "true"
+    TEST_EXAM_CENTER_ID: str = os.getenv(
+        "TEST_EXAM_CENTER_ID", "a3e5c386-efbb-373e-36d0-1bc812bde9d2"
+    )
+
+    @property
+    def DB_HOST(self) -> str:
+        parsed = urlparse(self.DATABASE_URL)
+        return parsed.hostname or "localhost"
+
+    @property
+    def DB_PORT(self) -> int:
+        parsed = urlparse(self.DATABASE_URL)
+        return parsed.port or 5432
+
+    @property
+    def DB_NAME(self) -> str:
+        return self.DATABASE_URL.split("/")[-1]
+
+    @property
+    def DB_USER(self) -> str:
+        parsed = urlparse(self.DATABASE_URL)
+        return parsed.username or "postgres"
+
+    @property
+    def DB_PASSWORD(self) -> str:
+        parsed = urlparse(self.DATABASE_URL)
+        return parsed.password or ""
+
+
+settings = Settings()
+os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+
+# ============================================================================
+# Database Manager
+# ============================================================================
+
+
+class DatabaseManager:
+    def __init__(self):
+        self.engine = None
+        self.SessionLocal = None
+
+    def connect(self):
+        self.engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True)
+        self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
+        logger.info(
+            f"Database connection established to {settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
+        )
+
+    @contextmanager
+    def get_session(self):
+        if not self.SessionLocal:
+            self.connect()
+        session = self.SessionLocal()
+        try:
+            yield session
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+
+    def execute_query(self, query: str, params: Optional[Dict] = None) -> List[Dict]:
+        with self.get_session() as session:
+            result = session.execute(text(query), params or {})
+            return [dict(row._mapping) for row in result]
+
+    def execute_update(self, query: str, params: Union[Dict, tuple, list, None] = None) -> int:
+        """Execute update with dict or tuple/list parameters"""
+        with self.get_session() as session:
+            if params is None:
+                result = session.execute(text(query))
+            elif isinstance(params, dict):
+                result = session.execute(text(query), params)
+            elif isinstance(params, (tuple, list)):
+                result = session.execute(text(query), params)
+            else:
+                result = session.execute(text(query))
+            return result.rowcount
+
+
+db = DatabaseManager()
+<<//./config.py/

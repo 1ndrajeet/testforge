@@ -4,6 +4,18 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 
 import { authClient } from '@/lib/auth-client';
+import type { UserRole } from '@/lib/actions/role';
+
+// Import the server action dynamically
+const getRoleAction = async (): Promise<UserRole> => {
+  try {
+    const { getUserRole } = await import('@/lib/actions/role');
+    return await getUserRole();
+  } catch (error) {
+    console.error('Failed to fetch role:', error);
+    return 'member';
+  }
+};
 
 interface User {
   id: string;
@@ -11,6 +23,7 @@ interface User {
   email: string;
   emailVerified: boolean;
   image?: string;
+  role?: UserRole;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -29,6 +42,8 @@ interface Session {
 interface AuthContextType {
   session: Session | null;
   isLoading: boolean;
+  role: UserRole | null;
+  isAdmin: boolean;
   signIn: (email: string, password: string) => Promise<any>;
   signUp: (email: string, password: string, name: string) => Promise<any>;
   signOut: () => Promise<void>;
@@ -40,21 +55,34 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [role, setRole] = useState<UserRole | null>(null);
 
-  const syncSession = (data: unknown) => {
+  const isAdmin = role === 'owner' || role === 'admin';
+
+  const syncSession = async (data: unknown) => {
     if (data && typeof data === 'object' && 'user' in data && 'session' in data) {
-      setSession(data as Session);
+      const userRole = await getRoleAction();
+      const sessionWithRole = {
+        ...(data as any),
+        user: {
+          ...(data as any).user,
+          role: userRole,
+        },
+      };
+      setSession(sessionWithRole);
+      setRole(userRole);
       return;
     }
 
     setSession(null);
+    setRole(null);
   };
 
   useEffect(() => {
     const loadSession = async () => {
       try {
         const { data } = await authClient.getSession();
-        syncSession(data);
+        await syncSession(data);
       } catch (error) {
         console.error('Failed to load session:', error);
       } finally {
@@ -64,8 +92,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loadSession();
 
     // Listen for auth changes (useful for social auth redirects)
-    authClient.$store.listen('session', (newSession) => {
-      syncSession(newSession);
+    authClient.$store.listen('session', async (newSession) => {
+      await syncSession(newSession);
     });
   }, []);
 
@@ -76,7 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     if (result.data) {
       const sessionData = await authClient.getSession();
-      syncSession(sessionData.data);
+      await syncSession(sessionData.data);
     }
     return result;
   };
@@ -89,7 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     if (result.data) {
       const sessionData = await authClient.getSession();
-      syncSession(sessionData.data);
+      await syncSession(sessionData.data);
     }
     return result;
   };
@@ -97,17 +125,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInWithGoogle = async () => {
     await authClient.signIn.social({
       provider: 'google',
-      // No callbackURL needed - Better Auth uses the default /api/auth/callback/{provider}
     });
   };
 
   const signOut = async () => {
     await authClient.signOut();
     setSession(null);
+    setRole(null);
   };
 
   return (
-    <AuthContext.Provider value={{ session, isLoading, signIn, signUp, signOut, signInWithGoogle }}>
+    <AuthContext.Provider 
+      value={{ 
+        session, 
+        isLoading, 
+        role,
+        isAdmin,
+        signIn, 
+        signUp, 
+        signOut, 
+        signInWithGoogle 
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

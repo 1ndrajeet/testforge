@@ -34,6 +34,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { logger } from '@/lib/misc/logger';
 
 // ============================================
 // Types
@@ -500,7 +501,7 @@ function CurrentPlanCard({
                   Lifetime Access
                 </p>
                 <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-400">
-                  You have lifetime access to TestForge. No renewal needed.
+                  You have lifetime access to Application. No renewal needed.
                 </p>
               </div>
             </div>
@@ -514,7 +515,7 @@ function CurrentPlanCard({
                   Subscription Expired
                 </p>
                 <p className="mt-0.5 text-xs text-red-700 dark:text-red-400">
-                  Please renew to continue using TestForge.
+                  Please renew to continue using Application.
                 </p>
               </div>
             </div>
@@ -528,7 +529,7 @@ function CurrentPlanCard({
                   No Active Subscription
                 </p>
                 <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-400">
-                  Please purchase a plan to continue using TestForge.
+                  Please purchase a plan to continue using Application.
                 </p>
               </div>
             </div>
@@ -625,7 +626,7 @@ function PaymentHistory({
         const data = await response.json();
         setLocalPayments(data.payments || []);
       } catch (error) {
-        console.error('Failed to load payments:', error);
+        logger.error('billing_client', 'Failed to load payments:', error);
       } finally {
         setLoading(false);
       }

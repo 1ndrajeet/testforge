@@ -149,7 +149,7 @@ export default function Format12Report() {
       }}
       footer={{
         showTimestamp: true,
-        showTestForgeCredit: true,
+        showApplicationCredit: true,
         alignment: 'center',
       }}
       showBackButton

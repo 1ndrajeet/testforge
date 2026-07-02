@@ -19,3 +19,68 @@ coverage
 dist
 build
 *.tsbuildinfo
+
+# .dockerignore
+node_modules
+.next
+.git
+.gitignore
+README.md
+Dockerfile
+.dockerignore
+*.log
+.env
+.env.local
+.env.development
+.env.test
+.DS_Store
+*.swp
+*.swo
+coverage
+.nyc_output
+.vscode
+.idea
+*.tsbuildinfo
+
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs
+.next
+out
+dist
+build
+
+# Development files
+.git
+.github
+.vscode
+.idea
+*.log
+*.tmp
+*.swp
+*.swo
+.DS_Store
+
+# Testing
+coverage
+.nyc_output
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+__tests__
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Misc
+*.tsbuildinfo
+.vercel
+.vercelignore
+README.md
+AGENTS.md
+CLAUDE.md

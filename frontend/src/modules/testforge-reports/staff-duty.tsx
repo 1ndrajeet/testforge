@@ -432,7 +432,7 @@ export default function StaffDutyReport() {
             Period: `${format(globalMin, 'dd/MM/yyyy')} - ${format(globalMax, 'dd/MM/yyyy')}`,
           },
         }}
-        footer={{ showTestForgeCredit: true }}
+        footer={{ showApplicationCredit: true }}
         documentTitle="Staff_Duty_Summary"
         numberOfCopies={numberOfCopies}
         onCopiesChange={setNumberOfCopies}

@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   output: 'standalone',  // REQUIRED for Docker
   
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   
   compress: true,

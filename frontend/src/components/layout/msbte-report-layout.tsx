@@ -44,7 +44,7 @@ export interface ReportHeaderProps {
 
 export interface ReportFooterProps {
   showTimestamp?: boolean;
-  showTestForgeCredit?: boolean;
+  showApplicationCredit?: boolean;
   alignment?: 'left' | 'right' | 'center';
   additionalInfo?: ReactNode;
   className?: string;
@@ -365,7 +365,7 @@ ReportHeader.displayName = 'ReportHeader';
 
 export const ReportFooter = ({
   showTimestamp = true,
-  showTestForgeCredit = true,
+  showApplicationCredit = true,
   alignment = 'right',
   additionalInfo,
   className,

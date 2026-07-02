@@ -414,7 +414,7 @@ export default function SubjectAllocationReport() {
           },
         }}
         footer={{
-          showTestForgeCredit: true,
+          showApplicationCredit: true,
         }}
         onBack={handleReset}
         backButtonLabel="Clear"

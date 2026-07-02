@@ -424,10 +424,10 @@ export default function LoginPage() {
               <p className="text-xs text-neutral-400 dark:text-neutral-500">
                 Need help? Contact{' '}
                 <a
-                  href="mailto:support@testforge.tech"
+                  href={`mailto:support@${process.env.NEXT_PUBLIC_HOSTED_URL}`}
                   className="text-emerald-600 hover:underline"
                 >
-                  support@testforge.tech
+                  support@{process.env.NEXT_PUBLIC_HOSTED_URL}
                 </a>
               </p>
             </CardFooter>

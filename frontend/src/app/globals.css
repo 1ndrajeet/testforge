@@ -5,7 +5,7 @@
 @custom-variant dark (&:is(.dark *));
 
 /* =======================================================
-TESTFORGE DESIGN TOKENS
+Application DESIGN TOKENS
 ======================================================= */
 
 @theme inline {
