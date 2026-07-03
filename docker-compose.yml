@@ -6,25 +6,20 @@ services:
     container_name: testforge-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: testforge
-      POSTGRES_PASSWORD: tfg_G8xR7vN2mK4pY9qW6dC1sH5uJ3aL8e
-      POSTGRES_DB: testforge
-
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "4935:5432"
-
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
-
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U testforge -d testforge"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
       interval: 10s
       timeout: 5s
       retries: 5
-
     networks:
       - testforge-network
-
     logging:
       driver: json-file
       options:
@@ -32,17 +27,18 @@ services:
         max-file: "3"
 
   migrate:
-    image: 1ndrajeet/testforge-migrate:v1.0.0
+    build:
+      context: .
+      dockerfile: database/Dockerfile
     container_name: testforge-migrate
     restart: "no"
-
     environment:
-      DATABASE_URL: postgresql://testforge:tfg_G8xR7vN2mK4pY9qW6dC1sH5uJ3aL8e@postgres:5432/testforge
-
+      DATABASE_URL: ${DATABASE_URL}
+      DOCKER_ENV: ${DOCKER_ENV}
+      IS_DOCKER: ${IS_DOCKER}
     depends_on:
       postgres:
         condition: service_healthy
-
     networks:
       - testforge-network
 
@@ -50,30 +46,44 @@ services:
     image: 1ndrajeet/testforge-backend:latest
     container_name: testforge-backend
     restart: unless-stopped
-
     ports:
       - "4936:8000"
-
     environment:
-      DATABASE_URL: postgresql://testforge:tfg_G8xR7vN2mK4pY9qW6dC1sH5uJ3aL8e@postgres:5432/testforge
-      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-ad85656193e23d2e5b8f21fa99064d1499d7d75200d63efae64b3f3b39ee2df4}
-      BETTER_AUTH_URL: http://localhost:4937
-      NEXT_PUBLIC_APP_URL: http://localhost:4937
-      NEXT_PUBLIC_BACKEND_URL: http://backend:8000
-      NEXT_PUBLIC_HOSTED_URL: localhost:4937
-      NODE_ENV: production
-      LOG_LEVEL: INFO
-
+      # Database
+      DATABASE_URL: ${DATABASE_URL}
+      
+      # App
+      DEBUG: ${DEBUG:-False}
+      TESTING: ${TESTING:-False}
+      TEST_EXAM_CENTER_ID: ${TEST_EXAM_CENTER_ID}
+      SECRET_KEY: ${SECRET_KEY}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      
+      # Upload
+      UPLOAD_DIR: ${UPLOAD_DIR}
+      MAX_UPLOAD_SIZE: ${MAX_UPLOAD_SIZE}
+      
+      # Auth
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL}
+      
+      # URLs
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+      NEXT_PUBLIC_BACKEND_URL: ${NEXT_PUBLIC_BACKEND_URL}
+      NEXT_PUBLIC_HOSTED_URL: ${NEXT_PUBLIC_HOSTED_URL}
+      
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL}
+      
+      # Docker
+      IS_DOCKER: ${IS_DOCKER}
     volumes:
       - ./data/uploads:/app/uploads
-
     depends_on:
       migrate:
         condition: service_completed_successfully
-
     networks:
       - testforge-network
-
     logging:
       driver: json-file
       options:
@@ -84,28 +94,51 @@ services:
     image: 1ndrajeet/testforge-frontend:lightweight
     container_name: testforge-frontend
     restart: unless-stopped
-
     ports:
       - "4937:3000"
-
     environment:
-      DATABASE_URL: postgresql://testforge:tfg_G8xR7vN2mK4pY9qW6dC1sH5uJ3aL8e@postgres:5432/testforge
-      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-ad85656193e23d2e5b8f21fa99064d1499d7d75200d63efae64b3f3b39ee2df4}
+      # Database
+      DATABASE_URL: ${DATABASE_URL}
+      
+      # Auth
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
       BETTER_AUTH_URL: http://localhost:4937
+      
+      # URLs
       NEXT_PUBLIC_APP_URL: http://localhost:4937
       NEXT_PUBLIC_BACKEND_URL: http://localhost:4936
-      NODE_ENV: production
-      LOG_LEVEL: INFO
-
+      NEXT_PUBLIC_HOSTED_URL: ${NEXT_PUBLIC_HOSTED_URL}
+      
+      # Google OAuth
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      
+      # Razorpay
+      NEXT_PUBLIC_RAZORPAY_KEY_ID: ${NEXT_PUBLIC_RAZORPAY_KEY_ID}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET}
+      
+      # Email
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      NEXT_PUBLIC_EMAIL_FROM: ${NEXT_PUBLIC_EMAIL_FROM}
+      NEXT_PUBLIC_REPLY_TO: ${NEXT_PUBLIC_REPLY_TO}
+      EMAIL_FROM: ${EMAIL_FROM}
+      REPLY_TO: ${REPLY_TO}
+      
+      # Environment
+      NODE_ENV: ${NODE_ENV:-production}
+      LOG_LEVEL: ${LOG_LEVEL}
+      
+      # Docker
+      IS_DOCKER: ${IS_DOCKER}
     depends_on:
       migrate:
         condition: service_completed_successfully
       backend:
         condition: service_started
-
     networks:
       - testforge-network
-
     logging:
       driver: json-file
       options:
@@ -115,7 +148,3 @@ services:
 networks:
   testforge-network:
     driver: bridge
-
-volumes:
-  postgres-data:
-  uploads:

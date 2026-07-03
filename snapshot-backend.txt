@@ -12,7 +12,7 @@ class APIResponse(BaseModel):
     message: str
     data: Optional[Any] = None
     error: Optional[str] = None
-<<//./schemas.py/
+<<//./schemas.py/>>
 <<./utils.py/>>
 # backend/utils.py - COMPLETE CLEAN VERSION
 
@@ -1070,7 +1070,7 @@ def error_response(message: str, error: str = None, status_code: int = 400) -> t
         "data": None,
         "error": error or message,
     }, status_code
-<<//./utils.py/
+<<//./utils.py/>>
 <<./routers/seatingarrangement.py/>>
 # backend/routers/seatingarrangement.py
 
@@ -1825,7 +1825,7 @@ async def get_temp_session_status(
         },
         message=f"Found {len(session_data.get('mismatches', []))} mismatches",
     )
-<<//./routers/seatingarrangement.py/
+<<//./routers/seatingarrangement.py/>>
 <<./routers/inventory.py/>>
 # backend/routers/inventory.py - FIXED VERSION
 
@@ -2297,7 +2297,7 @@ async def process_inventory(
         raise HTTPException(status_code=400, detail=result["error"])
 
     return success_response(data=result.get("data"), message=result["message"])
-<<//./routers/inventory.py/
+<<//./routers/inventory.py/>>
 <<./routers/emarksheet.py/>>
 # backend/routers/emarksheet.py - E-MARKSHEET MODULE (PROCESS ONLY)
 
@@ -2530,7 +2530,7 @@ async def process_emarksheet(
         raise HTTPException(status_code=400, detail=result["error"])
 
     return success_response(data=result.get("data"), message=result["message"])
-<<//./routers/emarksheet.py/
+<<//./routers/emarksheet.py/>>
 <<./routers/__init__.py/>>
 from fastapi import APIRouter
 
@@ -2554,7 +2554,7 @@ api_router.include_router(emarksheet_router)
 
 # Export only the api_router
 __all__ = ["api_router"]
-<<//./routers/__init__.py/
+<<//./routers/__init__.py/>>
 <<./routers/upload.py/>>
 # backend/routers/upload.py - COMPLETE CLEAN VERSION
 
@@ -2907,7 +2907,7 @@ async def download_file(
         media_type=media_type,
         headers={"Content-Disposition": f"attachment; filename={record['original_filename']}"},
     )
-<<//./routers/upload.py/
+<<//./routers/upload.py/>>
 <<./routers/timetable.py/>>
 # backend/routers/timetable.py
 import logging
@@ -3333,7 +3333,7 @@ async def process_timetable(exam_center_id: str = Depends(get_exam_center_id)):
         raise HTTPException(status_code=400, detail=result["error"])
 
     return success_response(data=result.get("data"), message=result["message"])
-<<//./routers/timetable.py/
+<<//./routers/timetable.py/>>
 <<./routers/seatingchart.py/>>
 # backend/routers/seatingchart.py - COMPLETE FIXED VERSION
 
@@ -3925,7 +3925,7 @@ async def process_seating_chart(
         raise HTTPException(status_code=400, detail=result["error"])
 
     return success_response(data=result.get("data"), message=result["message"])
-<<//./routers/seatingchart.py/
+<<//./routers/seatingchart.py/>>
 <<./main.py/>>
 """main.py module."""
 
@@ -3999,7 +3999,7 @@ async def startup():
 @app.on_event("shutdown")
 async def shutdown():
     logger.info(f"Shutting down {settings.APP_NAME}")
-<<//./main.py/
+<<//./main.py/>>
 <<./auth.py/>>
 # backend/auth.py
 import logging
@@ -4061,7 +4061,7 @@ async def get_exam_center_id(request: Request) -> str:
     except Exception as e:
         logger.error(f"Auth error: {e}")
         raise HTTPException(status_code=401, detail="Authentication failed")
-<<//./auth.py/
+<<//./auth.py/>>
 <<./config.py/>>
 # backend/config.py
 import logging
@@ -4102,7 +4102,7 @@ class Settings:
     CORS_ORIGINS: list = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 
     # Testing
-    TESTING: bool = os.getenv("TESTING", "True").lower() == "true"
+    TESTING: bool = os.getenv("TESTING", "False").lower() == "true"
     TEST_EXAM_CENTER_ID: str = os.getenv(
         "TEST_EXAM_CENTER_ID", "a3e5c386-efbb-373e-36d0-1bc812bde9d2"
     )
@@ -4186,4 +4186,4 @@ class DatabaseManager:
 
 
 db = DatabaseManager()
-<<//./config.py/
+<<//./config.py/>>

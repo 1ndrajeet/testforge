@@ -1,30 +1,30 @@
--- -------------------------------------------------------------
--- -------------------------------------------------------------
--- TablePlus 1.6.0
---
--- https://tableplus.com/
---
--- Database: testforge
--- Generation Time: 2026-07-01 14:33:24.666418
--- -------------------------------------------------------------
+-- -- -------------------------------------------------------------
+-- -- -------------------------------------------------------------
+-- -- TablePlus 1.6.0
+-- --
+-- -- https://tableplus.com/
+-- --
+-- -- Database: testforge
+-- -- Generation Time: 2026-07-01 14:33:24.666418
+-- -- -------------------------------------------------------------
 
-DROP TABLE "public"."subjects";
+-- DROP TABLE "public"."subjects";
 
 
--- This script only contains the table creation statements and does not fully represent the table in database. It's still missing: indices, triggers. Do not use it as backup.
+-- -- This script only contains the table creation statements and does not fully represent the table in database. It's still missing: indices, triggers. Do not use it as backup.
 
--- Table Definition
-CREATE TABLE "public"."subjects" (
-    "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-    "code" text NOT NULL,
-    "name" text NOT NULL,
-    "scheme" text NOT NULL,
-    "abbr" text,
-    "is_deleted" bool NOT NULL DEFAULT false,
-    "created_at" timestamp NOT NULL DEFAULT now(),
-    "updated_at" timestamp NOT NULL DEFAULT now(),
-    PRIMARY KEY ("id")
-);
+-- -- Table Definition
+-- CREATE TABLE IF NOT EXISTS "public"."subjects" (
+--     "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+--     "code" text NOT NULL,
+--     "name" text NOT NULL,
+--     "scheme" text NOT NULL,
+--     "abbr" text,
+--     "is_deleted" bool NOT NULL DEFAULT false,
+--     "created_at" timestamp NOT NULL DEFAULT now(),
+--     "updated_at" timestamp NOT NULL DEFAULT now(),
+--     PRIMARY KEY ("id")
+-- );
 
 INSERT INTO "public"."subjects" ("id","code","name","scheme","abbr","is_deleted","created_at","updated_at") VALUES 
 ('789b76c0-ae0c-dc62-b1fe-7ff046dd23a7','0643','HUMAN PHYSIOLOGY','DX-1-A',NULL,'FALSE','2026-06-13 11:27:22.152','2026-06-13 11:27:22.152'),

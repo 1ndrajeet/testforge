@@ -9,7 +9,7 @@ echo ""
 echo "============================================================"
 echo "          TESTFORGE INSTALLER"
 echo "          Version 1.0.0"
-echo "          Lifetime Offline Edition"
+echo "          Lifetime Local Edition"
 echo "============================================================"
 echo ""
 
@@ -57,19 +57,20 @@ echo ""
 
 # ─── PULL IMAGES ──────────────────────────────────────────────
 
-echo "Pulling images..."
-if ping -c 1 8.8.8.8 &> /dev/null || ping -c 1 hub.docker.com &> /dev/null; then
-    $COMPOSE_CMD pull
+echo "Checking for image updates..."
+
+if ! $COMPOSE_CMD pull; then
     echo ""
-else
-    echo "[WARNING] No internet connection - using cached images if available"
-    echo ""
+    echo "[INFO] Unable to pull newer images."
+    echo "[INFO] Continuing with locally cached images."
 fi
+
+echo ""
 
 # ─── START POSTGRES ───────────────────────────────────────────
 
 echo "Starting PostgreSQL..."
-$COMPOSE_CMD up -d postgres
+$COMPOSE_CMD up -d --no-deps postgres
 
 echo ""
 echo "Waiting for PostgreSQL to be ready..."
@@ -116,7 +117,7 @@ echo ""
 # ─── START SERVICES ───────────────────────────────────────────
 
 echo "Starting TestForge services..."
-$COMPOSE_CMD up -d backend frontend
+$COMPOSE_CMD up -d --no-deps backend frontend
 
 echo ""
 echo "Waiting for services to be ready..."

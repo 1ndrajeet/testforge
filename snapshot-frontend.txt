@@ -1,4 +1,4 @@
-<<app/login/page.tsx/
+<<app/login/page.tsx/>>
 // app/login/page.tsx
 'use client';
 
@@ -650,7 +650,7 @@ export default function LoginPage() {
   );
 }
 <<//app/login/page.tsx/>>
-<<app/api/send-email/route.ts/
+<<app/api/send-email/route.ts/>>
 // app/api/send-email/route.ts
 import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
@@ -935,7 +935,7 @@ export async function POST(request: Request) {
   }
 }
 <<//app/api/send-email/route.ts/>>
-<<app/api/health/route.ts/
+<<app/api/health/route.ts/>>
 import { NextResponse } from 'next/server';
 
 import { sql } from 'drizzle-orm';
@@ -960,7 +960,7 @@ export async function GET() {
   }
 }
 <<//app/api/health/route.ts/>>
-<<app/api/payments/history/route.ts/
+<<app/api/payments/history/route.ts/>>
 // app/api/payments/history/route.ts
 import { headers } from 'next/dist/server/request/headers';
 import { NextResponse } from 'next/server';
@@ -998,7 +998,7 @@ export async function GET() {
   }
 }
 <<//app/api/payments/history/route.ts/>>
-<<app/api/payments/checkout/route.ts/
+<<app/api/payments/checkout/route.ts/>>
 // app/api/payments/checkout/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -1245,7 +1245,7 @@ export async function POST(req: NextRequest) {
   }
 }
 <<//app/api/payments/checkout/route.ts/>>
-<<app/api/user/status/route.ts/
+<<app/api/user/status/route.ts/>>
 // app/api/user/status/route.ts
 import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
@@ -1301,7 +1301,7 @@ export async function GET() {
   }
 }
 <<//app/api/user/status/route.ts/>>
-<<app/api/auth/[...all]/route.ts/
+<<app/api/auth/[...all]/route.ts/>>
 // src/app/api/auth/[...all]/route.ts
 import { toNextJsHandler } from 'better-auth/next-js';
 
@@ -1309,7 +1309,7 @@ import { auth } from '@/lib/auth';
 
 export const { GET, POST } = toNextJsHandler(auth);
 <<//app/api/auth/[...all]/route.ts/>>
-<<app/(dashboard)/exam-center/[...modules]/page.tsx/
+<<app/(dashboard)/exam-center/[...modules]/page.tsx/>>
 // app/exam-center/[...modules]/page.tsx
 'use client';
 
@@ -1429,7 +1429,7 @@ export default function ModulePage() {
   return <Component />;
 }
 <<//app/(dashboard)/exam-center/[...modules]/page.tsx/>>
-<<app/(dashboard)/layout.tsx/
+<<app/(dashboard)/layout.tsx/>>
 // src/app/(dashboard)/layout.tsx
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
@@ -1482,7 +1482,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     </TooltipProvider>
   );
 }<<//app/(dashboard)/layout.tsx/>>
-<<app/(dashboard)/billing/billing-client.tsx/
+<<app/(dashboard)/billing/billing-client.tsx/>>
 // app/billing/billing-client.tsx
 'use client';
 
@@ -2470,7 +2470,7 @@ export function BillingClient({
   );
 }
 <<//app/(dashboard)/billing/billing-client.tsx/>>
-<<app/(dashboard)/billing/page.tsx/
+<<app/(dashboard)/billing/page.tsx/>>
 // app/billing/page.tsx
 import { getCurrentSubscription, getPaymentHistory } from '@/lib/actions/subscription';
 import { getCurrentExamCenter, getCurrentUser } from '@/lib/session';
@@ -2500,7 +2500,7 @@ export default async function BillingPage() {
   );
 }
 <<//app/(dashboard)/billing/page.tsx/>>
-<<app/layout.tsx/
+<<app/layout.tsx/>>
 import type { Metadata } from 'next';
 
 import { Geist, Geist_Mono, Montserrat } from 'next/font/google';
@@ -2565,10 +2565,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   );
 }
 <<//app/layout.tsx/>>
-<<app/onboarding/page.tsx/
+<<app/onboarding/page.tsx/>>
 'use client';
 
-import { useEffect, useState, useTransition, useCallback } from 'react';
+import { useEffect, useState, useTransition, useCallback, Suspense } from 'react';
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import Script from 'next/script';
@@ -2614,6 +2614,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 
 import { useAppStore } from '@/stores/appStore';
+import { HashLoader } from 'react-spinners';
 
 //  Types
 
@@ -3952,7 +3953,7 @@ function CompleteStep({ onComplete }: { onComplete: () => void }) {
 // Root page — orchestrates all steps + shell
 //
 
-export default function OnboardingPage() {
+function OnboardingPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useUserInfo();
@@ -4174,7 +4175,9 @@ export default function OnboardingPage() {
   if (pageLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-neutral-50 dark:bg-neutral-950">
-        <Loader2 className="h-8 w-8 animate-spin text-neutral-300" />
+        <HashLoader 
+          size={60}
+          color="#059669" />
       </div>
     );
   }
@@ -4272,8 +4275,22 @@ export default function OnboardingPage() {
       </OnboardingShell>
     </>
   );
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-neutral-50 dark:bg-neutral-950">
+        <HashLoader 
+          size={60}
+          color="#059669" />
+      </div>
+    }>
+      <OnboardingPageContent />
+    </Suspense>
+  );
 }<<//app/onboarding/page.tsx/>>
-<<app/auth/callback/page.tsx/
+<<app/auth/callback/page.tsx/>>
 // app/auth/callback/page.tsx
 'use client';
 
@@ -4358,7 +4375,7 @@ export default function AuthCallbackPage() {
   );
 }
 <<//app/auth/callback/page.tsx/>>
-<<app/page.tsx/
+<<app/page.tsx/>>
 'use client';
 import { useEffect, useState } from 'react';
 
@@ -5599,7 +5616,7 @@ function Footer() {
   );
 }
 <<//app/page.tsx/>>
-<<components/layout/header-wrapper.tsx/
+<<components/layout/header-wrapper.tsx/>>
 // components/layout/header-wrapper.tsx
 import { getCurrentSubscription } from '@/lib/actions/subscription';
 import { getCurrentExamCenter, getCurrentUser } from '@/lib/session';
@@ -5624,7 +5641,7 @@ export async function HeaderWrapper() {
   );
 }
 <<//components/layout/header-wrapper.tsx/>>
-<<components/layout/testforge-report-layout.tsx/
+<<components/layout/testforge-report-layout.tsx/>>
 // components/layout/testforge-report-layout.tsx
 'use client';
 
@@ -6427,7 +6444,7 @@ ReportLayout.displayName = 'ReportLayout';
 
 export default ReportLayout;
 <<//components/layout/testforge-report-layout.tsx/>>
-<<components/layout/dashboard-shell.tsx/
+<<components/layout/dashboard-shell.tsx/>>
 // src/components/layout/dashboard-shell.tsx
 
 'use client';
@@ -6461,7 +6478,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 <<//components/layout/dashboard-shell.tsx/>>
-<<components/layout/header.tsx/
+<<components/layout/header.tsx/>>
 // components/layout/header.tsx
 'use client';
 
@@ -6790,7 +6807,7 @@ export function Header({ user, subscription }: HeaderProps) {
   );
 }
 <<//components/layout/header.tsx/>>
-<<components/layout/page-layout.tsx/
+<<components/layout/page-layout.tsx/>>
 // components/layout/page-layout.tsx
 'use client';
 
@@ -7262,7 +7279,7 @@ export function PageSuccess({
   );
 }
 <<//components/layout/page-layout.tsx/>>
-<<components/layout/msbte-report-layout.tsx/
+<<components/layout/msbte-report-layout.tsx/>>
 // components/layout/msbte-report-layout.tsx
 'use client';
 
@@ -8223,7 +8240,7 @@ ReportLayout.displayName = 'ReportLayout';
 
 export default ReportLayout;
 <<//components/layout/msbte-report-layout.tsx/>>
-<<components/layout/msbte-context-bar.tsx/
+<<components/layout/msbte-context-bar.tsx/>>
 // components/layout/msbte-context-bar.tsx
 'use client';
 
@@ -8363,7 +8380,7 @@ export function MSBTEContextBar({
   );
 }
 <<//components/layout/msbte-context-bar.tsx/>>
-<<components/layout/sidebar.tsx/
+<<components/layout/sidebar.tsx/>>
 // src/components/layout/Sidebar.tsx
 'use client';
 
@@ -8920,7 +8937,7 @@ function NavItem({ module, pathname, onNavigate, level, searchQuery }: NavItemPr
   );
 }
 <<//components/layout/sidebar.tsx/>>
-<<components/layout/form-layout.tsx/
+<<components/layout/form-layout.tsx/>>
 // components/ui/form-layout.tsx
 'use client';
 
@@ -9044,7 +9061,7 @@ export function FormActions({
   );
 }
 <<//components/layout/form-layout.tsx/>>
-<<components/layout/theme-provider.tsx/
+<<components/layout/theme-provider.tsx/>>
 'use client';
 
 import * as React from 'react';
@@ -9056,7 +9073,7 @@ export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
   return <NextThemesProvider {...props}>{children}</NextThemesProvider>;
 }
 <<//components/layout/theme-provider.tsx/>>
-<<components/misc/DesktopMockup.tsx/
+<<components/misc/DesktopMockup.tsx/>>
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
@@ -10010,7 +10027,7 @@ export default function ExamDayAbsentMockup() {
   );
 }
 <<//components/misc/DesktopMockup.tsx/>>
-<<components/misc/DialogBox.tsx/
+<<components/misc/DialogBox.tsx/>>
 import React from 'react';
 
 import { AlertCircle, CheckCircle } from 'lucide-react';
@@ -10084,7 +10101,7 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
 
 export default ConfirmationDialog;
 <<//components/misc/DialogBox.tsx/>>
-<<components/tutorial/TutorialProvider.tsx/
+<<components/tutorial/TutorialProvider.tsx/>>
 // components/tutorial/TutorialProvider.tsx
 'use client';
 
@@ -10239,7 +10256,7 @@ export function useTutorial() {
   return context;
 }
 <<//components/tutorial/TutorialProvider.tsx/>>
-<<components/shared/mobile-warning.tsx/
+<<components/shared/mobile-warning.tsx/>>
 // src/components/ui/mobile-warning.tsx
 'use client';
 
@@ -10290,7 +10307,7 @@ export function MobileWarning({ onProceed }: MobileWarningProps) {
   );
 }
 <<//components/shared/mobile-warning.tsx/>>
-<<components/shared/file-uploader.tsx/
+<<components/shared/file-uploader.tsx/>>
 // components/shared/file-uploader.tsx
 
 'use client';
@@ -12648,7 +12665,7 @@ export function UniversalFileUploader({
   );
 }
 <<//components/shared/file-uploader.tsx/>>
-<<components/shared/date-selector.tsx/
+<<components/shared/date-selector.tsx/>>
 // components/shared/session-selector.tsx
 'use client';
 
@@ -13106,7 +13123,7 @@ export function useSessionSelector(options: UseSessionSelectorOptions = {}) {
   };
 }
 <<//components/shared/date-selector.tsx/>>
-<<components/admin/email-usage-stats.tsx/
+<<components/admin/email-usage-stats.tsx/>>
 // components/email/email-usage-stats.tsx
 'use client';
 
@@ -13458,7 +13475,7 @@ export function EmailDailyUsage() {
   );
 }
 <<//components/admin/email-usage-stats.tsx/>>
-<<components/auth/AuthProvider.tsx/
+<<components/auth/AuthProvider.tsx/>>
 // src/components/auth/AuthProvider.tsx
 'use client';
 
@@ -13620,7 +13637,7 @@ export const useAuth = () => {
   }
   return context;
 };<<//components/auth/AuthProvider.tsx/>>
-<<hooks/useSidebar.ts/
+<<hooks/useSidebar.ts/>>
 // src/hooks/useSidebar.ts
 'use client';
 
@@ -13640,7 +13657,7 @@ export const useSidebar = create<SidebarStore>((set) => ({
   close: () => set({ isOpen: false }),
 }));
 <<//hooks/useSidebar.ts/>>
-<<hooks/useFileUpload.ts/
+<<hooks/useFileUpload.ts/>>
 // hooks/useFileUpload.ts
 'use client';
 
@@ -13905,7 +13922,7 @@ export function useFileUpload(options: FileUploadOptions = {}): UseFileUploadRet
   };
 }
 <<//hooks/useFileUpload.ts/>>
-<<hooks/useUser.ts/
+<<hooks/useUser.ts/>>
 // // src/hooks/useUser.ts
 // 'use client';
 
@@ -13994,7 +14011,7 @@ export function useFileUpload(options: FileUploadOptions = {}): UseFileUploadRet
 //   return { user, session, isLoading, signOut, isInitialized };
 // }
 <<//hooks/useUser.ts/>>
-<<hooks/useUserInfo.ts/
+<<hooks/useUserInfo.ts/>>
 // hooks/useUserInfo.ts - Simplified without functional updates
 'use client';
 
@@ -14083,7 +14100,7 @@ export function useUserInfo(): UserInfoState {
   };
 }
 <<//hooks/useUserInfo.ts/>>
-<<lib/types/index.ts/
+<<lib/types/index.ts/>>
 // lib/types/index.ts
 import { z } from 'zod';
 
@@ -14814,7 +14831,7 @@ export interface MonthlyUsageStats {
   percentage: number;
 }
 <<//lib/types/index.ts/>>
-<<lib/db/index.ts/
+<<lib/db/index.ts/>>
 // src/lib/db/index.ts
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
@@ -14828,7 +14845,7 @@ const pool = new Pool({
 export const db = drizzle(pool, { schema });
 export { schema };
 <<//lib/db/index.ts/>>
-<<lib/db/schema.ts/
+<<lib/db/schema.ts/>>
   // modules//block-allocation/supervision-order
   import { relations, sql } from 'drizzle-orm';
   import {
@@ -15479,7 +15496,7 @@ export { schema };
     }),
   }));
 <<//lib/db/schema.ts/>>
-<<lib/utils/report-helpers.ts/
+<<lib/utils/report-helpers.ts/>>
 // lib/utils/report-helpers.ts
 import { ReportPageData } from '@/components/layout/msbte-report-layout';
 
@@ -15505,7 +15522,7 @@ export const MAX_ROWS = {
   FORMAT_13: 20, // Malpractice report - 20 records per page
 };
 <<//lib/utils/report-helpers.ts/>>
-<<lib/utils.ts/
+<<lib/utils.ts/>>
 import departmentMap from '@/config/course_codes.json';
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -15623,7 +15640,7 @@ export function parseScheme(scheme: string): ParsedScheme {
 //   return sessionToken ? { 'Authorization': `Bearer ${sessionToken}` } : {};
 // }
 <<//lib/utils.ts/>>
-<<lib/misc/local-storage.ts/
+<<lib/misc/local-storage.ts/>>
 // lib/misc/local-storage.ts
 
 export interface LocalAllocation {
@@ -15747,7 +15764,7 @@ export function hasLocalData(): boolean {
   );
 }
 <<//lib/misc/local-storage.ts/>>
-<<lib/misc/logger.ts/
+<<lib/misc/logger.ts/>>
 // lib/misc/logger.ts
 // ============================================
 // Logger Configuration
@@ -15813,7 +15830,7 @@ export const logger = {
     formatLog('ERROR', module, message, data),
 };
 <<//lib/misc/logger.ts/>>
-<<lib/actions/email-usage.ts/
+<<lib/actions/email-usage.ts/>>
 // lib/services/email-usage.ts
 'use server';
 
@@ -16170,7 +16187,7 @@ export async function getUsageStatsForCurrentCenter(): Promise<{
   }
 }
 <<//lib/actions/email-usage.ts/>>
-<<lib/actions/promo.actions.ts/
+<<lib/actions/promo.actions.ts/>>
 // app/actions/promo.actions.ts
 'use server';
 
@@ -16300,7 +16317,7 @@ export async function applyTrialPromo(code: string) {
   }
 }
 <<//lib/actions/promo.actions.ts/>>
-<<lib/actions/onboarding.ts/
+<<lib/actions/onboarding.ts/>>
 // app/actions/onboarding.ts
 'use server';
 
@@ -16673,7 +16690,7 @@ export async function hasActiveSubscription() {
   }
 }
 <<//lib/actions/onboarding.ts/>>
-<<lib/actions/upload.ts/
+<<lib/actions/upload.ts/>>
 // lib/actions/upload.ts
 'use server';
 
@@ -17225,7 +17242,7 @@ export async function getStoredFilename(
   }
 }
 <<//lib/actions/upload.ts/>>
-<<lib/actions/dashboard.ts/
+<<lib/actions/dashboard.ts/>>
 // lib/actions/dashboard.ts
 'use server';
 
@@ -17891,7 +17908,7 @@ export async function getExamOfficerDashboard(): Promise<{
   }
 }
 <<//lib/actions/dashboard.ts/>>
-<<lib/actions/staff.ts/
+<<lib/actions/staff.ts/>>
 // lib/actions/staff.ts
 'use server';
 
@@ -18845,7 +18862,7 @@ export async function searchStaff(query: string, type?: StaffType) {
   }
 }
 <<//lib/actions/staff.ts/>>
-<<lib/actions/subject.ts/
+<<lib/actions/subject.ts/>>
 // lib/actions/subject.ts
 'use server';
 
@@ -18955,7 +18972,7 @@ export async function getSchemes() {
   return results.map((r) => r.scheme);
 }
 <<//lib/actions/subject.ts/>>
-<<lib/actions/inventory.ts/
+<<lib/actions/inventory.ts/>>
 // lib/actions/inventory.ts
 'use server';
 
@@ -19736,7 +19753,7 @@ export async function deleteAllInventoryData(): Promise<{
   }
 }
 <<//lib/actions/inventory.ts/>>
-<<lib/actions/emarksheet.ts/
+<<lib/actions/emarksheet.ts/>>
 // lib/actions/emarksheet.ts
 'use server';
 
@@ -19912,7 +19929,7 @@ export async function deleteAllEMarksheets(): Promise<{
   }
 }
 <<//lib/actions/emarksheet.ts/>>
-<<lib/actions/block.ts/
+<<lib/actions/block.ts/>>
 // lib/actions/block.ts
 'use server';
 
@@ -20334,7 +20351,7 @@ export async function getBlockStats() {
   }
 }
 <<//lib/actions/block.ts/>>
-<<lib/actions/role.ts/
+<<lib/actions/role.ts/>>
 // lib/actions/role.ts
 'use server';
 
@@ -20420,7 +20437,7 @@ export const isMember = cache(async (): Promise<boolean> => {
   const role = await getUserRole();
   return role === 'member';
 });<<//lib/actions/role.ts/>>
-<<lib/actions/exam-center.ts/
+<<lib/actions/exam-center.ts/>>
 // lib/actions/exam-center.ts - FIXED
 'use server';
 
@@ -20546,7 +20563,7 @@ export async function updateExamCenter(data: {
   }
 }
 <<//lib/actions/exam-center.ts/>>
-<<lib/actions/timetable.ts/
+<<lib/actions/timetable.ts/>>
 // lib/actions/timetable.ts
 'use server';
 
@@ -21405,7 +21422,7 @@ export async function resolveCopyCase(data: z.infer<typeof ResolveCopyCaseSchema
   }
 }
 <<//lib/actions/timetable.ts/>>
-<<lib/actions/allocation.ts/
+<<lib/actions/allocation.ts/>>
 // lib/actions/allocation.ts
 'use server';
 
@@ -23366,7 +23383,7 @@ export async function checkExistingAllocations(
   }
 }
 <<//lib/actions/allocation.ts/>>
-<<lib/actions/user.ts/
+<<lib/actions/user.ts/>>
 // lib/actions/user.ts
 'use server';
 
@@ -23755,7 +23772,7 @@ export async function uploadUserAvatar(formData: FormData) {
   }
 }
 <<//lib/actions/user.ts/>>
-<<lib/actions/subscription.ts/
+<<lib/actions/subscription.ts/>>
 'use server';
 
 import { desc, eq } from 'drizzle-orm';
@@ -23814,7 +23831,7 @@ export async function getPaymentHistory() {
   return { payments: paymentsList };
 }
 <<//lib/actions/subscription.ts/>>
-<<lib/actions/configuration.ts/
+<<lib/actions/configuration.ts/>>
 // lib/actions/configuration.ts
 'use server';
 
@@ -24196,7 +24213,7 @@ export async function isExamCenterConfigured() {
   }
 }
 <<//lib/actions/configuration.ts/>>
-<<lib/actions/order.ts/
+<<lib/actions/order.ts/>>
 // lib/actions/order.ts
 'use server';
 
@@ -24336,7 +24353,7 @@ export async function getOrdersForDate(date: Date) {
   return getOrders({ date });
 }
 <<//lib/actions/order.ts/>>
-<<lib/actions/institute.ts/
+<<lib/actions/institute.ts/>>
 // lib/actions/institute.ts
 'use server';
 
@@ -24459,7 +24476,7 @@ export async function updateInstituteName(id: string, newName: string) {
   return { success: true, data: updated };
 }
 <<//lib/actions/institute.ts/>>
-<<lib/actions/student.ts/
+<<lib/actions/student.ts/>>
 // lib/actions/student.ts
 'use server';
 
@@ -24928,7 +24945,7 @@ export async function getPaginatedStudentSeatingData(params?: {
   }
 }
 <<//lib/actions/student.ts/>>
-<<lib/auth-client.ts/
+<<lib/auth-client.ts/>>
 // lib/auth-client.ts
 import { createAuthClient } from 'better-auth/react';
 
@@ -24940,7 +24957,7 @@ export const { signIn, signUp, signOut, useSession, getSession } = authClient;
 
 export const socialSignIn = authClient.signIn.social;
 <<//lib/auth-client.ts/>>
-<<lib/auth.ts/
+<<lib/auth.ts/>>
 // lib/auth.ts
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
@@ -25554,7 +25571,7 @@ export const auth = betterAuth({
 export { emailClient };
 export default auth;
 <<//lib/auth.ts/>>
-<<lib/session.ts/
+<<lib/session.ts/>>
 // lib/session.ts
 'use server';
 
@@ -26374,7 +26391,7 @@ export async function hasAllocations(date?: Date, session?: string): Promise<boo
   }
 }
 <<//lib/session.ts/>>
-<<modules/exam-setup/relievers.tsx/
+<<modules/exam-setup/relievers.tsx/>>
 // app/exam-center/exam-setup/relievers/page.tsx
 import StaffPage from './supervisors';
 
@@ -26382,7 +26399,7 @@ export default function RelieversPage() {
   return <StaffPage type="RELIEVER" />;
 }
 <<//modules/exam-setup/relievers.tsx/>>
-<<modules/exam-setup/seating-chart.tsx/
+<<modules/exam-setup/seating-chart.tsx/>>
 // modules/exam-setup/seatingchart.tsx
 'use client';
 
@@ -27230,7 +27247,7 @@ export default function SeatingChartPage() {
   );
 }
 <<//modules/exam-setup/seating-chart.tsx/>>
-<<modules/exam-setup/control-room.tsx/
+<<modules/exam-setup/control-room.tsx/>>
 // app/exam-center/exam-setup/relievers/page.tsx
 import StaffPage from './supervisors';
 
@@ -27238,7 +27255,7 @@ export default function RelieversPage() {
   return <StaffPage type="CONTROL_ROOM" />;
 }
 <<//modules/exam-setup/control-room.tsx/>>
-<<modules/exam-setup/emarksheet.tsx/
+<<modules/exam-setup/emarksheet.tsx/>>
 // modules/exam-setup/emarksheet.tsx
 'use client';
 
@@ -27961,7 +27978,7 @@ export default function EMarksheetPage() {
   );
 }
 <<//modules/exam-setup/emarksheet.tsx/>>
-<<modules/exam-setup/seating-arrangement.tsx/
+<<modules/exam-setup/seating-arrangement.tsx/>>
 // modules/exam-setup/seating-arrangement.tsx
 
 'use client';
@@ -28199,7 +28216,7 @@ export default function SeatingArrangementPage() {
   );
 }
 <<//modules/exam-setup/seating-arrangement.tsx/>>
-<<modules/exam-setup/timetable.tsx/
+<<modules/exam-setup/timetable.tsx/>>
 // modules/exam-setup/timetable.tsx
 'use client';
 
@@ -28825,7 +28842,7 @@ export default function TimetablePage() {
   );
 }
 <<//modules/exam-setup/timetable.tsx/>>
-<<modules/exam-setup/supervisors.tsx/
+<<modules/exam-setup/supervisors.tsx/>>
 // modules/exam-setup/staff-page.tsx
 'use client';
 
@@ -29976,7 +29993,7 @@ export default function StaffPage({ type = 'SUPERVISOR' }: { type?: StaffType })
   );
 }
 <<//modules/exam-setup/supervisors.tsx/>>
-<<modules/exam-setup/block.tsx/
+<<modules/exam-setup/block.tsx/>>
 // app/exam-center/exam-setup/blocks/page.tsx
 'use client';
 
@@ -31724,7 +31741,7 @@ export default function BlocksPage() {
   );
 }
 <<//modules/exam-setup/block.tsx/>>
-<<modules/exam-setup/qp-inventory.tsx/
+<<modules/exam-setup/qp-inventory.tsx/>>
 // modules/exam-setup/qp-inventory.tsx
 'use client';
 
@@ -32593,7 +32610,7 @@ export default function InventoryPage() {
   );
 }
 <<//modules/exam-setup/qp-inventory.tsx/>>
-<<modules/exam-setup/center-profile.tsx/
+<<modules/exam-setup/center-profile.tsx/>>
 // modules/exam-setup/center-profile.tsx
 'use client';
 
@@ -33460,7 +33477,7 @@ export default function ExamCenterInfo() {
   );
 }
 <<//modules/exam-setup/center-profile.tsx/>>
-<<modules/dashboard.tsx/
+<<modules/dashboard.tsx/>>
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
@@ -34297,7 +34314,7 @@ export default function Dashboard() {
   );
 }
 <<//modules/dashboard.tsx/>>
-<<modules/testforge-reports/qp-summary.tsx/
+<<modules/testforge-reports/qp-summary.tsx/>>
 // modules/testforge-reports/qp-summary.tsx
 
 'use client';
@@ -34777,7 +34794,7 @@ export default function QPSummaryReport() {
   );
 }
 <<//modules/testforge-reports/qp-summary.tsx/>>
-<<modules/testforge-reports/blank-absent.tsx/
+<<modules/testforge-reports/blank-absent.tsx/>>
 // modules/testforge-reports/blank-absent.tsx
 
 'use client';
@@ -35215,7 +35232,7 @@ export default function BlankAbsentReport() {
   );
 }
 <<//modules/testforge-reports/blank-absent.tsx/>>
-<<modules/testforge-reports/block-allocation.tsx/
+<<modules/testforge-reports/block-allocation.tsx/>>
 // modules/testforge-reports/block-allocation.tsx
 
 'use client';
@@ -36002,7 +36019,7 @@ export default function BlockAllocationReport() {
   );
 }
 <<//modules/testforge-reports/block-allocation.tsx/>>
-<<modules/testforge-reports/blank-reliever.tsx/
+<<modules/testforge-reports/blank-reliever.tsx/>>
 // modules/testforge-reports/blank-reliever.tsx
 'use client';
 
@@ -36424,7 +36441,7 @@ export default function BlankRelieverReport() {
   );
 }
 <<//modules/testforge-reports/blank-reliever.tsx/>>
-<<modules/testforge-reports/subject-allocation.tsx/
+<<modules/testforge-reports/subject-allocation.tsx/>>
 // modules/testforge-reports/subject-allocation.tsx
 
 'use client';
@@ -36856,7 +36873,7 @@ export default function SubjectAllocationReport() {
   );
 }
 <<//modules/testforge-reports/subject-allocation.tsx/>>
-<<modules/testforge-reports/supervision.tsx/
+<<modules/testforge-reports/supervision.tsx/>>
 // modules/testforge-reports/supervision.tsx
 
 'use client';
@@ -37356,7 +37373,7 @@ export default function SupervisionReport() {
   );
 }
 <<//modules/testforge-reports/supervision.tsx/>>
-<<modules/testforge-reports/staff-duty.tsx/
+<<modules/testforge-reports/staff-duty.tsx/>>
 // modules/testforge-reports/staff-duty.tsx
 
 'use client';
@@ -37803,7 +37820,7 @@ export default function StaffDutyReport() {
   );
 }
 <<//modules/testforge-reports/staff-duty.tsx/>>
-<<modules/testforge-reports/daily-summary.tsx/
+<<modules/testforge-reports/daily-summary.tsx/>>
 // modules/testforge-reports/daily-summary.tsx - FIXED pagination
 
 'use client';
@@ -38339,7 +38356,7 @@ export default function DailySummaryReport() {
   );
 }
 <<//modules/testforge-reports/daily-summary.tsx/>>
-<<modules/msbte-reports/f2.tsx/
+<<modules/msbte-reports/f2.tsx/>>
 // modules/formats/format2.tsx
 'use client';
 
@@ -38601,7 +38618,7 @@ export default function Format2Report() {
   );
 }
 <<//modules/msbte-reports/f2.tsx/>>
-<<modules/msbte-reports/f12.tsx/
+<<modules/msbte-reports/f12.tsx/>>
 // modules/formats/format12.tsx
 'use client';
 
@@ -38765,7 +38782,7 @@ export default function Format12Report() {
   );
 }
 <<//modules/msbte-reports/f12.tsx/>>
-<<modules/msbte-reports/f3a.tsx/
+<<modules/msbte-reports/f3a.tsx/>>
 // modules/formats/format3a.tsx
 'use client';
 
@@ -39059,7 +39076,7 @@ export default function Format3AReport() {
   );
 }
 <<//modules/msbte-reports/f3a.tsx/>>
-<<modules/msbte-reports/f19.tsx/
+<<modules/msbte-reports/f19.tsx/>>
 // modules/formats/format19.tsx
 'use client';
 
@@ -39237,7 +39254,7 @@ export default function Format19Report() {
   );
 }
 <<//modules/msbte-reports/f19.tsx/>>
-<<modules/msbte-reports/f3.tsx/
+<<modules/msbte-reports/f3.tsx/>>
 // modules/formats/format3.tsx
 'use client';
 
@@ -39513,7 +39530,7 @@ export default function Format3Report() {
   );
 }
 <<//modules/msbte-reports/f3.tsx/>>
-<<modules/msbte-reports/f11.tsx/
+<<modules/msbte-reports/f11.tsx/>>
 // modules/formats/format11.tsx
 'use client';
 
@@ -39645,7 +39662,7 @@ export default function Format11Report() {
   );
 }
 <<//modules/msbte-reports/f11.tsx/>>
-<<modules/msbte-reports/f16.tsx/
+<<modules/msbte-reports/f16.tsx/>>
 // modules/formats/format16.tsx
 'use client';
 
@@ -39840,7 +39857,7 @@ export default function Format16Report() {
   );
 }
 <<//modules/msbte-reports/f16.tsx/>>
-<<modules/msbte-reports/f6.tsx/
+<<modules/msbte-reports/f6.tsx/>>
 // modules/formats/format6.tsx - Clean Version with Department Map
 
 'use client';
@@ -40185,7 +40202,7 @@ export default function Format6Report() {
   );
 }
 <<//modules/msbte-reports/f6.tsx/>>
-<<modules/msbte-reports/f15.tsx/
+<<modules/msbte-reports/f15.tsx/>>
 // components/shared/PDFViewer.tsx
 'use client';
 
@@ -40447,7 +40464,7 @@ export default function Format15Report() {
   );
 }
 <<//modules/msbte-reports/f15.tsx/>>
-<<modules/msbte-reports/f8.tsx/
+<<modules/msbte-reports/f8.tsx/>>
 // modules/formats/format8.tsx - Using MultiPageReport
 
 'use client';
@@ -40817,7 +40834,7 @@ export default function Format8Report() {
   );
 }
 <<//modules/msbte-reports/f8.tsx/>>
-<<modules/msbte-reports/f1.tsx/
+<<modules/msbte-reports/f1.tsx/>>
 // modules/formats/format1.tsx
 'use client';
 
@@ -41027,7 +41044,7 @@ export default function Format1Report() {
   );
 }
 <<//modules/msbte-reports/f1.tsx/>>
-<<modules/msbte-reports/f5.tsx/
+<<modules/msbte-reports/f5.tsx/>>
 // modules/formats/format5.tsx - FIXED
 
 'use client';
@@ -41272,7 +41289,7 @@ export default function Format5Report() {
   );
 }
 <<//modules/msbte-reports/f5.tsx/>>
-<<modules/msbte-reports/f21.tsx/
+<<modules/msbte-reports/f21.tsx/>>
 // modules/formats/format21.tsx
 'use client';
 
@@ -41441,7 +41458,7 @@ export default function Format21Report() {
   );
 }
 <<//modules/msbte-reports/f21.tsx/>>
-<<modules/msbte-reports/f17.tsx/
+<<modules/msbte-reports/f17.tsx/>>
 // modules/formats/format15.tsx
 'use client';
 
@@ -41461,7 +41478,7 @@ export default function Format15Report() {
   );
 }
 <<//modules/msbte-reports/f17.tsx/>>
-<<modules/msbte-reports/f9.tsx/
+<<modules/msbte-reports/f9.tsx/>>
 // modules/formats/format9.tsx
 
 'use client';
@@ -41830,7 +41847,7 @@ export default function Format9Report() {
   );
 }
 <<//modules/msbte-reports/f9.tsx/>>
-<<modules/msbte-reports/f4.tsx/
+<<modules/msbte-reports/f4.tsx/>>
 // modules/formats/format4.tsx
 'use client';
 
@@ -42004,7 +42021,7 @@ export default function Format4Report() {
   );
 }
 <<//modules/msbte-reports/f4.tsx/>>
-<<modules/msbte-reports/f14.tsx/
+<<modules/msbte-reports/f14.tsx/>>
 // modules/formats/format14.tsx
 'use client';
 
@@ -42267,7 +42284,7 @@ export default function Format14Report() {
   );
 }
 <<//modules/msbte-reports/f14.tsx/>>
-<<modules/msbte-reports/f13.tsx/
+<<modules/msbte-reports/f13.tsx/>>
 // modules/formats/format13.tsx - Using MultiPageReport with scheme parser
 
 'use client';
@@ -42914,7 +42931,7 @@ export default function Format13Report() {
   );
 }
 <<//modules/msbte-reports/f13.tsx/>>
-<<modules/msbte-reports/f20.tsx/
+<<modules/msbte-reports/f20.tsx/>>
 // modules/formats/format20.tsx
 'use client';
 
@@ -43034,7 +43051,7 @@ export default function Format20Report() {
   );
 }
 <<//modules/msbte-reports/f20.tsx/>>
-<<modules/msbte-reports/f7.tsx/
+<<modules/msbte-reports/f7.tsx/>>
 // modules/formats/format7.tsx - FIXED scheme parsing
 
 'use client';
@@ -43373,7 +43390,7 @@ export default function Format7Report() {
   );
 }
 <<//modules/msbte-reports/f7.tsx/>>
-<<modules/msbte-reports/f22.tsx/
+<<modules/msbte-reports/f22.tsx/>>
 // modules/formats/format22.tsx
 'use client';
 
@@ -43570,7 +43587,7 @@ export default function Format22Report() {
   );
 }
 <<//modules/msbte-reports/f22.tsx/>>
-<<modules/msbte-reports/f18.tsx/
+<<modules/msbte-reports/f18.tsx/>>
 // modules/formats/format18.tsx
 'use client';
 
@@ -43720,7 +43737,7 @@ export default function Format18Report() {
   );
 }
 <<//modules/msbte-reports/f18.tsx/>>
-<<modules/msbte-reports/f10.tsx/
+<<modules/msbte-reports/f10.tsx/>>
 // modules/formats/format10.tsx
 'use client';
 
@@ -43846,7 +43863,7 @@ export default function Format10Report() {
   );
 }
 <<//modules/msbte-reports/f10.tsx/>>
-<<modules/settings/profile.tsx/
+<<modules/settings/profile.tsx/>>
 // app/(dashboard)/settings/profile/page.tsx
 'use client';
 
@@ -44839,7 +44856,7 @@ export default function ProfilePage() {
   );
 }
 <<//modules/settings/profile.tsx/>>
-<<modules/exam-day/absent.tsx/
+<<modules/exam-day/absent.tsx/>>
 // modules/exam-day-edits/absent.tsx
 'use client';
 
@@ -46029,7 +46046,7 @@ export default function ExamDayEditsPage({ mode = 'absent' }: { mode?: Mode }) {
   );
 }
 <<//modules/exam-day/absent.tsx/>>
-<<modules/exam-day/copy-case.tsx/
+<<modules/exam-day/copy-case.tsx/>>
 // app/exam-center/exam-setup/relievers/page.tsx
 import ExamDayEditsPage from './absent';
 
@@ -46037,7 +46054,7 @@ export default function RelieversPage() {
   return <ExamDayEditsPage mode="copycase" />;
 }
 <<//modules/exam-day/copy-case.tsx/>>
-<<modules/exam-day/qp-accounting.tsx/
+<<modules/exam-day/qp-accounting.tsx/>>
 // app/(exam-center)/exam-day/qp-accounting/page.tsx
 'use client';
 
@@ -46890,7 +46907,7 @@ export default function QPAccountingPage() {
   );
 }
 <<//modules/exam-day/qp-accounting.tsx/>>
-<<modules/automation/chief-order.tsx/
+<<modules/automation/chief-order.tsx/>>
 // modules/automation/chief-order.tsx
 'use client';
 
@@ -46900,7 +46917,7 @@ export default function ChiefOrderReport() {
   return <OrderReport type="chief" />;
 }
 <<//modules/automation/chief-order.tsx/>>
-<<modules/automation/supervision-order.tsx/
+<<modules/automation/supervision-order.tsx/>>
 // modules/automation/order-report.tsx
 
 'use client';
@@ -48451,7 +48468,7 @@ export default function OrderReport({ type = 'supervision' }: OrderReportProps) 
   );
 }
 <<//modules/automation/supervision-order.tsx/>>
-<<modules/automation/office-order-mail.tsx/
+<<modules/automation/office-order-mail.tsx/>>
 // modules/automation/office-order-mail.tsx
 'use client';
 
@@ -49645,7 +49662,7 @@ export default function OfficeOrderMail() {
   );
 }
 <<//modules/automation/office-order-mail.tsx/>>
-<<modules/automation/reliever-order.tsx/
+<<modules/automation/reliever-order.tsx/>>
 // modules/automation/reliever-order.tsx
 'use client';
 
@@ -49655,7 +49672,7 @@ export default function RelieverOrderReport() {
   return <OrderReport type="reliever" />;
 }
 <<//modules/automation/reliever-order.tsx/>>
-<<modules/block-allocation/supervision-order.tsx/
+<<modules/block-allocation/supervision-order.tsx/>>
 // modules/block-allocation/supervision-order.tsx
 'use client';
 
@@ -50548,7 +50565,7 @@ export default function SupervisionOrder() {
   );
 }
 <<//modules/block-allocation/supervision-order.tsx/>>
-<<modules/block-allocation/clear-allocation.tsx/
+<<modules/block-allocation/clear-allocation.tsx/>>
 // modules/block-allocation/clear-session.tsx
 'use client';
 
@@ -50974,7 +50991,7 @@ export default function ClearSessionPage() {
   );
 }
 <<//modules/block-allocation/clear-allocation.tsx/>>
-<<modules/block-allocation/change-supervisor.tsx/
+<<modules/block-allocation/change-supervisor.tsx/>>
 // modules/block-allocation/change-supervisor.tsx
 'use client';
 
@@ -51449,7 +51466,7 @@ export default function ChangeSupervisorPage() {
   );
 }
 <<//modules/block-allocation/change-supervisor.tsx/>>
-<<modules/block-allocation/allocate.tsx/
+<<modules/block-allocation/allocate.tsx/>>
 // app/(dashboard)/exam-setup/block-allocation/page.tsx - Complete fixed version
 
 'use client';

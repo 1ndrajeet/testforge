@@ -309,10 +309,10 @@ export function OnboardingShell({
               Need help?
             </p>
             <a
-              href={`mailto:support@${process.env.NEXT_PUBLIC_HOSTED_URL || 'testforge.app'}`}
+              href={`mailto:support@${process.env.NEXT_PUBLIC_HOSTED_URL || 'testforge.tech'}`}
               className="hover:text-primary dark:hover:text-primary text-sm text-neutral-500 transition-colors"
             >
-              support@{process.env.NEXT_PUBLIC_HOSTED_URL || 'testforge.app'}
+              support@{process.env.NEXT_PUBLIC_HOSTED_URL || 'testforge.tech'}
             </a>
           </div>
           <Button
@@ -502,7 +502,7 @@ export function SlugInput({
   value,
   onChange,
   state,
-  prefix = process.env.NEXT_PUBLIC_HOSTED_URL || 'testforge.app/',
+  prefix = process.env.NEXT_PUBLIC_HOSTED_URL || 'testforge.tech/',
 }: {
   value: string;
   onChange: (v: string) => void;

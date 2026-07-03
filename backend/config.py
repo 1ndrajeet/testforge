@@ -37,7 +37,7 @@ class Settings:
     CORS_ORIGINS: list = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 
     # Testing
-    TESTING: bool = os.getenv("TESTING", "True").lower() == "true"
+    TESTING: bool = os.getenv("TESTING", "False").lower() == "true"
     TEST_EXAM_CENTER_ID: str = os.getenv(
         "TEST_EXAM_CENTER_ID", "a3e5c386-efbb-373e-36d0-1bc812bde9d2"
     )

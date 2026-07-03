@@ -12,5 +12,5 @@ COPY frontend/drizzle.config.ts ./
 COPY frontend/drizzle ./drizzle
 COPY frontend/src ./src
 
-# Run migration
-CMD ["pnpm", "db:migrate"]
+# Database URL should come from environment
+CMD ["pnpm", "db:setup"]
