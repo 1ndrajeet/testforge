@@ -31,6 +31,7 @@ CREATE TABLE "audit_logs" (
 CREATE TABLE "block_allocations" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"exam_center_id" uuid NOT NULL,
+	"connected_institute_id" uuid,
 	"date" timestamp NOT NULL,
 	"session" text NOT NULL,
 	"timeslot" text,
@@ -59,6 +60,7 @@ CREATE TABLE "blocks" (
 	"name" text NOT NULL,
 	"strength" integer NOT NULL,
 	"distribution" jsonb DEFAULT '[10,10,10,10]'::jsonb,
+	"template" integer DEFAULT 1,
 	"is_deleted" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
@@ -87,6 +89,22 @@ CREATE TABLE "e_marksheets" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "email_logs" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"org_id" uuid NOT NULL,
+	"exam_center_id" uuid NOT NULL,
+	"user_id" text NOT NULL,
+	"recipient_email" text NOT NULL,
+	"recipient_name" text,
+	"subject" text NOT NULL,
+	"order_type" text NOT NULL,
+	"order_key" text,
+	"status" text NOT NULL,
+	"error_message" text,
+	"sent_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "exam_centers" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"org_id" uuid NOT NULL,
@@ -95,6 +113,7 @@ CREATE TABLE "exam_centers" (
 	"address" text,
 	"officer_incharge" text,
 	"sealing_supervisor" text,
+	"exam_controller" text,
 	"dist_center_code" text,
 	"dist_center_name" text,
 	"season" text,
@@ -250,6 +269,7 @@ CREATE TABLE "timetable" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"exam_center_id" uuid NOT NULL,
 	"subject_id" uuid,
+	"exam_day" integer,
 	"date" timestamp NOT NULL,
 	"session" text NOT NULL,
 	"time_slot" text NOT NULL,
@@ -260,8 +280,27 @@ CREATE TABLE "timetable" (
 	"total_students" integer DEFAULT 0,
 	"absent_numbers" jsonb DEFAULT '[]'::jsonb,
 	"cps_students" jsonb DEFAULT '[]'::jsonb,
+	"cps_resolved" jsonb DEFAULT '[]'::jsonb,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "uploads" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"exam_center_id" uuid NOT NULL,
+	"file_type" text NOT NULL,
+	"original_filename" text NOT NULL,
+	"stored_filename" text NOT NULL,
+	"file_hash" text NOT NULL,
+	"file_size" integer NOT NULL,
+	"status" text DEFAULT 'UPLOADED' NOT NULL,
+	"record_count" integer DEFAULT 0 NOT NULL,
+	"error_message" text,
+	"metadata" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"connected_institute_id" uuid,
+	"processed_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "user" (
@@ -288,10 +327,14 @@ ALTER TABLE "account" ADD CONSTRAINT "account_user_id_user_id_fk" FOREIGN KEY ("
 ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "block_allocations" ADD CONSTRAINT "block_allocations_exam_center_id_exam_centers_id_fk" FOREIGN KEY ("exam_center_id") REFERENCES "public"."exam_centers"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "block_allocations" ADD CONSTRAINT "block_allocations_connected_institute_id_connected_institutes_id_fk" FOREIGN KEY ("connected_institute_id") REFERENCES "public"."connected_institutes"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "block_allocations" ADD CONSTRAINT "block_allocations_block_id_blocks_id_fk" FOREIGN KEY ("block_id") REFERENCES "public"."blocks"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "blocks" ADD CONSTRAINT "blocks_exam_center_id_exam_centers_id_fk" FOREIGN KEY ("exam_center_id") REFERENCES "public"."exam_centers"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "connected_institutes" ADD CONSTRAINT "connected_institutes_exam_center_id_exam_centers_id_fk" FOREIGN KEY ("exam_center_id") REFERENCES "public"."exam_centers"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "e_marksheets" ADD CONSTRAINT "e_marksheets_exam_center_id_exam_centers_id_fk" FOREIGN KEY ("exam_center_id") REFERENCES "public"."exam_centers"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "email_logs" ADD CONSTRAINT "email_logs_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "email_logs" ADD CONSTRAINT "email_logs_exam_center_id_exam_centers_id_fk" FOREIGN KEY ("exam_center_id") REFERENCES "public"."exam_centers"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "email_logs" ADD CONSTRAINT "email_logs_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "exam_centers" ADD CONSTRAINT "exam_centers_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "orders" ADD CONSTRAINT "orders_exam_center_id_exam_centers_id_fk" FOREIGN KEY ("exam_center_id") REFERENCES "public"."exam_centers"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "orders" ADD CONSTRAINT "orders_staff_id_staff_id_fk" FOREIGN KEY ("staff_id") REFERENCES "public"."staff"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -308,14 +351,21 @@ ALTER TABLE "students" ADD CONSTRAINT "students_exam_center_id_exam_centers_id_f
 ALTER TABLE "students" ADD CONSTRAINT "students_connected_institute_id_connected_institutes_id_fk" FOREIGN KEY ("connected_institute_id") REFERENCES "public"."connected_institutes"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "timetable" ADD CONSTRAINT "timetable_exam_center_id_exam_centers_id_fk" FOREIGN KEY ("exam_center_id") REFERENCES "public"."exam_centers"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "timetable" ADD CONSTRAINT "timetable_subject_id_subjects_id_fk" FOREIGN KEY ("subject_id") REFERENCES "public"."subjects"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "uploads" ADD CONSTRAINT "uploads_exam_center_id_exam_centers_id_fk" FOREIGN KEY ("exam_center_id") REFERENCES "public"."exam_centers"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "uploads" ADD CONSTRAINT "uploads_connected_institute_id_connected_institutes_id_fk" FOREIGN KEY ("connected_institute_id") REFERENCES "public"."connected_institutes"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "audit_org_time_idx" ON "audit_logs" USING btree ("org_id","created_at");--> statement-breakpoint
 CREATE INDEX "audit_entity_idx" ON "audit_logs" USING btree ("entity_type","entity_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "alloc_unique_idx" ON "block_allocations" USING btree ("exam_center_id","date","session","block_id","subject_code");--> statement-breakpoint
 CREATE INDEX "alloc_date_session_idx" ON "block_allocations" USING btree ("date","session");--> statement-breakpoint
 CREATE INDEX "alloc_block_idx" ON "block_allocations" USING btree ("block_id");--> statement-breakpoint
+CREATE INDEX "alloc_institute_idx" ON "block_allocations" USING btree ("connected_institute_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "blocks_center_location_idx" ON "blocks" USING btree ("exam_center_id","location");--> statement-breakpoint
 CREATE UNIQUE INDEX "connected_inst_center_inst_idx" ON "connected_institutes" USING btree ("exam_center_id","institute_code");--> statement-breakpoint
 CREATE INDEX "emarksheets_paper_code_idx" ON "e_marksheets" USING btree ("paper_code");--> statement-breakpoint
+CREATE INDEX "email_logs_org_idx" ON "email_logs" USING btree ("org_id");--> statement-breakpoint
+CREATE INDEX "email_logs_exam_center_idx" ON "email_logs" USING btree ("exam_center_id");--> statement-breakpoint
+CREATE INDEX "email_logs_sent_at_idx" ON "email_logs" USING btree ("sent_at");--> statement-breakpoint
+CREATE INDEX "email_logs_daily_usage_idx" ON "email_logs" USING btree ("exam_center_id","sent_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "exam_center_org_unique" ON "exam_centers" USING btree ("org_id");--> statement-breakpoint
 CREATE INDEX "exam_centers_org_idx" ON "exam_centers" USING btree ("org_id");--> statement-breakpoint
 CREATE INDEX "orders_staff_idx" ON "orders" USING btree ("staff_id");--> statement-breakpoint
@@ -331,4 +381,8 @@ CREATE INDEX "students_enrollment_idx" ON "students" USING btree ("enrollment_nu
 CREATE UNIQUE INDEX "subjects_code_scheme_idx" ON "subjects" USING btree ("code","scheme");--> statement-breakpoint
 CREATE UNIQUE INDEX "tt_unique_idx" ON "timetable" USING btree ("exam_center_id","date","session","subject_code","scheme");--> statement-breakpoint
 CREATE INDEX "tt_date_idx" ON "timetable" USING btree ("date");--> statement-breakpoint
-CREATE INDEX "tt_center_date_idx" ON "timetable" USING btree ("exam_center_id","date");
+CREATE INDEX "tt_center_date_idx" ON "timetable" USING btree ("exam_center_id","date");--> statement-breakpoint
+CREATE UNIQUE INDEX "upload_exam_center_file_type_institute_idx" ON "uploads" USING btree ("exam_center_id","file_type","connected_institute_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "upload_exam_center_file_type_null_institute_idx" ON "uploads" USING btree ("exam_center_id","file_type") WHERE "uploads"."connected_institute_id" IS NULL;--> statement-breakpoint
+CREATE INDEX "upload_status_exam_center_idx" ON "uploads" USING btree ("exam_center_id");--> statement-breakpoint
+CREATE INDEX "upload_institute_idx" ON "uploads" USING btree ("connected_institute_id");

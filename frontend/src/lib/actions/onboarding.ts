@@ -1,4 +1,3 @@
-// app/actions/onboarding.ts
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -32,49 +31,79 @@ async function getCurrentOrg() {
   return { org, userId: user.id, orgId: orgMember.orgId };
 }
 
-// Check onboarding status
+// Check onboarding status - COMPLETE CHECK BEFORE ANY INSERT
 export async function getOnboardingStatus() {
   try {
     const user = await getCurrentUser();
 
+    // Check if user is a member of any org
     const orgMember = await db.query.orgMembers.findFirst({
       where: eq(orgMembers.userId, user.id),
     });
 
     if (!orgMember) {
-      return { status: 'needs_organization', data: null };
+      return { 
+        status: 'needs_organization', 
+        data: null,
+        plans: pricingPlans 
+      };
     }
 
+    // Get organization
     const organization = await db.query.organizations.findFirst({
       where: eq(organizations.id, orgMember.orgId),
     });
 
     if (!organization) {
-      return { status: 'error', error: 'Organization not found' };
+      return { 
+        status: 'needs_organization', 
+        data: null,
+        plans: pricingPlans 
+      };
     }
 
+    // Check if exam center exists
     const examCenter = await db.query.examCenters.findFirst({
       where: eq(examCenters.orgId, organization.id),
     });
 
-    const needsExamSetup =
-      !examCenter ||
+    // If no exam center at all
+    if (!examCenter) {
+      return {
+        status: 'needs_exam_setup',
+        data: { 
+          organization, 
+          existingCenter: null 
+        },
+        plans: pricingPlans
+      };
+    }
+
+    // Check if exam center has all required fields
+    const needsExamSetup = 
       !examCenter.code ||
       !examCenter.season ||
       !examCenter.examYear ||
-      !examCenter.distCenterCode;
+      !examCenter.distCenterCode ||
+      !examCenter.name;
 
     if (needsExamSetup) {
       return {
         status: 'needs_exam_setup',
-        data: { organization, existingCenter: examCenter || null },
+        data: { 
+          organization, 
+          existingCenter: examCenter 
+        },
+        plans: pricingPlans
       };
     }
 
-    // Check subscription status - NO FREE PLAN
+    // Check subscription status
     const now = new Date();
-    const hasActiveSubscription =
-      organization.subscriptionExpiresAt && new Date(organization.subscriptionExpiresAt) > now;
+    const hasActiveSubscription = 
+      organization.subscriptionExpiresAt && 
+      new Date(organization.subscriptionExpiresAt) > now &&
+      organization.subscriptionTier !== 'inactive';
 
     if (!hasActiveSubscription) {
       const lastPayment = await db.query.payments.findFirst({
@@ -84,18 +113,31 @@ export async function getOnboardingStatus() {
 
       return {
         status: 'needs_subscription',
-        data: { organization, examCenter, lastPayment },
+        data: { 
+          organization, 
+          examCenter, 
+          lastPayment 
+        },
         plans: pricingPlans,
       };
     }
 
+    // Everything is complete
     return {
       status: 'complete',
-      data: { organization, examCenter },
+      data: { 
+        organization, 
+        examCenter 
+      },
+      plans: pricingPlans
     };
   } catch (error) {
     console.error('Error checking status:', error);
-    return { status: 'error', error: 'Failed to check status' };
+    return { 
+      status: 'error', 
+      error: 'Failed to check status',
+      plans: pricingPlans 
+    };
   }
 }
 
@@ -107,86 +149,131 @@ export async function checkSlugAvailability(slug: string) {
   return { available: !existing };
 }
 
-// Create organization (starts with trial subscription)
+// Create organization - ONLY IF NOT EXISTS
 export async function createOrganization(formData: FormData) {
-  const user = await getCurrentUser();
-  const name = formData.get('name') as string;
-  const slug = formData.get('slug') as string;
+  try {
+    const user = await getCurrentUser();
+    const name = formData.get('name') as string;
+    const slug = formData.get('slug') as string;
 
-  if (!name || !slug) return { error: 'Name and slug required' };
+    if (!name || !slug) return { error: 'Name and slug required' };
 
-  const existing = await db.query.organizations.findFirst({
-    where: eq(organizations.slug, slug),
-  });
-  if (existing) return { error: 'Slug already taken' };
+    // Check if user already has an org
+    const existingMember = await db.query.orgMembers.findFirst({
+      where: eq(orgMembers.userId, user.id),
+    });
 
-  // Create organization with NO subscription - requires payment
-  const [org] = await db
-    .insert(organizations)
-    .values({
-      name,
-      slug,
-      ownerId: user.id,
-      subscriptionTier: 'inactive', // No free tier
-      subscriptionExpiresAt: null,
-    })
-    .returning();
+    if (existingMember) {
+      // User already has an org, get it
+      const existingOrg = await db.query.organizations.findFirst({
+        where: eq(organizations.id, existingMember.orgId),
+      });
+      if (existingOrg) {
+        return { 
+          success: true, 
+          organization: existingOrg,
+          message: 'Organization already exists' 
+        };
+      }
+    }
 
-  await db.insert(orgMembers).values({
-    orgId: org.id,
-    userId: user.id,
-    role: 'owner',
-    permissions: ['*'],
-  });
+    // Check slug availability
+    const slugExists = await db.query.organizations.findFirst({
+      where: eq(organizations.slug, slug),
+    });
+    if (slugExists) return { error: 'Slug already taken' };
 
-  revalidatePath('/onboarding');
-  return { success: true, organization: org };
+    // Create organization
+    const [org] = await db
+      .insert(organizations)
+      .values({
+        name,
+        slug,
+        ownerId: user.id,
+        subscriptionTier: 'inactive',
+        subscriptionExpiresAt: null,
+      })
+      .returning();
+
+    await db.insert(orgMembers).values({
+      orgId: org.id,
+      userId: user.id,
+      role: 'owner',
+      permissions: ['*'],
+    });
+
+    revalidatePath('/onboarding');
+    return { success: true, organization: org };
+  } catch (error) {
+    console.error('Error creating organization:', error);
+    return { error: 'Failed to create organization' };
+  }
 }
 
-// Create/Update exam center
+// Save exam center - CHECK FIRST, UPDATE OR INSERT
 export async function saveExamCenter(formData: FormData) {
-  const user = await getCurrentUser();
-  const orgId = formData.get('orgId') as string;
-  const centerId = formData.get('centerId') as string;
+  try {
+    const user = await getCurrentUser();
+    const orgId = formData.get('orgId') as string;
 
-  const data = {
-    code: formData.get('code') as string,
-    name: formData.get('name') as string,
-    address: formData.get('address') as string,
-    officerIncharge: formData.get('officerIncharge') as string,
-    sealingSupervisor: formData.get('sealingSupervisor') as string,
-    distCenterCode: formData.get('distCenterCode') as string,
-    distCenterName: formData.get('distCenterName') as string,
-    season: formData.get('season') as string,
-    examYear: parseInt(formData.get('examYear') as string),
-    orgId,
-  };
+    // Build data object
+    const data = {
+      code: (formData.get('code') as string)?.trim() || '',
+      name: (formData.get('name') as string)?.trim() || '',
+      address: (formData.get('address') as string)?.trim() || '',
+      officerIncharge: (formData.get('officerIncharge') as string)?.trim() || '',
+      sealingSupervisor: (formData.get('sealingSupervisor') as string)?.trim() || '',
+      distCenterCode: (formData.get('distCenterCode') as string)?.trim() || '',
+      distCenterName: (formData.get('distCenterName') as string)?.trim() || '',
+      season: (formData.get('season') as string)?.trim() || '',
+      examYear: parseInt(formData.get('examYear') as string) || new Date().getFullYear(),
+      orgId,
+    };
 
-  if (!data.code || !data.name || !data.season || !data.examYear || !data.distCenterCode) {
-    return { error: 'All required fields must be filled' };
+    // Validate required fields
+    if (!data.code || !data.name || !data.season || !data.examYear || !data.distCenterCode) {
+      return { error: 'All required fields must be filled' };
+    }
+
+    // Verify user belongs to org
+    const member = await db.query.orgMembers.findFirst({
+      where: and(eq(orgMembers.userId, user.id), eq(orgMembers.orgId, orgId)),
+    });
+    if (!member) return { error: 'Unauthorized' };
+
+    // CHECK IF EXAM CENTER ALREADY EXISTS
+    const existingCenter = await db.query.examCenters.findFirst({
+      where: eq(examCenters.orgId, orgId),
+    });
+
+    let center;
+
+    if (existingCenter) {
+      // UPDATE existing center
+      const [updated] = await db
+        .update(examCenters)
+        .set({ 
+          ...data, 
+          updatedAt: new Date(),
+        })
+        .where(eq(examCenters.id, existingCenter.id))
+        .returning();
+      center = updated;
+    } else {
+      // INSERT new center
+      const [created] = await db
+        .insert(examCenters)
+        .values(data)
+        .returning();
+      center = created;
+    }
+
+    revalidatePath('/onboarding');
+    return { success: true, examCenter: center };
+  } catch (error) {
+    console.error('Error saving exam center:', error);
+    return { error: 'Failed to save exam center' };
   }
-
-  // Verify user belongs to org
-  const member = await db.query.orgMembers.findFirst({
-    where: and(eq(orgMembers.userId, user.id), eq(orgMembers.orgId, orgId)),
-  });
-  if (!member) return { error: 'Unauthorized' };
-
-  let center;
-  if (centerId) {
-    const [updated] = await db
-      .update(examCenters)
-      .set({ ...data, updatedAt: new Date() })
-      .where(eq(examCenters.id, centerId))
-      .returning();
-    center = updated;
-  } else {
-    const [created] = await db.insert(examCenters).values(data).returning();
-    center = created;
-  }
-
-  revalidatePath('/onboarding');
-  return { success: true, examCenter: center };
 }
 
 // Check if promo code is available
@@ -241,6 +328,67 @@ export async function validatePromoCode(code: string) {
   }
 }
 
+// Apply trial promo
+export async function applyTrialPromo(code: string) {
+  try {
+    const { orgId } = await getCurrentOrg();
+
+    // Check if promo exists and is valid
+    const promo = await db.query.promoCodes.findFirst({
+      where: eq(promoCodes.code, code.toUpperCase()),
+    });
+
+    if (!promo) {
+      return { success: false, error: 'Invalid promo code' };
+    }
+
+    if (promo.isUsed) {
+      return { success: false, error: 'Promo code already used' };
+    }
+
+    if (promo.expiresAt && new Date(promo.expiresAt) < new Date()) {
+      return { success: false, error: 'Promo code expired' };
+    }
+
+    // Mark promo as used
+    await db
+      .update(promoCodes)
+      .set({
+        isUsed: true,
+        usedByOrgId: orgId,
+        usedAt: new Date(),
+      })
+      .where(eq(promoCodes.id, promo.id));
+
+    // Update organization subscription
+    const now = new Date();
+    const expiresAt = new Date(now);
+    expiresAt.setDate(expiresAt.getDate() + promo.durationDays);
+
+    await db
+      .update(organizations)
+      .set({
+        subscriptionTier: 'trial',
+        subscriptionExpiresAt: expiresAt,
+        trialStartedAt: now,
+        trialEndsAt: expiresAt,
+        updatedAt: now,
+      })
+      .where(eq(organizations.id, orgId));
+
+    revalidatePath('/onboarding');
+    return { 
+      success: true, 
+      message: 'Trial activated successfully',
+      durationDays: promo.durationDays,
+      amount: promo.amount,
+    };
+  } catch (error) {
+    console.error('Error applying trial promo:', error);
+    return { success: false, error: 'Failed to apply promo' };
+  }
+}
+
 // Get payment history
 export async function getPaymentHistory() {
   try {
@@ -259,7 +407,6 @@ export async function getPaymentHistory() {
 }
 
 // Get current subscription details
-// app/actions/onboarding.ts - Update getCurrentSubscription
 export async function getCurrentSubscription() {
   try {
     const { org } = await getCurrentOrg();
@@ -271,12 +418,10 @@ export async function getCurrentSubscription() {
       orderBy: [desc(payments.createdAt)],
     });
 
-    // Determine plan name from last payment or tier
     let planName = '';
     if (lastPayment && lastPayment.planName) {
       planName = lastPayment.planName;
     } else {
-      // Fallback mapping
       switch (org.subscriptionTier) {
         case 'enterprise':
           planName = 'Lifetime Access';
@@ -302,55 +447,6 @@ export async function getCurrentSubscription() {
   } catch (error) {
     console.error('Failed to fetch subscription:', error);
     return { tier: 'inactive', planName: 'Inactive', isActive: false };
-  }
-}
-
-// Switch to a lower tier (e.g., after trial ends)
-export async function downgradeSubscription(planId: string) {
-  try {
-    const { orgId } = await getCurrentOrg();
-
-    const plan = pricingPlans.find((p) => p.id === planId);
-    if (!plan) {
-      return { success: false, error: 'Invalid plan' };
-    }
-
-    const now = new Date();
-    let expiresAt: Date | null = null;
-    let tier = 'premium';
-
-    switch (planId) {
-      case 'semester_online':
-        expiresAt = new Date(now.setMonth(now.getMonth() + 6));
-        break;
-      case '1year_online':
-        expiresAt = new Date(now.setFullYear(now.getFullYear() + 1));
-        break;
-      case '5year_online':
-        expiresAt = new Date(now.setFullYear(now.getFullYear() + 5));
-        break;
-      case 'lifetime_access':
-        expiresAt = null;
-        tier = 'enterprise';
-        break;
-      default:
-        return { success: false, error: 'Invalid plan' };
-    }
-
-    await db
-      .update(organizations)
-      .set({
-        subscriptionTier: tier,
-        subscriptionExpiresAt: expiresAt,
-        updatedAt: new Date(),
-      })
-      .where(eq(organizations.id, orgId));
-
-    revalidatePath('/exam-center/settings/subscription');
-    return { success: true };
-  } catch (error) {
-    console.error('Failed to downgrade subscription:', error);
-    return { success: false, error: 'Failed to update subscription' };
   }
 }
 

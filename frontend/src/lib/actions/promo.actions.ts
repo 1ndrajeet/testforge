@@ -71,7 +71,7 @@ export async function validatePromoCode(code: string) {
   }
 }
 
-// Apply trial promo (creates ₹1 payment)
+// Apply trial promo (creates ₹ payment)
 export async function applyTrialPromo(code: string) {
   try {
     const { orgId } = await getCurrentOrg();
@@ -82,18 +82,18 @@ export async function applyTrialPromo(code: string) {
       return { success: false, error: validation.error };
     }
 
-    if (validation.type !== 'trial_30day') {
+    if (validation.type !== 'trial') {
       return { success: false, error: 'Invalid promo type for trial' };
     }
 
-    // Create Razorpay order for ₹1
+    // Create Razorpay order for
     const razorpay = new Razorpay({
       key_id: process.env.RAZORPAY_KEY_ID!,
       key_secret: process.env.RAZORPAY_KEY_SECRET!,
     });
 
     const order = await razorpay.orders.create({
-      amount: validation.amount, // ₹1 = 100 paise
+      amount: validation.amount, 
       currency: 'INR',
       receipt: `trial_${Date.now()}`.slice(0, 40),
       notes: {
@@ -106,7 +106,7 @@ export async function applyTrialPromo(code: string) {
     // Store payment record
     await db.insert(payments).values({
       orgId,
-      planId: 'trial_30day',
+      planId: 'trial',
       planName: '30-Day Trial',
       amount: validation.amount,
       status: 'pending',

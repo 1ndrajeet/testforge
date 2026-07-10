@@ -1,1 +1,0 @@
-ALTER TABLE "timetable" ADD COLUMN "exam_day" integer NOT NULL;

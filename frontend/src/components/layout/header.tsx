@@ -277,13 +277,13 @@ function UserMenu({
     </DropdownMenu>
   );
 }
-export function Logo({ theme = 'light', compact = true }: { theme?: string; compact?: boolean }) {
+export function Logo({ theme = 'light', compact = true, className }: { theme?: string; compact?: boolean, className?: string }) {
   const isDark = theme === 'dark';
 
   return (
     <a
       href="/exam-center/dashboard"
-      className="group flex items-center gap-2"
+      className={cn(`group flex items-center gap-2 `, className)}
       aria-label="TestForge home"
     >
       <span
@@ -291,9 +291,9 @@ export function Logo({ theme = 'light', compact = true }: { theme?: string; comp
       >
         TF
       </span>
-      <span className="flex flex-col leading-tight">
+      <span className={`flex flex-col leading-tight `}>
         <span
-          className={`font-semibold text-neutral-900 dark:text-white ${!compact ? 'text-sm' : 'text-lg'}`}
+          className={`font-semibold text-neutral-900 dark:text-white ${!compact ? 'text-sm' : 'text-lg'} `}
         >
           TestForge
         </span>

@@ -1153,7 +1153,7 @@ async function generatePostgresSQL() {
 
   // 13. Promo Codes
   writeLine(
-    `INSERT INTO promo_codes(code, type, duration_days, amount, expires_at)VALUES('EARLYACCESS2026', 'trial_30day', 30, 100, '2026-12-31'),('FOUNDER30',       'trial_30day', 30, 100, '2026-12-31'),('LAUNCH30',        'trial_30day', 30, 100, '2026-12-31'),('MSBTE30',         'trial_30day', 30, 100, '2026-12-31'),('TESTFORGE30',     'trial_30day', 30, 100, '2026-12-31');`,
+    `INSERT INTO promo_codes (code, type, duration_days, amount, expires_at) VALUES('TF-TRIAL-001', 'trial', 180, 100, '2026-12-31'),('TF-TRIAL-002', 'trial', 180, 100, '2026-12-31'),('TF-TRIAL-003', 'trial', 180, 100, '2026-12-31'),('TF-TRIAL-004', 'trial', 180, 100, '2026-12-31'),('TF-TRIAL-005', 'trial', 180, 100, '2026-12-31');`,
   );
 
   writeLine('COMMIT;');

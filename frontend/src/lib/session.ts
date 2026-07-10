@@ -25,7 +25,22 @@ import {
   timetable,
 } from '@/lib/db/schema';
 import { logger } from '@/lib/misc/logger';
+// lib/session.ts - Add this
 
+export async function requireAdmin() {
+  const user = await getCurrentUser();
+  if (!user) throw new Error('Unauthorized');
+
+  const member = await db.query.orgMembers.findFirst({
+    where: eq(orgMembers.userId, user.id),
+  });
+
+  if (!member || (member.role !== 'owner' && member.role !== 'admin')) {
+    throw new Error('Forbidden: Admin access required');
+  }
+
+  return { user, member };
+}
 const MODULE = 'session';
 
 // ============================================

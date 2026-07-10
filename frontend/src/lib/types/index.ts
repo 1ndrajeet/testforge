@@ -352,7 +352,7 @@ export interface Payment {
 export interface PromoCode {
   id: string;
   code: string;
-  type: 'trial_30day';
+  type: 'trial';
   durationDays: number;
   amount: number;
   isUsed: boolean;

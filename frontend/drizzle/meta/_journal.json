@@ -5,85 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1781265708482,
-      "tag": "0000_black_rocket_racer",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1781285185059,
-      "tag": "0001_nice_scalphunter",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1781285508107,
-      "tag": "0002_daily_zaran",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1781419837424,
-      "tag": "0003_modern_oracle",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1781874040915,
-      "tag": "0004_hesitant_venus",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1781890732015,
-      "tag": "0005_outstanding_bloodaxe",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1782033413753,
-      "tag": "0006_good_domino",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1782033770734,
-      "tag": "0007_glossy_harpoon",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1782483795552,
-      "tag": "0008_square_firelord",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1782747928802,
-      "tag": "0009_large_lake",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "7",
-      "when": 1782762553359,
-      "tag": "0010_equal_ender_wiggin",
-      "breakpoints": true
-    },
-    {
-      "idx": 11,
-      "version": "7",
-      "when": 1782768549218,
-      "tag": "0011_bouncy_mandarin",
+      "when": 1783324565854,
+      "tag": "0000_bizarre_adam_warlock",
       "breakpoints": true
     }
   ]

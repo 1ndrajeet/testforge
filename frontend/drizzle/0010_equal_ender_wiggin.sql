@@ -1,3 +1,0 @@
-ALTER TABLE "uploads" ADD COLUMN "connected_institute_id" uuid;--> statement-breakpoint
-ALTER TABLE "uploads" ADD CONSTRAINT "uploads_connected_institute_id_connected_institutes_id_fk" FOREIGN KEY ("connected_institute_id") REFERENCES "public"."connected_institutes"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "upload_institute_idx" ON "uploads" USING btree ("connected_institute_id");

@@ -1,9 +1,9 @@
+// app/(authenticated)/onboarding/page.tsx
 'use client';
 
-import { useEffect, useState, useTransition, useCallback, Suspense } from 'react';
+import React, { useEffect, useState, useTransition, useCallback, Suspense, useRef } from 'react';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import Script from 'next/script';
 
 import pricingPlans from '@/config/pricing.json';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -19,6 +19,7 @@ import {
   X,
 } from 'lucide-react';
 import { ArrowRight, LogOut, ShieldCheck } from 'lucide-react';
+import { HashLoader } from 'react-spinners';
 
 import { getInstituteInfo } from '@/lib/actions/institute';
 import {
@@ -46,10 +47,9 @@ import {
 import { Separator } from '@/components/ui/separator';
 
 import { useAppStore } from '@/stores/appStore';
-import { HashLoader } from 'react-spinners';
+import { LAUNCH_OFFER_PRICE } from '../../page';
 
-//  Types
-
+// Types
 export interface Plan {
   id: string;
   title: string;
@@ -76,8 +76,7 @@ export interface SetupSummaryData {
 export type StepId = 'organization' | 'exam_center' | 'subscription' | 'review' | 'complete';
 const ONBOARDING_COOKIE = 'onboarding_complete';
 
-//  Storage helpers
-
+// Storage helpers
 const STORAGE_KEYS = {
   EXAM_CENTER: 'onboarding_ec_data',
   SELECTED_PLAN: 'onboarding_selected_plan',
@@ -97,7 +96,6 @@ function setOnboardingComplete() {
   document.cookie = `onboarding_complete=true; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax; ${process.env.NODE_ENV === 'production' ? 'Secure;' : ''}`;
 }
 
-
 export function writeStorage(key: string, value: unknown) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
@@ -114,22 +112,69 @@ export function clearOnboardingStorage() {
 
 export { STORAGE_KEYS };
 
-//  Razorpay helpers
-
+// Razorpay helpers
 declare global {
   interface Window {
     Razorpay: any;
   }
 }
 
+let razorpayLoadPromise: Promise<void> | null = null;
+let razorpayLoaded = false;
+
 export async function ensureRazorpay() {
-  if (typeof window !== 'undefined' && window.Razorpay) return;
-  await new Promise<void>((resolve) => {
-    const s = document.createElement('script');
-    s.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    s.onload = () => resolve();
-    document.body.appendChild(s);
+  if (typeof window === 'undefined') return;
+  
+  if (window.Razorpay || razorpayLoaded) {
+    razorpayLoaded = true;
+    return;
+  }
+  
+  if (razorpayLoadPromise) {
+    return razorpayLoadPromise;
+  }
+  
+  razorpayLoadPromise = new Promise<void>((resolve, reject) => {
+    const existingScript = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+    
+    if (existingScript) {
+      if (window.Razorpay) {
+        razorpayLoaded = true;
+        razorpayLoadPromise = null;
+        resolve();
+        return;
+      }
+      
+      existingScript.addEventListener('load', () => {
+        razorpayLoaded = true;
+        razorpayLoadPromise = null;
+        resolve();
+      }, { once: true });
+      
+      existingScript.addEventListener('error', () => {
+        razorpayLoadPromise = null;
+        reject(new Error('Failed to load Razorpay SDK'));
+      }, { once: true });
+      
+      return;
+    }
+    
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.onload = () => {
+      razorpayLoaded = true;
+      razorpayLoadPromise = null;
+      resolve();
+    };
+    script.onerror = () => {
+      razorpayLoadPromise = null;
+      reject(new Error('Failed to load Razorpay SDK'));
+    };
+    document.head.appendChild(script);
   });
+  
+  return razorpayLoadPromise;
 }
 
 export function openRazorpay(options: Record<string, unknown>, onDismiss: () => void) {
@@ -140,8 +185,7 @@ export function openRazorpay(options: Record<string, unknown>, onDismiss: () => 
   rzp.open();
 }
 
-//  Step navigation config
-
+// Step navigation config
 export const STEPS: { id: StepId; label: string }[] = [
   { id: 'organization', label: 'Organization' },
   { id: 'exam_center', label: 'Exam center' },
@@ -158,8 +202,7 @@ export const STEP_INDEX: Record<StepId, number> = {
   complete: 4,
 };
 
-//  SidebarProgress
-
+// SidebarProgress
 function SidebarProgress({ currentStep }: { currentStep: StepId }) {
   const current = STEP_INDEX[currentStep];
 
@@ -214,8 +257,7 @@ function SidebarProgress({ currentStep }: { currentStep: StepId }) {
   );
 }
 
-//  SetupSummary
-
+// SetupSummary
 function SetupSummary({ data }: { data: SetupSummaryData }) {
   const rows = [
     { label: 'Organization', value: data.orgName },
@@ -253,8 +295,7 @@ function SetupSummary({ data }: { data: SetupSummaryData }) {
   );
 }
 
-//  OnboardingShell
-
+// OnboardingShell
 export function OnboardingShell({
   currentStep,
   summaryData,
@@ -271,9 +312,7 @@ export function OnboardingShell({
 
   return (
     <div className="flex min-h-screen bg-neutral-50 dark:bg-neutral-950">
-      {/*  Sidebar  */}
       <aside className="sticky top-0 hidden h-screen w-80 shrink-0 flex-col border-r border-neutral-200 bg-white px-8 py-10 lg:flex dark:border-neutral-800 dark:bg-neutral-950">
-        {/* Branding */}
         <div className="mb-10">
           <div className="mb-1 flex items-center gap-2.5">
             <ShieldCheck
@@ -289,7 +328,6 @@ export function OnboardingShell({
           </p>
         </div>
 
-        {/* Progress */}
         <div className="mb-10">
           <p className="mb-4 text-xs font-medium tracking-wider text-neutral-400 uppercase dark:text-neutral-500">
             Setup progress
@@ -297,12 +335,10 @@ export function OnboardingShell({
           <SidebarProgress currentStep={currentStep} />
         </div>
 
-        {/* Setup summary */}
         <div className="mb-auto">
           <SetupSummary data={summaryData} />
         </div>
 
-        {/* Support + logout */}
         <div className="space-y-4 border-t border-neutral-100 pt-8 dark:border-neutral-800">
           <div>
             <p className="mb-1 text-xs font-medium tracking-wider text-neutral-400 uppercase dark:text-neutral-500">
@@ -331,9 +367,7 @@ export function OnboardingShell({
         </div>
       </aside>
 
-      {/*  Content area  */}
       <main className="flex-1 overflow-y-auto">
-        {/* Mobile brand bar */}
         <div className="flex items-center justify-between border-b border-neutral-200 bg-white px-6 py-4 lg:hidden dark:border-neutral-800 dark:bg-neutral-950">
           <div className="flex items-center gap-2">
             <ShieldCheck
@@ -365,8 +399,7 @@ export function OnboardingShell({
   );
 }
 
-//  StepHeader
-
+// StepHeader
 export function StepHeader({
   label,
   title,
@@ -395,8 +428,7 @@ export function StepHeader({
   );
 }
 
-//  FormSection
-
+// FormSection
 export function FormSection({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
     <div className="space-y-4">
@@ -410,8 +442,7 @@ export function FormSection({ title, children }: { title?: string; children: Rea
   );
 }
 
-//  FormField
-
+// FormField
 export function FormField({
   label,
   hint,
@@ -448,8 +479,7 @@ export function FormField({
   );
 }
 
-//  ActionBar
-
+// ActionBar
 export function ActionBar({
   onBack,
   submitLabel = 'Continue',
@@ -494,8 +524,7 @@ export function ActionBar({
   );
 }
 
-//  SlugInput
-
+// SlugInput
 type SlugState = 'idle' | 'checking' | 'available' | 'taken';
 
 export function SlugInput({
@@ -540,7 +569,7 @@ export function SlugInput({
   );
 }
 
-//  Status to step mapping (INCLUDING 'complete')
+// Status to step mapping - ONLY FOR NEW USERS
 const STATUS_TO_STEP: Record<string, StepId> = {
   needs_organization: 'organization',
   needs_exam_setup: 'exam_center',
@@ -548,8 +577,7 @@ const STATUS_TO_STEP: Record<string, StepId> = {
   complete: 'complete',
 };
 
-//  EC defaults
-
+// EC defaults
 const EC_DEFAULTS = {
   id: '',
   code: '',
@@ -568,7 +596,6 @@ const YEARS = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() + i)
 //
 // Step: Organization
 //
-
 function OrganizationStep({
   prefill,
   onComplete,
@@ -594,13 +621,10 @@ function OrganizationStep({
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const v = e.target.value;
     setName(v);
-    // Only auto-derive slug when user hasn't manually edited it
     if (!slug || slug === toSlug(name)) setSlug(toSlug(v));
   };
 
-  // Debounced slug check
   useEffect(() => {
-    // If this is the prefilled slug from DB, it's already valid (it's theirs)
     if (prefill?.slug && slug === prefill.slug) {
       setSlugState('available');
       return;
@@ -690,9 +714,8 @@ function OrganizationStep({
 }
 
 //
-// Step: Exam Center
+// Step: Exam Center - FIXED
 //
-
 function ExamCenterStep({
   prefill,
   onComplete,
@@ -702,12 +725,10 @@ function ExamCenterStep({
   onComplete: (data: Partial<typeof EC_DEFAULTS>) => void;
   onBack: () => void;
 }) {
-  // DB data takes precedence over localStorage
-  const saved = readStorage<typeof EC_DEFAULTS>(STORAGE_KEYS.EXAM_CENTER);
+  // Initialize with prefill data (from DB) or defaults
   const [form, setForm] = useState<typeof EC_DEFAULTS>(() => ({
     ...EC_DEFAULTS,
-    ...saved,
-    ...prefill,
+    ...prefill, // Prefill from DB takes precedence
   }));
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState('');
@@ -717,7 +738,7 @@ function ExamCenterStep({
   const set = (k: keyof typeof EC_DEFAULTS, v: string | number) =>
     setForm((p) => ({ ...p, [k]: v }));
 
-  // ─── FETCH INSTITUTE NAME FROM CENTER CODE ──────────────────
+  // Fetch institute name from center code
   useEffect(() => {
     const fetchInstitute = async () => {
       const code = form.code?.trim();
@@ -733,7 +754,7 @@ function ExamCenterStep({
           }));
         }
       } catch {
-        // Silent fail - user can still type manually
+        // Silent fail
       } finally {
         setInstituteLoading(false);
       }
@@ -743,16 +764,18 @@ function ExamCenterStep({
     return () => clearTimeout(timer);
   }, [form.code]);
 
-  useEffect(() => {
-    writeStorage(STORAGE_KEYS.EXAM_CENTER, form);
-  }, [form]);
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     startTransition(async () => {
       const fd = new FormData();
       Object.entries(form).forEach(([k, v]) => fd.append(k, String(v)));
       fd.append('orgId', organization!.id);
+      
+      // If we have an existing center ID, pass it
+      if (form.id) {
+        fd.append('centerId', form.id);
+      }
+      
       const result = await saveExamCenter(fd);
       if (result.error) return setError(result.error);
       if (result.examCenter) {
@@ -774,7 +797,6 @@ function ExamCenterStep({
       />
 
       <div className="space-y-10">
-        {/* Section: Center identity */}
         <FormSection title="Center information">
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField
@@ -809,7 +831,6 @@ function ExamCenterStep({
           </div>
         </FormSection>
 
-        {/* Section: Examination session */}
         <FormSection title="Examination session">
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField
@@ -858,7 +879,6 @@ function ExamCenterStep({
           </div>
         </FormSection>
 
-        {/* Section: Distribution center */}
         <FormSection title="Distribution center">
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField
@@ -884,7 +904,6 @@ function ExamCenterStep({
           </div>
         </FormSection>
 
-        {/* Section: Administrative contacts */}
         <FormSection title="Administrative contacts">
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField label="Officer in-charge">
@@ -906,7 +925,6 @@ function ExamCenterStep({
           </div>
         </FormSection>
 
-        {/* Section: Location */}
         <FormSection title="Location">
           <FormField label="Address">
             <Input
@@ -933,7 +951,6 @@ function ExamCenterStep({
 //
 // Step: Subscription
 //
-
 function SubscriptionStep({
   plans,
   selectedId,
@@ -1004,7 +1021,7 @@ function SubscriptionStep({
                       {plan.title}
                     </span>
                     {isRecommended && (
-                      <span className="border-primary bg-primary/10 text-primary-foreground rounded border px-2 py-0.5 text-[11px] font-medium">
+                      <span className="border-primary bg-primary text-primary-foreground rounded border px-2 py-0.5 text-[11px] font-medium">
                         Recommended
                       </span>
                     )}
@@ -1085,7 +1102,6 @@ function SubscriptionStep({
 //
 // Step: Payment Review
 //
-
 interface ReviewStepProps {
   summary: SetupSummaryData;
   plan: Plan;
@@ -1114,6 +1130,12 @@ function ReviewStep({
   onActivatePromo,
 }: ReviewStepProps) {
   const [promoOpen, setPromoOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !window.Razorpay) {
+      ensureRazorpay().catch(() => {});
+    }
+  }, []);
 
   const reviewRows = [
     { label: 'Organization', value: summary.orgName },
@@ -1256,7 +1278,7 @@ function ReviewStep({
                   {promoStatus.valid ? (
                     <>
                       <Check className="h-3.5 w-3.5" />
-                      1st semester trial access for ₹1
+                      1st semester trial access for ₹{LAUNCH_OFFER_PRICE}
                       <Button
                         type="button"
                         size="sm"
@@ -1312,7 +1334,6 @@ function ReviewStep({
 //
 // Step: Complete
 //
-
 function CompleteStep({ onComplete }: { onComplete: () => void }) {
   useEffect(() => {
     clearOnboardingStorage();
@@ -1384,13 +1405,13 @@ function CompleteStep({ onComplete }: { onComplete: () => void }) {
 //
 // Root page — orchestrates all steps + shell
 //
-
 function OnboardingPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useUserInfo();
+  const statusCheckDone = useRef(false);
 
-  // ─── STATE ──────────────────────────────────────────────────
+  // STATE
   const [currentStep, setCurrentStep] = useState<StepId>('organization');
   const [dbStatus, setDbStatus] = useState<any>(null);
   const [pageLoading, setPageLoading] = useState(true);
@@ -1404,16 +1425,15 @@ function OnboardingPageContent() {
   const [isCheckingPromo, setIsCheckingPromo] = useState(false);
   const [summary, setSummary] = useState<SetupSummaryData>({});
 
-  // ─── GET STEP FROM QUERY PARAM ─────────────────────────────
+  // Get step from query param
   const getStepFromQuery = useCallback((): StepId | null => {
     const stepParam = searchParams.get('step');
     if (!stepParam) return null;
-    // Check if it's a valid step
     const validSteps: StepId[] = ['organization', 'exam_center', 'subscription', 'review', 'complete'];
     return validSteps.includes(stepParam as StepId) ? (stepParam as StepId) : null;
   }, [searchParams]);
 
-  // ─── UPDATE URL WITH STEP ──────────────────────────────────
+  // Update URL with step
   const updateStepInUrl = useCallback(
     (step: StepId) => {
       const params = new URLSearchParams(searchParams.toString());
@@ -1423,63 +1443,96 @@ function OnboardingPageContent() {
     [router, searchParams],
   );
 
-  // ─── FETCH DB STATUS ON MOUNT ─────────────────────────────
+  // FETCH DB STATUS ON MOUNT - ONLY ONCE
   useEffect(() => {
-    getOnboardingStatus().then((result) => {
-      setDbStatus(result);
+    if (statusCheckDone.current) return;
+    statusCheckDone.current = true;
 
-      const queryStep = getStepFromQuery();
+    let isMounted = true;
 
-      // Determine starting step: query param > status > default
-      let targetStep: StepId = 'organization';
+    const fetchStatus = async () => {
+      try {
+        const result = await getOnboardingStatus();
+        if (!isMounted) return;
 
-      if (queryStep) {
-        // If query param is 'complete' but status isn't complete, redirect
-        if (queryStep === 'complete' && result.status !== 'complete') {
-          // Don't allow skipping to complete
-          targetStep = STATUS_TO_STEP[result.status as string] || 'organization';
-        } else {
-          targetStep = queryStep;
+        // ============================================================
+        // CHECK 1: User already completed onboarding
+        // ============================================================
+        if (result.status === 'complete') {
+          router.replace('/exam-center/dashboard');
+          return;
         }
-      } else if (result.status === 'complete') {
-        // If already complete, go to dashboard
-        router.push('/exam-center/dashboard');
-        return;
-      } else {
-        targetStep = STATUS_TO_STEP[result.status as string] || 'organization';
-      }
 
-      setCurrentStep(targetStep);
-      updateStepInUrl(targetStep);
+        // ============================================================
+        // CHECK 2: Subscription expired or inactive (for existing users)
+        // ============================================================
+        // If user has already created org and exam center but subscription expired
+        const data = result.data as any;
+        const hasOrg = !!data?.organization;
+        const hasExamCenter = !!data?.examCenter;
 
-      // ─── HYDRATE SUMMARY FROM DB ────────────────────────
-      const data = result.data as any;
-      if (data) {
-        setSummary({
-          orgName: data.organization?.name,
-          orgId: data.organization?.id,
-          centerCode: data.examCenter?.code,
-          centerName: data.examCenter?.name,
-          centerId: data.examCenter?.id,
-          season: data.examCenter?.season,
-          examYear: data.examCenter?.examYear,
+        if (hasOrg && hasExamCenter && result.status === 'needs_subscription') {
+          // Check if subscription is actually expired or inactive
+          const { getCurrentSubscription } = await import('@/lib/actions/subscription');
+          const sub = await getCurrentSubscription();
+          
+          // If subscription is inactive or expired, redirect to billing
+          if (sub.tier === 'inactive' || !sub.isActive) {
+            router.replace('/billing');
+            return;
+          }
+        }
+
+        // ============================================================
+        // CHECK 3: Determine target step from status
+        // ============================================================
+        const queryStep = getStepFromQuery();
+        let targetStep: StepId = 'organization';
+
+        if (queryStep && queryStep !== 'complete') {
+          targetStep = queryStep;
+        } else {
+          targetStep = STATUS_TO_STEP[result.status as string] || 'organization';
+        }
+
+        const plans: Plan[] = result.plans ?? pricingPlans;
+        const preferred = readStorage<string>(STORAGE_KEYS.SELECTED_PLAN) ??
+          plans.find((p) => p.popular)?.id ?? plans[0]?.id ?? '';
+
+        // Batch updates
+        React.startTransition(() => {
+          setDbStatus(result);
+          setCurrentStep(targetStep);
+          setSummary({
+            orgName: data?.organization?.name,
+            orgId: data?.organization?.id,
+            centerCode: data?.examCenter?.code,
+            centerName: data?.examCenter?.name,
+            centerId: data?.examCenter?.id,
+            season: data?.examCenter?.season,
+            examYear: data?.examCenter?.examYear,
+          });
+          setSelectedPlanId(preferred);
+          setPageLoading(false);
         });
+
+        if (!queryStep || queryStep !== targetStep) {
+          updateStepInUrl(targetStep);
+        }
+      } catch (error) {
+        console.error('Error fetching onboarding status:', error);
+        if (isMounted) {
+          setPageLoading(false);
+        }
       }
+    };
 
-      // ─── PRE-SELECT PLAN ──────────────────────────────
-      const plans: Plan[] = result.plans ?? pricingPlans;
-      const preferred =
-        readStorage<string>(STORAGE_KEYS.SELECTED_PLAN) ??
-        plans.find((p) => p.popular)?.id ??
-        plans[0]?.id ??
-        '';
-      setSelectedPlanId(preferred);
+    fetchStatus();
 
-      setPageLoading(false);
-    });
+    return () => { isMounted = false; };
   }, [router, getStepFromQuery, updateStepInUrl]);
 
-  // ─── STEP NAVIGATION ──────────────────────────────────────
+  // Step navigation
   const goToStep = useCallback(
     (step: StepId) => {
       setCurrentStep(step);
@@ -1488,7 +1541,7 @@ function OnboardingPageContent() {
     [updateStepInUrl],
   );
 
-  // ─── RAZORPAY HELPERS ─────────────────────────────────────
+  // Razorpay helpers
   const verifyPayment = async (
     response: {
       razorpay_payment_id: string;
@@ -1503,8 +1556,7 @@ function OnboardingPageContent() {
       body: JSON.stringify({ action: 'verify', planId, ...response }),
     });
     if (res.ok) {
-      setOnboardingComplete(); // <-- ADD THIS
-
+      setOnboardingComplete();
       goToStep('complete');
     } else {
       alert('Payment verification failed. Please contact support.');
@@ -1554,7 +1606,6 @@ function OnboardingPageContent() {
   };
 
   const handleComplete = () => {
-    // Set cookie to mark onboarding as complete
     document.cookie = `onboarding_complete=true; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax; ${process.env.NODE_ENV === 'production' ? 'Secure;' : ''}`;
     router.push('/exam-center/dashboard');
   };
@@ -1582,16 +1633,24 @@ function OnboardingPageContent() {
         setPaymentLoading(false);
         return;
       }
+      if (result.amount == null) {
+        setPromoStatus({ valid: false, error: 'Invalid trial amount' });
+        setPaymentLoading(false);
+        return;
+      }
       await ensureRazorpay();
       openRazorpay(
         {
-          key: result.keyId,
-          amount: result.amount,
-          currency: result.currency,
+          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+          amount: (result.amount as number) * 100, // Convert to paise
+          currency: 'INR',
           name: 'TestForge',
           description: '1st semester Trial Access',
           order_id: result.orderId,
-          handler: (r: Parameters<typeof verifyPayment>[0]) => { setOnboardingComplete(); verifyPayment(r, 'trial_30day') },
+          handler: (r: Parameters<typeof verifyPayment>[0]) => {
+            setOnboardingComplete();
+            verifyPayment(r, 'trial');
+          },
           prefill,
           theme,
         },
@@ -1603,109 +1662,102 @@ function OnboardingPageContent() {
     }
   };
 
-  // ─── LOADING SCREEN ──────────────────────────────────────
+  // LOADING SCREEN
   if (pageLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-neutral-50 dark:bg-neutral-950">
-        <HashLoader 
+        <HashLoader
           size={60}
           color="#059669" />
       </div>
     );
   }
 
-  // ─── DATA ────────────────────────────────────────────────
+  // DATA
   const plans: Plan[] = dbStatus?.plans ?? pricingPlans;
   const selectedPlan = plans.find((p) => p.id === selectedPlanId);
   const dbData = dbStatus?.data as any;
 
-  // ─── RENDER ──────────────────────────────────────────────
+  // RENDER
   return (
-    <>
-      <Script
-        src="https://checkout.razorpay.com/v1/checkout.js"
-        strategy="lazyOnload"
-      />
+    <OnboardingShell
+      currentStep={currentStep}
+      summaryData={summary}
+    >
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={currentStep}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.2, ease: 'easeOut' }}
+        >
+          {currentStep === 'organization' && (
+            <OrganizationStep
+              prefill={{
+                name: dbData?.organization?.name,
+                slug: dbData?.organization?.slug,
+              }}
+              onComplete={({ name, id, slug }) => {
+                setSummary((s) => ({ ...s, orgName: name, orgId: id }));
+                goToStep('exam_center');
+              }}
+            />
+          )}
 
-      <OnboardingShell
-        currentStep={currentStep}
-        summaryData={summary}
-      >
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentStep}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
-          >
-            {currentStep === 'organization' && (
-              <OrganizationStep
-                prefill={{
-                  name: dbData?.organization?.name,
-                  slug: dbData?.organization?.slug,
-                }}
-                onComplete={({ name, id, slug }) => {
-                  setSummary((s) => ({ ...s, orgName: name, orgId: id }));
-                  goToStep('exam_center');
-                }}
-              />
-            )}
+          {currentStep === 'exam_center' && (
+            <ExamCenterStep
+              prefill={dbData?.existingCenter ?? undefined}
+              onComplete={(data) => {
+                setSummary((s) => ({
+                  ...s,
+                  centerCode: data.code,
+                  centerName: data.name,
+                  centerId: data.id,
+                  season: data.season,
+                  examYear: data.examYear,
+                }));
+                goToStep('subscription');
+              }}
+              onBack={() => goToStep('organization')}
+            />
+          )}
 
-            {currentStep === 'exam_center' && (
-              <ExamCenterStep
-                prefill={dbData?.existingCenter ?? undefined}
-                onComplete={(data) => {
-                  setSummary((s) => ({
-                    ...s,
-                    centerCode: data.code,
-                    centerName: data.name,
-                    centerId: data.id,
-                    season: data.season,
-                    examYear: data.examYear,
-                  }));
-                  goToStep('subscription');
-                }}
-                onBack={() => goToStep('organization')}
-              />
-            )}
+          {currentStep === 'subscription' && (
+            <SubscriptionStep
+              plans={plans}
+              selectedId={selectedPlanId}
+              onSelect={(id) => {
+                setSelectedPlanId(id);
+                writeStorage(STORAGE_KEYS.SELECTED_PLAN, id);
+              }}
+              onContinue={() => goToStep('review')}
+              onBack={() => goToStep('exam_center')}
+            />
+          )}
 
-            {currentStep === 'subscription' && (
-              <SubscriptionStep
-                plans={plans}
-                selectedId={selectedPlanId}
-                onSelect={(id) => {
-                  setSelectedPlanId(id);
-                  writeStorage(STORAGE_KEYS.SELECTED_PLAN, id);
-                }}
-                onContinue={() => goToStep('review')}
-                onBack={() => goToStep('exam_center')}
-              />
-            )}
+          {currentStep === 'review' && selectedPlan && (
+            <ReviewStep
+              summary={summary}
+              plan={selectedPlan}
+              onConfirm={handlePay}
+              onBack={() => goToStep('subscription')}
+              loading={paymentLoading}
+              promoCode={promoCode}
+              setPromoCode={setPromoCode}
+              promoStatus={promoStatus}
+              isCheckingPromo={isCheckingPromo}
+              onCheckPromo={handleCheckPromo}
+              onActivatePromo={handleTrialPromo}
+            />
+          )}
 
-            {currentStep === 'review' && selectedPlan && (
-              <ReviewStep
-                summary={summary}
-                plan={selectedPlan}
-                onConfirm={handlePay}
-                onBack={() => goToStep('subscription')}
-                loading={paymentLoading}
-                promoCode={promoCode}
-                setPromoCode={setPromoCode}
-                promoStatus={promoStatus}
-                isCheckingPromo={isCheckingPromo}
-                onCheckPromo={handleCheckPromo}
-                onActivatePromo={handleTrialPromo}
-              />
-            )}
-
-            {currentStep === 'complete' && (
-              <CompleteStep onComplete={() => router.push('/exam-center/dashboard')} />
-            )}
-          </motion.div>
-        </AnimatePresence>
-      </OnboardingShell>
-    </>
+          {currentStep === 'complete' && (
+            <CompleteStep onComplete={() => router.push('/exam-center/dashboard')} />
+          )}
+        </motion.div>
+      </AnimatePresence>
+    </OnboardingShell>
   );
 }
 
@@ -1713,7 +1765,7 @@ export default function OnboardingPage() {
   return (
     <Suspense fallback={
       <div className="flex min-h-screen items-center justify-center bg-neutral-50 dark:bg-neutral-950">
-        <HashLoader 
+        <HashLoader
           size={60}
           color="#059669" />
       </div>

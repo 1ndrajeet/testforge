@@ -43,6 +43,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Logo } from '../layout/header';
 
 // ============================================================================
 // Types
@@ -663,13 +664,13 @@ const SIDEBAR_ITEMS = [
 function Sidebar() {
   return (
     <div className="flex flex-col gap-0.5 border-r border-neutral-200/60 bg-neutral-50/50 p-3 dark:border-neutral-800/60 dark:bg-neutral-900/30">
-      <div className="mb-3 flex items-center gap-2 px-2">
+      {/* <div className="mb-3 flex items-center gap-2 px-2">
         <div className="flex h-6 w-6 items-center justify-center rounded-md bg-emerald-600">
           <span className="text-[10px] font-semibold text-white">TF</span>
         </div>
         <span className="text-sm font-semibold">TestForge</span>
-      </div>
-
+      </div> */}
+      <Logo compact className="text-[10px]" />
       {SIDEBAR_ITEMS.map((item, idx) => {
         if (item.separator) {
           return (

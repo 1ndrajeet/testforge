@@ -1,7 +1,7 @@
 // app/exam-center/[...modules]/page.tsx
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useState, useTransition, useRef } from 'react';
 
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -13,6 +13,51 @@ import { Button } from '@/components/ui/button';
 
 interface ModuleComponent {
   default: React.ComponentType;
+}
+
+// Cache for subscription status - persists across renders
+let subscriptionCache: {
+  isActive: boolean;
+  tier: string;
+  expiresAt: string | null;
+  checkedAt: number;
+} | null = null;
+
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+async function checkSubscriptionStatus(): Promise<{ isActive: boolean; tier: string; expiresAt: string | null }> {
+  // Check cache first
+  if (subscriptionCache && (Date.now() - subscriptionCache.checkedAt) < CACHE_DURATION) {
+    return {
+      isActive: subscriptionCache.isActive,
+      tier: subscriptionCache.tier,
+      expiresAt: subscriptionCache.expiresAt,
+    };
+  }
+
+  try {
+    // Dynamically import the server action
+    const { getCurrentSubscription } = await import('@/lib/actions/subscription');
+    const result = await getCurrentSubscription();
+    
+    // Update cache
+    subscriptionCache = {
+      isActive: result.isActive,
+      tier: result.tier,
+      expiresAt: result.expiresAt,
+      checkedAt: Date.now(),
+    };
+
+    return {
+      isActive: result.isActive,
+      tier: result.tier,
+      expiresAt: result.expiresAt,
+    };
+  } catch (error) {
+    console.error('Failed to check subscription:', error);
+    // Return inactive on error to be safe
+    return { isActive: false, tier: 'inactive', expiresAt: null };
+  }
 }
 
 function ModuleLoading() {
@@ -62,18 +107,45 @@ function ModuleError({ modulePath, onRetry }: { modulePath: string; onRetry: () 
 
 export default function ModulePage() {
   const { modules } = useParams();
-
   const router = useRouter();
+  const hasCheckedSubscription = useRef(false);
+  const isRedirecting = useRef(false);
 
   const [Component, setComponent] = useState<React.ComponentType | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  // Check subscription status once on mount
+  useEffect(() => {
+    if (hasCheckedSubscription.current || isRedirecting.current) return;
+    hasCheckedSubscription.current = true;
+
+    checkSubscriptionStatus().then(({ isActive, tier }) => {
+      // Redirect to billing if subscription is not active
+      // Inactive, expired, or trial that has ended
+      const isInactive = tier === 'inactive';
+      const isExpired = tier !== 'inactive' && !isActive;
+
+      if (isInactive || isExpired) {
+        isRedirecting.current = true;
+        router.replace('/billing');
+      }
+    }).catch(() => {
+      // On error, redirect to billing as safety net
+      isRedirecting.current = true;
+      router.replace('/billing');
+    });
+  }, [router]);
+
+  // Load module
   useEffect(() => {
     if (!modules) {
       setError('No module specified');
       return;
     }
+
+    // Skip loading if we're redirecting
+    if (isRedirecting.current) return;
 
     startTransition(async () => {
       try {
@@ -94,6 +166,11 @@ export default function ModulePage() {
       }
     });
   }, [modules]);
+
+  // If redirecting, show loading
+  if (isRedirecting.current) {
+    return <ModuleLoading />;
+  }
 
   if (error) {
     const modulePath = Array.isArray(modules) ? modules.join('/') : modules || 'unknown';

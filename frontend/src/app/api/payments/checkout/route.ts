@@ -9,18 +9,66 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { organizations, orgMembers, payments, promoCodes } from '@/lib/db/schema';
 
+// Import pricing plans dynamically
+import pricingPlans from '@/config/pricing.json';
+
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID!,
   key_secret: process.env.RAZORPAY_KEY_SECRET!,
 });
 
-// Valid plans
-const VALID_PLANS = [
-  { id: 'semester_online', amount: 289900, tier: 'semester', durationDays: 180 },
-  { id: '1year_online', amount: 550000, tier: 'year', durationDays: 365 },
-  { id: '5year_online', amount: 2600000, tier: '5year', durationDays: 1825 },
-  { id: 'lifetime_access', amount: 3000000, tier: 'lifetime', durationDays: null },
-];
+// ============================================
+// DYNAMIC PLAN CONFIGURATION
+// ============================================
+
+interface PlanConfig {
+  id: string;
+  amount: number;
+  tier: string;
+  durationDays: number | null;
+}
+
+/**
+ * Build VALID_PLANS dynamically from pricing.json
+ * Filters out disabled plans and maps to the format expected by the API
+ */
+function buildValidPlans(): PlanConfig[] {
+  return pricingPlans
+    .filter((plan: any) => !plan.disabled) // Exclude disabled plans
+    .map((plan: any) => {
+      // Determine tier based on plan id
+      let tier = 'semester';
+      let durationDays = 180;
+
+      if (plan.id === 'lifetime_access') {
+        tier = 'lifetime';
+        durationDays = 10950; // 30 years (365 * 30)
+      } else if (plan.id === '5years_online' || plan.id === '5year_online') {
+        tier = '5year';
+        durationDays = 1825; // 5 years
+      } else if (plan.id === '1year_online') {
+        tier = 'year';
+        durationDays = 365; // 1 year
+      } else if (plan.id === 'semester_online') {
+        tier = 'semester';
+        durationDays = 180; // ~6 months
+      }
+
+      return {
+        id: plan.id,
+        amount: plan.amount,
+        tier,
+        durationDays,
+      };
+    });
+}
+
+// Build the valid plans array
+const VALID_PLANS = buildValidPlans();
+
+// ============================================
+// HELPERS
+// ============================================
 
 function getExpiry(durationDays: number | null): Date | null {
   if (durationDays === null) return null;
@@ -29,12 +77,15 @@ function getExpiry(durationDays: number | null): Date | null {
   return date;
 }
 
-// Helper to generate short unique receipt ID (max 40 chars)
 function generateReceiptId(prefix: string): string {
-  const timestamp = Date.now().toString(36); // Convert to base36 (shorter)
+  const timestamp = Date.now().toString(36);
   const random = Math.random().toString(36).substring(2, 6);
   return `${prefix}_${timestamp}_${random}`.slice(0, 40);
 }
+
+// ============================================
+// MAIN API HANDLER
+// ============================================
 
 export async function POST(req: NextRequest) {
   try {
@@ -62,6 +113,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Organization not found' }, { status: 404 });
     }
 
+    // ============================================
+    // CREATE ORDER
+    // ============================================
+
     if (action === 'create') {
       // Handle trial promo separately
       if (promoCode) {
@@ -73,11 +128,11 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: 'Invalid promo code' }, { status: 400 });
         }
 
-        if (promo.type === 'trial_30day') {
+        if (promo.type === 'trial') {
           const order = await razorpay.orders.create({
             amount: promo.amount,
             currency: 'INR',
-            receipt: generateReceiptId('trial'), // Fixed: uses helper
+            receipt: generateReceiptId('trial'),
             notes: {
               orgId: orgMember.orgId,
               promoCodeId: promo.id,
@@ -87,7 +142,7 @@ export async function POST(req: NextRequest) {
 
           await db.insert(payments).values({
             orgId: orgMember.orgId,
-            planId: 'trial_30day',
+            planId: 'trial',
             planName: '30-Day Trial',
             amount: promo.amount,
             status: 'pending',
@@ -99,10 +154,41 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Regular plan validation
-      const plan = VALID_PLANS.find((p) => p.id === planId && p.amount === amount);
-      if (!plan) {
-        return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
+      // ============================================
+      // REGULAR PLAN VALIDATION (DYNAMIC)
+      // ============================================
+
+      // Find the plan in pricing.json by ID and amount
+      const planFromConfig = pricingPlans.find(
+        (p: any) => p.id === planId && p.amount === amount && !p.disabled
+      );
+
+      if (!planFromConfig) {
+        // Log the mismatch for debugging
+        console.error('Plan validation failed:', {
+          requestedPlanId: planId,
+          requestedAmount: amount,
+          availablePlans: pricingPlans
+            .filter((p: any) => !p.disabled)
+            .map((p: any) => ({ id: p.id, amount: p.amount })),
+        });
+
+        return NextResponse.json(
+          { 
+            error: 'Invalid plan', 
+            details: `Plan ${planId} with amount ${amount} not found or disabled` 
+          }, 
+          { status: 400 }
+        );
+      }
+
+      // Get the plan config for duration/tier mapping
+      const planConfig = VALID_PLANS.find((p) => p.id === planId);
+      if (!planConfig) {
+        return NextResponse.json(
+          { error: 'Plan configuration not found' }, 
+          { status: 400 }
+        );
       }
 
       // Check if organization already has active subscription
@@ -116,31 +202,48 @@ export async function POST(req: NextRequest) {
         org.subscriptionTier !== 'trial';
 
       if (hasActiveSubscription) {
-        return NextResponse.json({ error: 'Active subscription exists' }, { status: 403 });
+        return NextResponse.json(
+          { error: 'Active subscription exists' }, 
+          { status: 403 }
+        );
       }
 
+      // Create Razorpay order
       const order = await razorpay.orders.create({
-        amount: plan.amount,
+        amount: planConfig.amount,
         currency: 'INR',
-        receipt: generateReceiptId('plan'), // Fixed: uses helper
+        receipt: generateReceiptId('plan'),
         notes: {
           orgId: orgMember.orgId,
-          planId: plan.id,
+          planId: planConfig.id,
           type: 'subscription',
         },
       });
 
+      // Store payment record
       await db.insert(payments).values({
         orgId: orgMember.orgId,
-        planId: plan.id,
-        planName: plan.id.replace('_', ' ').replace('online', '').trim(),
-        amount: plan.amount,
+        planId: planConfig.id,
+        planName: planFromConfig.title || planConfig.id.replace('_', ' ').replace('online', '').trim(),
+        amount: planConfig.amount,
         status: 'pending',
         razorpayOrderId: order.id,
       });
 
-      return NextResponse.json({ order, isTrial: false });
+      return NextResponse.json({ 
+        order, 
+        isTrial: false,
+        plan: {
+          id: planConfig.id,
+          tier: planConfig.tier,
+          durationDays: planConfig.durationDays,
+        },
+      });
     }
+
+    // ============================================
+    // VERIFY PAYMENT
+    // ============================================
 
     if (action === 'verify') {
       // Verify signature
@@ -172,14 +275,16 @@ export async function POST(req: NextRequest) {
         })
         .where(eq(payments.id, payment.id));
 
-      // Handle trial activation
-      if (payment.planId === 'trial_30day') {
+      // ============================================
+      // HANDLE TRIAL ACTIVATION
+      // ============================================
+
+      if (payment.planId === 'trial') {
         const promo = await db.query.promoCodes.findFirst({
           where: eq(promoCodes.id, payment.promoCodeId!),
         });
 
         if (promo) {
-          // Mark promo as used
           await db
             .update(promoCodes)
             .set({
@@ -190,7 +295,6 @@ export async function POST(req: NextRequest) {
             .where(eq(promoCodes.id, promo.id));
         }
 
-        // Set trial subscription
         const trialEnd = new Date();
         trialEnd.setDate(trialEnd.getDate() + 30);
 
@@ -205,21 +309,33 @@ export async function POST(req: NextRequest) {
           })
           .where(eq(organizations.id, payment.orgId));
 
-        return NextResponse.json({ success: true, isTrial: true, expiresAt: trialEnd });
+        return NextResponse.json({ 
+          success: true, 
+          isTrial: true, 
+          expiresAt: trialEnd 
+        });
       }
 
-      // Handle regular plan
-      const plan = VALID_PLANS.find((p) => p.id === payment.planId);
-      if (!plan) {
-        return NextResponse.json({ error: 'Plan not found' }, { status: 400 });
+      // ============================================
+      // HANDLE REGULAR PLAN ACTIVATION
+      // ============================================
+
+      // Find plan config
+      const planConfig = VALID_PLANS.find((p) => p.id === payment.planId);
+      if (!planConfig) {
+        return NextResponse.json(
+          { error: 'Plan configuration not found' }, 
+          { status: 400 }
+        );
       }
 
-      const expiresAt = getExpiry(plan.durationDays);
+      const expiresAt = getExpiry(planConfig.durationDays);
 
+      // Update organization subscription
       await db
         .update(organizations)
         .set({
-          subscriptionTier: plan.tier,
+          subscriptionTier: planConfig.tier,
           subscriptionExpiresAt: expiresAt,
           trialStartedAt: null,
           trialEndsAt: null,
@@ -227,6 +343,7 @@ export async function POST(req: NextRequest) {
         })
         .where(eq(organizations.id, payment.orgId));
 
+      // Update payment with expiry
       await db
         .update(payments)
         .set({
@@ -234,12 +351,23 @@ export async function POST(req: NextRequest) {
         })
         .where(eq(payments.id, payment.id));
 
-      return NextResponse.json({ success: true, isTrial: false, expiresAt });
+      return NextResponse.json({ 
+        success: true, 
+        isTrial: false, 
+        expiresAt,
+        plan: {
+          id: planConfig.id,
+          tier: planConfig.tier,
+        },
+      });
     }
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (error) {
     console.error('Payment error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' }, 
+      { status: 500 }
+    );
   }
 }
