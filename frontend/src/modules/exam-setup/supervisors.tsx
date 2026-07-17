@@ -24,7 +24,7 @@ import {
   getStaff,
   getStaffStats,
   searchStaff,
-} from '@/lib/actions/staff';
+} from '@/lib/actions2/staff';
 import { StaffMember, StaffStats, StaffType } from '@/lib/types/';
 
 import { useUserInfo } from '@/hooks/useUserInfo';

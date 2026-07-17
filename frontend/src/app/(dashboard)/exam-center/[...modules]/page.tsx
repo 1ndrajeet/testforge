@@ -41,7 +41,7 @@ async function checkSubscriptionStatus(): Promise<{
 
   try {
     // Dynamically import the server action
-    const { getCurrentSubscription } = await import('@/lib/actions/subscription');
+    const { getCurrentSubscription } = await import('@/lib/actions2/subscription');
     const result = await getCurrentSubscription();
 
     // Update cache

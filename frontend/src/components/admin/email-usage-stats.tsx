@@ -1,7 +1,7 @@
-// components/email/email-usage-stats.tsx
+// components/admin/email-usage-stats.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { AlertCircle, CheckCircle2, Gauge, Mail, TrendingUp, Users } from 'lucide-react';
 
@@ -241,7 +241,7 @@ export function EmailUsageStats() {
   );
 }
 
-// ─── Compact Sidebar Version ─────────────────────────────────
+// ─── Compact Sidebar Version with Lazy Loading ──────────────
 
 interface DailyUsage {
   sent: number;
@@ -256,21 +256,55 @@ interface DailyUsage {
 export function EmailDailyUsage() {
   const [data, setData] = useState<DailyUsage | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    getUsageStatsForCurrentCenter()
-      .then((res) => setData(res.daily))
-      .catch(() => setData(null))
-      .finally(() => setLoading(false));
-  }, []);
+    const element = containerRef.current;
+    if (!element) return;
 
-  if (loading)
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry.isIntersecting && !hasLoaded) {
+          setHasLoaded(true);
+          getUsageStatsForCurrentCenter()
+            .then((res) => setData(res.daily))
+            .catch(() => setData(null))
+            .finally(() => setLoading(false));
+        }
+      },
+      {
+        rootMargin: '200px', // Start loading slightly before it enters viewport
+        threshold: 0.1,
+      }
+    );
+
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [hasLoaded]);
+
+  // Show placeholder while not loaded
+  if (!hasLoaded) {
+    return (
+      <div ref={containerRef} className="space-y-1.5">
+        <div className="h-3 w-20 animate-pulse rounded bg-neutral-200/60 dark:bg-white/10" />
+        <div className="h-1 w-full animate-pulse rounded bg-neutral-200/60 dark:bg-white/10" />
+      </div>
+    );
+  }
+
+  if (loading) {
     return (
       <div className="space-y-1.5">
         <div className="h-3 w-20 animate-pulse rounded bg-neutral-200/60 dark:bg-white/10" />
         <div className="h-1 w-full animate-pulse rounded bg-neutral-200/60 dark:bg-white/10" />
       </div>
     );
+  }
 
   if (!data) return null;
 
@@ -279,7 +313,7 @@ export function EmailDailyUsage() {
   const color = isOverLimit ? 'rose' : isNear ? 'amber' : 'emerald';
 
   return (
-    <div className="group relative rounded-md border border-neutral-200/60 bg-white px-2.5 py-2 dark:border-neutral-800/60 dark:bg-neutral-950">
+    <div ref={containerRef} className="group relative rounded-md border border-neutral-200/60 bg-white px-2.5 py-2 dark:border-neutral-800/60 dark:bg-neutral-950">
       <div
         className={cn(
           'absolute -top-6 -right-6 h-14 w-14 rounded-full opacity-0 blur-2xl transition-opacity duration-500',

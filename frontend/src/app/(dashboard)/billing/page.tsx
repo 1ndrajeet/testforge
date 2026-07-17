@@ -1,5 +1,5 @@
 // app/billing/page.tsx
-import { getCurrentSubscription, getPaymentHistory } from '@/lib/actions/subscription';
+import { getCurrentSubscription, getPaymentHistory } from '@/lib/actions2/subscription';
 import { getCurrentExamCenter, getCurrentUser } from '@/lib/session';
 import { getCurrentOrg } from '@/lib/session';
 

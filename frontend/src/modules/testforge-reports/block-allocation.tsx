@@ -7,9 +7,9 @@ import { useEffect, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { AlertCircle } from 'lucide-react';
 
-import { getAllocationsByDateSession } from '@/lib/actions/allocation';
-import { getBlocks } from '@/lib/actions/block';
-import { getTimetableEntries } from '@/lib/actions/timetable';
+import { getAllocationsByDateSession } from '@/lib/actions2/allocation';
+import { getBlocks } from '@/lib/actions2/block';
+import { getTimetableEntries } from '@/lib/actions2/timetable';
 import { Block } from '@/lib/types';
 import { cn } from '@/lib/utils';
 

@@ -7,9 +7,9 @@ import { ReactNode, useCallback, useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { AlertCircle } from 'lucide-react';
 
-import { getAllocationsByDateSession } from '@/lib/actions/allocation';
-import { getQPInventory } from '@/lib/actions/inventory';
-import { getTimetableEntries, getUniqueDates } from '@/lib/actions/timetable';
+import { getAllocationsByDateSession } from '@/lib/actions2/allocation';
+import { getQPInventory } from '@/lib/actions2/inventory';
+import { getTimetableEntries, getUniqueDates } from '@/lib/actions2/timetable';
 import { cn } from '@/lib/utils';
 
 import { useUserInfo } from '@/hooks/useUserInfo';

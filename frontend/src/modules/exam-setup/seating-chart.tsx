@@ -25,7 +25,7 @@ import {
   hasSeatingData,
   type SeatingChartStats,
   type StudentSeatingData,
-} from '@/lib/actions/student';
+} from '@/lib/actions2/student';
 
 import { useUserInfo } from '@/hooks/useUserInfo';
 

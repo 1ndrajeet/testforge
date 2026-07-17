@@ -1,5 +1,5 @@
 // components/layout/header-wrapper.tsx
-import { getCurrentSubscription } from '@/lib/actions/subscription';
+import { getCurrentSubscription } from '@/lib/actions2/subscription';
 import { getCurrentExamCenter, getCurrentUser } from '@/lib/session';
 
 import { Header } from './header';

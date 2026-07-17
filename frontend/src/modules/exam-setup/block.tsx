@@ -34,7 +34,7 @@ import {
   getBlocks,
   getBlockStats,
   updateBlock,
-} from '@/lib/actions/block';
+} from '@/lib/actions2/block';
 import { cn } from '@/lib/utils';
 
 import {

@@ -3,13 +3,13 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 
-import type { UserRole } from '@/lib/actions/role';
+import type { UserRole } from '@/lib/actions2/role';
 import { authClient } from '@/lib/auth-client';
 
 // Import the server action dynamically
 const getRoleAction = async (): Promise<UserRole> => {
   try {
-    const { getUserRole } = await import('@/lib/actions/role');
+    const { getUserRole } = await import('@/lib/actions2/role');
     return await getUserRole();
   } catch (error) {
     console.error('Failed to fetch role:', error);

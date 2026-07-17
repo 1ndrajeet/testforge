@@ -10,11 +10,11 @@ import { format } from 'date-fns';
 import { AlertCircle, Calendar, Check, ChevronLeft, X } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { bulkCreateBlockConfigurations, checkExistingAllocations } from '@/lib/actions/allocation';
-import { getBlocks } from '@/lib/actions/block';
-import { getOrders } from '@/lib/actions/order';
-import { getSupervisors } from '@/lib/actions/staff';
-import { getTimetable, getUniqueDates, getUniqueSessions } from '@/lib/actions/timetable';
+import { bulkCreateBlockConfigurations, checkExistingAllocations } from '@/lib/actions2/allocation';
+import { getBlocks } from '@/lib/actions2/block';
+import { getOrders } from '@/lib/actions2/order';
+import { getSupervisors } from '@/lib/actions2/staff';
+import { getTimetable, getUniqueDates, getUniqueSessions } from '@/lib/actions2/timetable';
 import {
   addLocalAllocation,
   clearLocalAllocations,

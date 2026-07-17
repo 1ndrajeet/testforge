@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server';
 
 import { getSessionCookie } from 'better-auth/cookies';
 
-import { getOnboardingStatus } from '@/lib/actions/onboarding';
+import { getOnboardingStatus } from '@/lib/actions2/onboarding';
 
 // Public routes that don't require authentication
 const PUBLIC_ROUTES = ['/login', '/register', '/api/auth', '/', '/pricing', '/api/health'];

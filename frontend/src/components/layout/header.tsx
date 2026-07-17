@@ -38,6 +38,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { EmailDailyUsage } from '../admin/email-usage-stats';
 
 interface HeaderProps {
   user: { id: string; name: string; email: string; image?: string } | null;
@@ -267,6 +268,7 @@ function UserMenu({
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
+        <EmailDailyUsage />
         <DropdownMenuItem
           onClick={handleSignOut}
           className="cursor-pointer text-red-600 focus:bg-red-50"

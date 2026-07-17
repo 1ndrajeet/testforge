@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 
-import { getUserInfo } from '@/lib/actions/user';
+import { getUserInfo } from '@/lib/actions2/user';
 
 export interface UserInfoState {
   user: {

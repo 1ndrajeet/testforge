@@ -23,15 +23,15 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { getExamStatistics } from '@/lib/actions/configuration';
-import { getExamCenter, updateExamCenter } from '@/lib/actions/exam-center';
+import { getExamStatistics } from '@/lib/actions2/configuration';
+import { getExamCenter, updateExamCenter } from '@/lib/actions2/exam-center';
 import {
   addConnectedInstitute,
   getConnectedInstitutes,
   getInstituteInfo,
   removeConnectedInstitute,
   updateInstituteName,
-} from '@/lib/actions/institute';
+} from '@/lib/actions2/institute';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

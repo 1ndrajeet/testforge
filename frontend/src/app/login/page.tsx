@@ -20,7 +20,7 @@ import { useTheme } from 'next-themes';
 import { HashLoader } from 'react-spinners';
 import { toast } from 'sonner';
 
-import { getOnboardingStatus } from '@/lib/actions/onboarding';
+import { getOnboardingStatus } from '@/lib/actions2/onboarding';
 import { authClient } from '@/lib/auth-client';
 import { logger } from '@/lib/misc/logger';
 import { cn } from '@/lib/utils';

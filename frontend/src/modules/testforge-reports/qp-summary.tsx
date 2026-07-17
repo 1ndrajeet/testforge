@@ -7,8 +7,8 @@ import { ReactNode, useCallback, useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { AlertCircle } from 'lucide-react';
 
-import { getQPInventory } from '@/lib/actions/inventory';
-import { getTimetableEntries } from '@/lib/actions/timetable';
+import { getQPInventory } from '@/lib/actions2/inventory';
+import { getTimetableEntries } from '@/lib/actions2/timetable';
 import { cn } from '@/lib/utils';
 
 import { useUserInfo } from '@/hooks/useUserInfo';

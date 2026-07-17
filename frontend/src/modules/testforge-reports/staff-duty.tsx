@@ -7,8 +7,8 @@ import { ReactNode, useCallback, useEffect, useState } from 'react';
 import departments from '@/config/course_codes.json';
 import { format } from 'date-fns';
 
-import { getAllocations } from '@/lib/actions/allocation';
-import { getStaff } from '@/lib/actions/staff';
+import { getAllocations } from '@/lib/actions2/allocation';
+import { getStaff } from '@/lib/actions2/staff';
 import { cn } from '@/lib/utils';
 
 import { useUserInfo } from '@/hooks/useUserInfo';

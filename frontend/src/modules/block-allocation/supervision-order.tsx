@@ -20,11 +20,11 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { getAllocationsByDateSession } from '@/lib/actions/allocation';
-import { getBlocks } from '@/lib/actions/block';
-import { createOrder, deleteOrder, getOrders } from '@/lib/actions/order';
-import { getStaff } from '@/lib/actions/staff';
-import { getTimetableEntries } from '@/lib/actions/timetable';
+import { getAllocationsByDateSession } from '@/lib/actions2/allocation';
+import { getBlocks } from '@/lib/actions2/block';
+import { createOrder, deleteOrder, getOrders } from '@/lib/actions2/order';
+import { getStaff } from '@/lib/actions2/staff';
+import { getTimetableEntries } from '@/lib/actions2/timetable';
 import { cn } from '@/lib/utils';
 
 import { useUserInfo } from '@/hooks/useUserInfo';

@@ -13,7 +13,7 @@ import {
   getTodayUsage,
   getUsageStatsForCurrentCenter,
   logEmailSent,
-} from '@/lib/actions/email-usage';
+} from '@/lib/actions2/email-usage';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { examCenters, organizations, orgMembers } from '@/lib/db/schema';

@@ -7,8 +7,8 @@ import courseCodes from '@/config/course_codes.json';
 import { format } from 'date-fns';
 import { AlertCircle } from 'lucide-react';
 
-import { getAllocationsByDateSession } from '@/lib/actions/allocation';
-import { getTimetableEntries } from '@/lib/actions/timetable';
+import { getAllocationsByDateSession } from '@/lib/actions2/allocation';
+import { getTimetableEntries } from '@/lib/actions2/timetable';
 import { cn } from '@/lib/utils';
 
 import { useUserInfo } from '@/hooks/useUserInfo';

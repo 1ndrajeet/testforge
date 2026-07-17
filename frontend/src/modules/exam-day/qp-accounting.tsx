@@ -25,7 +25,7 @@ import {
   getQPInventory,
   type QPInventoryRecord,
   type QPInventoryStats,
-} from '@/lib/actions/inventory';
+} from '@/lib/actions2/inventory';
 import { cn } from '@/lib/utils';
 
 import { useUserInfo } from '@/hooks/useUserInfo';

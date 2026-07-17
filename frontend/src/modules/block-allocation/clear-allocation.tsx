@@ -12,7 +12,7 @@ import {
   getAllocations,
   getUniqueDates,
   getUniqueSessions,
-} from '@/lib/actions/allocation';
+} from '@/lib/actions2/allocation';
 
 import { useUserInfo } from '@/hooks/useUserInfo';
 

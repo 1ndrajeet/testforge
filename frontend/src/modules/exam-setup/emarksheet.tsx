@@ -22,7 +22,7 @@ import {
   type EMarksheetStats,
   getEMarksheets,
   hasEMarksheetData,
-} from '@/lib/actions/emarksheet';
+} from '@/lib/actions2/emarksheet';
 
 import { useUserInfo } from '@/hooks/useUserInfo';
 

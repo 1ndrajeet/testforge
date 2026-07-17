@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { getTimetable, getTimetableStats, hasTimetable } from '@/lib/actions/timetable';
+import { getTimetable, getTimetableStats, hasTimetable } from '@/lib/actions2/timetable';
 import { TimetableEntry, TimetableStats } from '@/lib/types';
 import { cn } from '@/lib/utils';
 

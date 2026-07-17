@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
-import { getCurrentSubscription } from '@/lib/actions/subscription';
+import { getCurrentSubscription } from '@/lib/actions2/subscription';
 import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 import { logger } from '@/lib/misc/logger';

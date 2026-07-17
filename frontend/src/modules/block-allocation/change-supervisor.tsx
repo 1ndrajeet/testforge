@@ -12,8 +12,8 @@ import {
   getUniqueDates,
   getUniqueSessions,
   updateAllocation,
-} from '@/lib/actions/allocation';
-import { getStaff } from '@/lib/actions/staff';
+} from '@/lib/actions2/allocation';
+import { getStaff } from '@/lib/actions2/staff';
 
 import { useUserInfo } from '@/hooks/useUserInfo';
 

@@ -32,12 +32,12 @@ import {
 import { useDropzone } from 'react-dropzone';
 import { toast } from 'sonner';
 
-import { getConnectedInstitutes } from '@/lib/actions/institute';
+import { getConnectedInstitutes } from '@/lib/actions2/institute';
 import {
   type UploadFileType as ActionFileType,
   getStoredFilename,
   getUploadStatus,
-} from '@/lib/actions/upload';
+} from '@/lib/actions2/upload';
 import { cn } from '@/lib/utils';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';

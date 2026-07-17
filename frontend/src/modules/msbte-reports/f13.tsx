@@ -9,8 +9,8 @@ import { AlertCircle, CheckCircle } from 'lucide-react';
 import { CircleAlert, CircleCheckBig } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { getAllocationsByDateSession } from '@/lib/actions/allocation';
-import { getTimetableEntries, resolveCopyCase } from '@/lib/actions/timetable';
+import { getAllocationsByDateSession } from '@/lib/actions2/allocation';
+import { getTimetableEntries, resolveCopyCase } from '@/lib/actions2/timetable';
 import { cn, parseScheme } from '@/lib/utils';
 
 import { useUserInfo } from '@/hooks/useUserInfo';

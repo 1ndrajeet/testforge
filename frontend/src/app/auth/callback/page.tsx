@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 
 import { HashLoader } from 'react-spinners';
 
-import { getOnboardingStatus } from '@/lib/actions/onboarding';
+import { getOnboardingStatus } from '@/lib/actions2/onboarding';
 
 import { useAuth } from '@/components/auth/AuthProvider';
 

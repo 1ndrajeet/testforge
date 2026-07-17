@@ -23,13 +23,13 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { getCurrentSubscription } from '@/lib/actions/subscription';
+import { getCurrentSubscription } from '@/lib/actions2/subscription';
 import {
   getUserBasicInfo,
   removeUserAvatar,
   updateUserProfile,
   uploadUserAvatar,
-} from '@/lib/actions/user';
+} from '@/lib/actions2/user';
 import { authClient } from '@/lib/auth-client';
 import { cn } from '@/lib/utils';
 

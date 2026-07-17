@@ -18,14 +18,14 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { getAllocationsByDateSession } from '@/lib/actions/allocation';
+import { getAllocationsByDateSession } from '@/lib/actions2/allocation';
 import {
   getTimetableEntries,
   getUniqueDates,
   getUniqueSessions,
   markAbsent,
   markCopyCase,
-} from '@/lib/actions/timetable';
+} from '@/lib/actions2/timetable';
 import { cn } from '@/lib/utils';
 
 import { useUserInfo } from '@/hooks/useUserInfo';

@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { AlertCircle, Loader2 } from 'lucide-react';
 
-import { getAvailableInventoryDates, getQPInventory } from '@/lib/actions/inventory';
+import { getAvailableInventoryDates, getQPInventory } from '@/lib/actions2/inventory';
 
 import { useUserInfo } from '@/hooks/useUserInfo';
 

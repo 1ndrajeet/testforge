@@ -7,8 +7,8 @@ import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { AlertCircle } from 'lucide-react';
 
-import { getPackingSlip } from '@/lib/actions/allocation';
-import { getTimetableEntries } from '@/lib/actions/timetable';
+import { getPackingSlip } from '@/lib/actions2/allocation';
+import { getTimetableEntries } from '@/lib/actions2/timetable';
 import { cn } from '@/lib/utils';
 
 import { useUserInfo } from '@/hooks/useUserInfo';

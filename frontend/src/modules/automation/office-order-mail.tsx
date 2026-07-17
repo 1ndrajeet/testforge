@@ -8,8 +8,8 @@ import { AlertCircle, Eye, Loader2, Mail, Plus, UserCheck, Users, Users2, X } fr
 import { HashLoader } from 'react-spinners';
 import { toast } from 'sonner';
 
-import { getOrders } from '@/lib/actions/order';
-import { getStaff } from '@/lib/actions/staff';
+import { getOrders } from '@/lib/actions2/order';
+import { getStaff } from '@/lib/actions2/staff';
 import { cn } from '@/lib/utils';
 
 import { useUserInfo } from '@/hooks/useUserInfo';

@@ -1,4 +1,3 @@
-// lib/services/email-usage.ts
 'use server';
 
 import { startOfDay, subDays } from 'date-fns';
@@ -17,6 +16,35 @@ const MODULE = 'email-usage';
 const DAILY_LIMIT_PER_CENTER = 80;
 const DAILY_LIMIT_GLOBAL = 100;
 const MONTHLY_LIMIT_GLOBAL = 2900;
+
+// ─── Simple In-Memory Cache ──────────────────────────────────
+
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const cache = new Map<string, CacheEntry<any>>();
+
+function getCached<T>(key: string): T | null {
+  const entry = cache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.timestamp > CACHE_DURATION) {
+    cache.delete(key);
+    return null;
+  }
+  return entry.data as T;
+}
+
+function setCached<T>(key: string, data: T): void {
+  cache.set(key, { data, timestamp: Date.now() });
+}
+
+// Simple cache key - no date needed since we rely on TTL
+function getCacheKey(examCenterId: string): string {
+  return `stats:${examCenterId}`;
+}
 
 // ─── Core Functions ──────────────────────────────────────────
 
@@ -52,7 +80,10 @@ export async function logEmailSent(data: {
       })
       .returning();
 
-    logger.info(MODULE_FN, 'Email logged', {
+    // Clear ALL cache after new email is logged
+    cache.clear();
+
+    logger.info(MODULE_FN, 'Email logged, cache cleared', {
       orgId: data.orgId,
       examCenterId: data.examCenterId,
       status: data.status,
@@ -65,20 +96,17 @@ export async function logEmailSent(data: {
   }
 }
 
-// lib/services/email-usage.ts
-
 export async function getTodayUsage(examCenterId: string): Promise<DailyUsageStats> {
   const MODULE_FN = `${MODULE}.getTodayUsage`;
 
   try {
     const today = startOfDay(new Date());
 
-    // Count ALL emails (including failed) for total
     const result = await db
       .select({
         sent: sql<number>`COUNT(*) FILTER (WHERE status = 'sent')`,
         failed: sql<number>`COUNT(*) FILTER (WHERE status = 'failed')`,
-        total: sql<number>`COUNT(*)`, // ← This counts ALL emails
+        total: sql<number>`COUNT(*)`,
       })
       .from(emailLogs)
       .where(and(eq(emailLogs.examCenterId, examCenterId), gte(emailLogs.sentAt, today)));
@@ -86,9 +114,8 @@ export async function getTodayUsage(examCenterId: string): Promise<DailyUsageSta
     const stats = result[0] || { sent: 0, failed: 0, total: 0 };
     const sent = Number(stats.sent) || 0;
     const failed = Number(stats.failed) || 0;
-    const total = Number(stats.total) || 0; // ← This is the total including failed
+    const total = Number(stats.total) || 0;
 
-    // Get exam center info
     const center = await db.query.examCenters.findFirst({
       where: eq(examCenters.id, examCenterId),
     });
@@ -97,11 +124,11 @@ export async function getTodayUsage(examCenterId: string): Promise<DailyUsageSta
       examCenterId,
       examCenterCode: center?.code || 'Unknown',
       examCenterName: center?.name || 'Unknown',
-      sent: sent, // ← Count of successful sends
-      failed: failed, // ← Count of failed sends
-      total: total, // ← TOTAL including failed
+      sent,
+      failed,
+      total,
       limit: DAILY_LIMIT_PER_CENTER,
-      remaining: Math.max(0, DAILY_LIMIT_PER_CENTER - total), // ← Use total, not sent
+      remaining: Math.max(0, DAILY_LIMIT_PER_CENTER - total),
       percentage: DAILY_LIMIT_PER_CENTER > 0 ? (total / DAILY_LIMIT_PER_CENTER) * 100 : 0,
       isOverLimit: total >= DAILY_LIMIT_PER_CENTER,
     };
@@ -122,7 +149,6 @@ export async function getTodayUsage(examCenterId: string): Promise<DailyUsageSta
   }
 }
 
-// Also update getGlobalUsage similarly
 export async function getGlobalUsage(): Promise<GlobalUsageStats> {
   const MODULE_FN = `${MODULE}.getGlobalUsage`;
 
@@ -133,7 +159,7 @@ export async function getGlobalUsage(): Promise<GlobalUsageStats> {
       .select({
         sent: sql<number>`COUNT(*) FILTER (WHERE status = 'sent')`,
         failed: sql<number>`COUNT(*) FILTER (WHERE status = 'failed')`,
-        total: sql<number>`COUNT(*)`, // ← Count ALL emails
+        total: sql<number>`COUNT(*)`,
       })
       .from(emailLogs)
       .where(gte(emailLogs.sentAt, today));
@@ -143,7 +169,6 @@ export async function getGlobalUsage(): Promise<GlobalUsageStats> {
     const failed = Number(global.failed) || 0;
     const total = Number(global.total) || 0;
 
-    // Get per-center stats
     const centerStats = await db
       .select({
         examCenterId: emailLogs.examCenterId,
@@ -151,7 +176,7 @@ export async function getGlobalUsage(): Promise<GlobalUsageStats> {
         name: examCenters.name,
         sent: sql<number>`COUNT(*) FILTER (WHERE email_logs.status = 'sent')`,
         failed: sql<number>`COUNT(*) FILTER (WHERE email_logs.status = 'failed')`,
-        total: sql<number>`COUNT(*)`, // ← Count ALL emails
+        total: sql<number>`COUNT(*)`,
       })
       .from(emailLogs)
       .leftJoin(examCenters, eq(emailLogs.examCenterId, examCenters.id))
@@ -176,7 +201,7 @@ export async function getGlobalUsage(): Promise<GlobalUsageStats> {
     return {
       totalSent: sent,
       totalFailed: failed,
-      total: total,
+      total,
       limit: DAILY_LIMIT_GLOBAL,
       remaining: Math.max(0, DAILY_LIMIT_GLOBAL - total),
       percentage: DAILY_LIMIT_GLOBAL > 0 ? (total / DAILY_LIMIT_GLOBAL) * 100 : 0,
@@ -244,7 +269,6 @@ export async function canSendEmail(
   const MODULE_FN = `${MODULE}.canSendEmail`;
 
   try {
-    // Check monthly usage first
     const monthly = await getMonthlyUsage();
     if (monthly.remaining < count) {
       return {
@@ -254,7 +278,6 @@ export async function canSendEmail(
       };
     }
 
-    // Check global daily usage
     const global = await getGlobalUsage();
     if (global.isOverLimit) {
       return {
@@ -272,7 +295,6 @@ export async function canSendEmail(
       };
     }
 
-    // Check per-center usage
     const usage = await getTodayUsage(examCenterId);
     if (usage.isOverLimit) {
       return {
@@ -328,6 +350,8 @@ export async function getEmailHistory(
   }
 }
 
+// ─── MAIN FUNCTION WITH AGGRESSIVE CACHING ──────────────────
+
 export async function getUsageStatsForCurrentCenter(): Promise<{
   daily: DailyUsageStats;
   monthly: MonthlyUsageStats;
@@ -335,21 +359,70 @@ export async function getUsageStatsForCurrentCenter(): Promise<{
 }> {
   const MODULE_FN = `${MODULE}.getUsageStatsForCurrentCenter`;
 
-  try {
-    const examCenter = await getCurrentExamCenter();
-    if (!examCenter) {
-      throw new Error('Exam center not found');
-    }
+  const examCenter = await getCurrentExamCenter();
+  if (!examCenter) {
+    throw new Error('Exam center not found');
+  }
 
+  // ✅ SIMPLE CACHE CHECK - no date in key, just TTL
+  const cacheKey = getCacheKey(examCenter.id);
+  const cached = getCached<{ daily: DailyUsageStats; monthly: MonthlyUsageStats; global: GlobalUsageStats }>(cacheKey);
+  
+  if (cached) {
+    logger.debug(MODULE_FN, '✅ Cache HIT', { examCenterId: examCenter.id });
+    return cached;
+  }
+
+  logger.debug(MODULE_FN, '🔄 Cache MISS - fetching fresh data', { examCenterId: examCenter.id });
+
+  try {
+    const startTime = Date.now();
+    
     const [daily, monthly, global] = await Promise.all([
       getTodayUsage(examCenter.id),
       getMonthlyUsage(),
       getGlobalUsage(),
     ]);
 
-    return { daily, monthly, global };
+    const result = { daily, monthly, global };
+    
+    // Cache the result
+    setCached(cacheKey, result);
+    
+    const duration = Date.now() - startTime;
+    logger.debug(MODULE_FN, `✅ Data fetched and cached in ${duration}ms`, { 
+      examCenterId: examCenter.id,
+      dailyTotal: daily.total,
+      monthlyTotal: monthly.total,
+      globalTotal: global.total
+    });
+
+    return result;
   } catch (error) {
     logger.error(MODULE_FN, 'Failed to get usage stats', { error });
     throw error;
   }
+}
+
+// ─── Cache Management ────────────────────────────────────────
+
+export async function invalidateEmailCache(): Promise<void> {
+  cache.clear();
+  logger.debug(MODULE, 'Email usage cache invalidated');
+}
+
+export async function getCacheStatus(): Promise<{
+  size: number;
+  keys: string[];
+}> {
+  const keys = Array.from(cache.keys());
+  const validKeys = keys.filter((key) => {
+    const entry = cache.get(key);
+    return entry && Date.now() - entry.timestamp <= CACHE_DURATION;
+  });
+
+  return {
+    size: validKeys.length,
+    keys: validKeys,
+  };
 }

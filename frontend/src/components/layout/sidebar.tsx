@@ -83,7 +83,6 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
-import { EmailDailyUsage } from '../admin/email-usage-stats';
 import { Logo } from './header';
 
 // ============================================
@@ -356,7 +355,6 @@ export function Sidebar() {
                     <p className="mt-1 text-xs text-neutral-400">Try a different search term</p>
                   </div>
                 )}
-                <EmailDailyUsage />
               </nav>
             </div>
           </motion.aside>

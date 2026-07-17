@@ -47,7 +47,7 @@ import {
   getUsers,
   updateOrganization,
   updateUserRole,
-} from '@/lib/actions/admin';
+} from '@/lib/actions2/admin';
 import { cn } from '@/lib/utils';
 
 import { useUserInfo } from '@/hooks/useUserInfo';

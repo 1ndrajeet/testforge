@@ -21,14 +21,14 @@ import {
 import { ArrowRight, LogOut, ShieldCheck } from 'lucide-react';
 import { HashLoader } from 'react-spinners';
 
-import { getInstituteInfo } from '@/lib/actions/institute';
+import { getInstituteInfo } from '@/lib/actions2/institute';
 import {
   checkSlugAvailability,
   createOrganization,
   getOnboardingStatus,
   saveExamCenter,
-} from '@/lib/actions/onboarding';
-import { applyTrialPromo, validatePromoCode } from '@/lib/actions/promo.actions';
+} from '@/lib/actions2/onboarding';
+import { applyTrialPromo, validatePromoCode } from '@/lib/actions2/promo.actions';
 import { authClient } from '@/lib/auth-client';
 import { cn } from '@/lib/utils';
 
@@ -1490,7 +1490,7 @@ function OnboardingPageContent() {
 
         if (hasOrg && hasExamCenter && result.status === 'needs_subscription') {
           // Check if subscription is actually expired or inactive
-          const { getCurrentSubscription } = await import('@/lib/actions/subscription');
+          const { getCurrentSubscription } = await import('@/lib/actions2/subscription');
           const sub = await getCurrentSubscription();
 
           // If subscription is inactive or expired, redirect to billing
