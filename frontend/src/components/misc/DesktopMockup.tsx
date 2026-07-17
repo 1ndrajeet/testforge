@@ -43,6 +43,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
+
 import { Logo } from '../layout/header';
 
 // ============================================================================
@@ -670,7 +671,10 @@ function Sidebar() {
         </div>
         <span className="text-sm font-semibold">TestForge</span>
       </div> */}
-      <Logo compact className="text-[10px]" />
+      <Logo
+        compact
+        className="text-[10px]"
+      />
       {SIDEBAR_ITEMS.map((item, idx) => {
         if (item.separator) {
           return (

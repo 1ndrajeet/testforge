@@ -1,6 +1,8 @@
 // app/api/payments/checkout/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 
+// Import pricing plans dynamically
+import pricingPlans from '@/config/pricing.json';
 import crypto from 'crypto';
 import { eq } from 'drizzle-orm';
 import Razorpay from 'razorpay';
@@ -8,9 +10,6 @@ import Razorpay from 'razorpay';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { organizations, orgMembers, payments, promoCodes } from '@/lib/db/schema';
-
-// Import pricing plans dynamically
-import pricingPlans from '@/config/pricing.json';
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID!,
@@ -160,7 +159,7 @@ export async function POST(req: NextRequest) {
 
       // Find the plan in pricing.json by ID and amount
       const planFromConfig = pricingPlans.find(
-        (p: any) => p.id === planId && p.amount === amount && !p.disabled
+        (p: any) => p.id === planId && p.amount === amount && !p.disabled,
       );
 
       if (!planFromConfig) {
@@ -174,21 +173,18 @@ export async function POST(req: NextRequest) {
         });
 
         return NextResponse.json(
-          { 
-            error: 'Invalid plan', 
-            details: `Plan ${planId} with amount ${amount} not found or disabled` 
-          }, 
-          { status: 400 }
+          {
+            error: 'Invalid plan',
+            details: `Plan ${planId} with amount ${amount} not found or disabled`,
+          },
+          { status: 400 },
         );
       }
 
       // Get the plan config for duration/tier mapping
       const planConfig = VALID_PLANS.find((p) => p.id === planId);
       if (!planConfig) {
-        return NextResponse.json(
-          { error: 'Plan configuration not found' }, 
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'Plan configuration not found' }, { status: 400 });
       }
 
       // Check if organization already has active subscription
@@ -202,10 +198,7 @@ export async function POST(req: NextRequest) {
         org.subscriptionTier !== 'trial';
 
       if (hasActiveSubscription) {
-        return NextResponse.json(
-          { error: 'Active subscription exists' }, 
-          { status: 403 }
-        );
+        return NextResponse.json({ error: 'Active subscription exists' }, { status: 403 });
       }
 
       // Create Razorpay order
@@ -224,14 +217,15 @@ export async function POST(req: NextRequest) {
       await db.insert(payments).values({
         orgId: orgMember.orgId,
         planId: planConfig.id,
-        planName: planFromConfig.title || planConfig.id.replace('_', ' ').replace('online', '').trim(),
+        planName:
+          planFromConfig.title || planConfig.id.replace('_', ' ').replace('online', '').trim(),
         amount: planConfig.amount,
         status: 'pending',
         razorpayOrderId: order.id,
       });
 
-      return NextResponse.json({ 
-        order, 
+      return NextResponse.json({
+        order,
         isTrial: false,
         plan: {
           id: planConfig.id,
@@ -309,10 +303,10 @@ export async function POST(req: NextRequest) {
           })
           .where(eq(organizations.id, payment.orgId));
 
-        return NextResponse.json({ 
-          success: true, 
-          isTrial: true, 
-          expiresAt: trialEnd 
+        return NextResponse.json({
+          success: true,
+          isTrial: true,
+          expiresAt: trialEnd,
         });
       }
 
@@ -323,10 +317,7 @@ export async function POST(req: NextRequest) {
       // Find plan config
       const planConfig = VALID_PLANS.find((p) => p.id === payment.planId);
       if (!planConfig) {
-        return NextResponse.json(
-          { error: 'Plan configuration not found' }, 
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'Plan configuration not found' }, { status: 400 });
       }
 
       const expiresAt = getExpiry(planConfig.durationDays);
@@ -351,9 +342,9 @@ export async function POST(req: NextRequest) {
         })
         .where(eq(payments.id, payment.id));
 
-      return NextResponse.json({ 
-        success: true, 
-        isTrial: false, 
+      return NextResponse.json({
+        success: true,
+        isTrial: false,
         expiresAt,
         plan: {
           id: planConfig.id,
@@ -365,9 +356,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (error) {
     console.error('Payment error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' }, 
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

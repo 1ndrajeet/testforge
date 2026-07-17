@@ -218,6 +218,8 @@ def _validate_seating_arrangement_file(
         return False, content, f"Seating arrangement validation failed: {str(e)}"
 
 
+# backend/utils.py - FIXED _validate_inventory_file
+
 def _validate_inventory_file(content: bytes) -> Tuple[bool, Optional[bytes], Optional[str]]:
     """Validate inventory Excel file"""
     try:
@@ -225,28 +227,64 @@ def _validate_inventory_file(content: bytes) -> Tuple[bool, Optional[bytes], Opt
 
         import pandas as pd
 
+        # First sanitize the file
         sanitized = sanitize_inventory_excel(content)
-        df = pd.read_excel(BytesIO(sanitized), dtype=str).fillna("")
+        
+        # Try to read the sanitized file
+        try:
+            df = pd.read_excel(BytesIO(sanitized), dtype=str).fillna("")
+        except Exception as e:
+            logger.error(f"Error reading sanitized inventory: {e}")
+            return False, content, f"Failed to read inventory file: {str(e)}"
 
         if df.empty:
             return False, content, "Inventory file is empty after sanitization"
 
+        # Check for required columns
         required = ["Region", "DC", "EC", "DAY", "SESSION", "PAPER_CODE"]
         actual = [str(c).strip() for c in df.columns]
         missing = [col for col in required if col not in actual]
 
         if missing:
-            return False, content, f"Missing columns: {', '.join(missing)}"
+            logger.warning(f"Missing columns in sanitized file: {missing}")
+            # Try to rename columns if they're close
+            rename_map = {}
+            for req in missing:
+                for col in actual:
+                    if req.lower() in col.lower() or col.lower() in req.lower():
+                        rename_map[col] = req
+                        break
+            
+            if rename_map:
+                df = df.rename(columns=rename_map)
+                logger.info(f"Renamed columns: {rename_map}")
+            
+            # Check again
+            actual = [str(c).strip() for c in df.columns]
+            missing = [col for col in required if col not in actual]
+            
+            if missing:
+                return False, content, f"Missing columns: {', '.join(missing)}"
 
+        # Check for data rows
         if len(df) < 1:
             return False, content, "No data rows found"
 
-        return True, sanitized, None
+        # Write the validated data back
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            df.to_excel(writer, sheet_name="Inventory", index=False)
+        
+        logger.info(f"Inventory validated: {len(df)} rows found")
+        return True, output.getvalue(), None
 
     except Exception as e:
         logger.error(f"Inventory validation error: {e}")
+        import traceback
+        traceback.print_exc()
         return False, content, f"Inventory validation failed: {str(e)}"
 
+        
 
 def _validate_emarksheet_file(content: bytes) -> Tuple[bool, Optional[bytes], Optional[str]]:
     """Validate E-Marksheet Excel file"""
@@ -322,8 +360,10 @@ def _validate_generic_excel_file(
 # ============================================================================
 
 
+# backend/utils.py - FIXED sanitize_inventory_excel
+
 def sanitize_inventory_excel(content: bytes) -> bytes:
-    """Sanitize inventory Excel file - remove clutter and keep clean data"""
+    """Sanitize inventory Excel file - handles MSBTE format with multi-row headers"""
     try:
         from io import BytesIO
 
@@ -335,131 +375,211 @@ def sanitize_inventory_excel(content: bytes) -> bytes:
             logger.warning("Inventory file is empty")
             return content
 
-        logger.info(f"Inventory sanitization: raw file has {len(df)} rows")
+        logger.info(f"Inventory sanitization: raw file has {len(df)} rows, {len(df.columns)} columns")
 
-        # Find header row
+        # ============================================================
+        # STEP 1: Find the header row with actual column names
+        # ============================================================
         header_row_idx = None
+        
+        # Look for rows containing "PAPER CODE" or "Paper Code" or "PAPER_CODE"
         for idx in range(min(30, len(df))):
-            row_values = [str(v).strip() for v in df.iloc[idx].values if str(v).strip()]
-            row_text = " ".join([str(v).lower() for v in row_values])
-
+            row_text = " ".join([str(v).lower() for v in df.iloc[idx].values if str(v).strip()])
+            
+            # Check for paper code header
+            has_paper = "paper" in row_text and ("code" in row_text or "no." in row_text)
             has_region = "region" in row_text
-            has_dc = "dc" in row_text
-            has_ec = "ec" in row_text
+            has_ec = "ec" in row_text or "examination center" in row_text
             has_day = "day" in row_text
             has_session = "session" in row_text
-            has_paper = "paper" in row_text or "code" in row_text
-            has_candidate = "candidate" in row_text or "student" in row_text
+            has_candidate = "candidate" in row_text or "no. of candidate" in row_text
             has_packet = "packet" in row_text
-
-            matches = sum(
-                [
-                    has_region,
-                    has_dc,
-                    has_ec,
-                    has_day,
-                    has_session,
-                    has_paper,
-                    has_candidate,
-                    has_packet,
-                ]
-            )
-
-            if matches >= 5:
+            
+            # Multiple matches indicate this is the data header row
+            matches = sum([has_paper, has_region, has_ec, has_day, has_session, has_candidate, has_packet])
+            
+            if matches >= 4:
                 header_row_idx = idx
                 logger.info(f"Found inventory header at row {idx}")
                 break
 
         if header_row_idx is None:
-            logger.warning("Could not find inventory header")
+            logger.warning("Could not find inventory header row")
             return content
 
-        # Map columns
+        # ============================================================
+        # STEP 2: Map columns
+        # ============================================================
         header_row = df.iloc[header_row_idx]
         mapping = {}
+        
         for col_idx, val in enumerate(header_row):
             val_str = str(val).strip().lower()
+            
+            # Clean column name for matching
+            val_clean = val_str.replace(" ", "_").replace(".", "").replace("no", "no")
+            
             if "region" in val_str:
                 mapping["REGION"] = col_idx
-            elif "dc" in val_str:
+            elif "dc" in val_str and "region" not in val_str:
                 mapping["DC"] = col_idx
-            elif "ec" in val_str:
+            elif "ec" in val_str and "examination" not in val_str:
                 mapping["EC"] = col_idx
             elif "day" in val_str:
                 mapping["DAY"] = col_idx
             elif "session" in val_str:
                 mapping["SESSION"] = col_idx
-            elif "paper" in val_str and "code" in val_str:
+            elif "paper" in val_str and ("code" in val_str or "no" in val_str):
                 mapping["PAPER_CODE"] = col_idx
-            elif "candidate" in val_str or "student" in val_str:
+            elif "candidate" in val_str or ("no" in val_str and "of" in val_str and "candidate" in val_str):
                 mapping["NO_OF_CANDIDATES"] = col_idx
-            elif "packets required" in val_str or "packet required" in val_str:
+            elif "packet" in val_str and "required" in val_str:
                 mapping["NO_OF_PACKETS_REQUIRED"] = col_idx
+            elif "total" in val_str and "packet" in val_str and "session" in val_str:
+                mapping["TOTAL_PACKETS_SESSION"] = col_idx
+            elif "total" in val_str and "packet" in val_str and "day" in val_str:
+                mapping["TOTAL_PACKETS_DAY"] = col_idx
 
         # Validate required columns
         required = ["REGION", "DC", "EC", "DAY", "SESSION", "PAPER_CODE"]
-        for req in required:
-            if req not in mapping:
-                logger.warning(f"Required column '{req}' not found")
-                return content
+        missing = [req for req in required if req not in mapping]
+        if missing:
+            logger.warning(f"Missing required columns: {missing}")
+            # Try to find them by position if possible
+            # Based on the Excel file, columns are: Region, DC, EC, DAY, SESSION, PAPER_CODE, No_of_Candidate, No_of_packets_Required, Total_Packets_session, Total_Packets_Day
+            # So we can use position-based fallback
+            if "REGION" not in mapping:
+                mapping["REGION"] = 0
+            if "DC" not in mapping:
+                mapping["DC"] = 1
+            if "EC" not in mapping:
+                mapping["EC"] = 2
+            if "DAY" not in mapping:
+                mapping["DAY"] = 3
+            if "SESSION" not in mapping:
+                mapping["SESSION"] = 4
+            if "PAPER_CODE" not in mapping:
+                mapping["PAPER_CODE"] = 5
+            if "NO_OF_CANDIDATES" not in mapping:
+                mapping["NO_OF_CANDIDATES"] = 6
+            if "NO_OF_PACKETS_REQUIRED" not in mapping:
+                mapping["NO_OF_PACKETS_REQUIRED"] = 7
+            if "TOTAL_PACKETS_SESSION" not in mapping:
+                mapping["TOTAL_PACKETS_SESSION"] = 8
+            if "TOTAL_PACKETS_DAY" not in mapping:
+                mapping["TOTAL_PACKETS_DAY"] = 9
 
+        logger.info(f"Column mapping: {mapping}")
+
+        # ============================================================
+        # STEP 3: Parse data rows
+        # ============================================================
+        
         def parse_int(val):
             try:
                 cleaned = str(val).strip().replace(",", "").replace(" ", "")
-                if cleaned in ["nan", "None", "", "-"]:
+                if cleaned in ["nan", "None", "", "-", "nan"]:
                     return 0
+                # Handle values like "1 -" or "1 - 2"
+                if "-" in cleaned:
+                    cleaned = cleaned.split("-")[0].strip()
                 return int(float(cleaned))
             except (ValueError, TypeError):
                 return 0
 
-        # Extract data
         clean_data = []
+        skipped_rows = 0
+        
         for idx in range(header_row_idx + 1, len(df)):
             row = df.iloc[idx]
-            if all(str(v).strip() in ["", "nan", "None", "-"] for v in row):
+            
+            # Check if row is empty
+            row_values = [str(v).strip() for v in row.values if str(v).strip()]
+            if not row_values:
                 continue
-
-            paper_code = str(row[mapping["PAPER_CODE"]]).strip()
+                
+            # Get paper code - this is the most important field
+            paper_code_idx = mapping.get("PAPER_CODE")
+            if paper_code_idx is None or paper_code_idx >= len(row):
+                skipped_rows += 1
+                continue
+                
+            paper_code = str(row[paper_code_idx]).strip()
+            
+            # Skip if no paper code
             if not paper_code or paper_code in ["nan", "None", "", "-"]:
+                skipped_rows += 1
                 continue
-            if any(k in paper_code.lower() for k in ["total", "certify", "signature"]):
+                
+            # Skip summary rows
+            paper_lower = paper_code.lower()
+            if any(k in paper_lower for k in ["total", "certify", "signature", "this is to certify", "name of the officer"]):
+                skipped_rows += 1
                 continue
 
-            clean_data.append(
-                {
-                    "Region": str(row[mapping.get("REGION", 0)]).strip(),
-                    "DC": str(row[mapping.get("DC", 0)]).strip(),
-                    "EC": str(row[mapping.get("EC", 0)]).strip(),
-                    "DAY": str(row[mapping.get("DAY", 0)]).strip(),
-                    "SESSION": str(row[mapping.get("SESSION", 0)]).strip().upper(),
-                    "PAPER_CODE": paper_code,
-                    "No_of_Candidates": (
-                        parse_int(row[mapping.get("NO_OF_CANDIDATES", 0)])
-                        if "NO_OF_CANDIDATES" in mapping
-                        else 0
-                    ),
-                    "No_of_Packets_Required": (
-                        parse_int(row[mapping.get("NO_OF_PACKETS_REQUIRED", 0)])
-                        if "NO_OF_PACKETS_REQUIRED" in mapping
-                        else 0
-                    ),
-                }
-            )
+            # Extract values with safe access
+            def get_col(key, default=""):
+                idx = mapping.get(key)
+                if idx is None or idx >= len(row):
+                    return default
+                return str(row[idx]).strip()
+
+            # Parse day
+            day_val = get_col("DAY", "0")
+            try:
+                day = int(float(day_val)) if day_val.isdigit() or day_val.replace('.', '').isdigit() else 0
+            except:
+                day = 0
+
+            # Parse candidates
+            candidates_val = get_col("NO_OF_CANDIDATES", "0")
+            no_of_candidates = parse_int(candidates_val)
+
+            # Parse packets required
+            packets_val = get_col("NO_OF_PACKETS_REQUIRED", "0")
+            no_of_packets_required = parse_int(packets_val)
+
+            # Parse session packets
+            session_packets_val = get_col("TOTAL_PACKETS_SESSION", "0")
+            total_packets_session = parse_int(session_packets_val)
+
+            # Parse day packets
+            day_packets_val = get_col("TOTAL_PACKETS_DAY", "0")
+            total_packets_day = parse_int(day_packets_val)
+
+            clean_data.append({
+                "Region": get_col("REGION"),
+                "DC": get_col("DC"),
+                "EC": get_col("EC"),
+                "DAY": str(day),
+                "SESSION": get_col("SESSION", "M").upper(),
+                "PAPER_CODE": paper_code,
+                "No_of_Candidates": no_of_candidates,
+                "No_of_Packets_Required": no_of_packets_required,
+                "Total_Packets_Session": total_packets_session,
+                "Total_Packets_Day": total_packets_day,
+            })
 
         if not clean_data:
-            logger.warning("No valid data rows found")
+            logger.warning(f"No valid data rows found. Skipped {skipped_rows} rows")
             return content
 
+        # ============================================================
+        # STEP 4: Create clean DataFrame
+        # ============================================================
         clean_df = pd.DataFrame(clean_data)
         output = io.BytesIO()
+        
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
             clean_df.to_excel(writer, sheet_name="Inventory", index=False)
 
-        logger.info(f"Inventory sanitized: {len(clean_data)} rows extracted")
+        logger.info(f"Inventory sanitized: {len(clean_data)} rows extracted, {skipped_rows} rows skipped")
         return output.getvalue()
 
     except Exception as e:
         logger.error(f"Error sanitizing inventory: {e}")
+        import traceback
+        traceback.print_exc()
         return content
 
 

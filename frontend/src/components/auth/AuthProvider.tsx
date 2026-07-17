@@ -3,8 +3,8 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 
-import { authClient } from '@/lib/auth-client';
 import type { UserRole } from '@/lib/actions/role';
+import { authClient } from '@/lib/auth-client';
 
 // Import the server action dynamically
 const getRoleAction = async (): Promise<UserRole> => {
@@ -135,16 +135,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider 
-      value={{ 
-        session, 
-        isLoading, 
+    <AuthContext.Provider
+      value={{
+        session,
+        isLoading,
         role,
         isAdmin,
-        signIn, 
-        signUp, 
-        signOut, 
-        signInWithGoogle 
+        signIn,
+        signUp,
+        signOut,
+        signInWithGoogle,
       }}
     >
       {children}

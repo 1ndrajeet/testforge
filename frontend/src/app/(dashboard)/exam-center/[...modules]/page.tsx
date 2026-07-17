@@ -1,7 +1,7 @@
 // app/exam-center/[...modules]/page.tsx
 'use client';
 
-import { useEffect, useState, useTransition, useRef } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -25,9 +25,13 @@ let subscriptionCache: {
 
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-async function checkSubscriptionStatus(): Promise<{ isActive: boolean; tier: string; expiresAt: string | null }> {
+async function checkSubscriptionStatus(): Promise<{
+  isActive: boolean;
+  tier: string;
+  expiresAt: string | null;
+}> {
   // Check cache first
-  if (subscriptionCache && (Date.now() - subscriptionCache.checkedAt) < CACHE_DURATION) {
+  if (subscriptionCache && Date.now() - subscriptionCache.checkedAt < CACHE_DURATION) {
     return {
       isActive: subscriptionCache.isActive,
       tier: subscriptionCache.tier,
@@ -39,7 +43,7 @@ async function checkSubscriptionStatus(): Promise<{ isActive: boolean; tier: str
     // Dynamically import the server action
     const { getCurrentSubscription } = await import('@/lib/actions/subscription');
     const result = await getCurrentSubscription();
-    
+
     // Update cache
     subscriptionCache = {
       isActive: result.isActive,
@@ -120,21 +124,23 @@ export default function ModulePage() {
     if (hasCheckedSubscription.current || isRedirecting.current) return;
     hasCheckedSubscription.current = true;
 
-    checkSubscriptionStatus().then(({ isActive, tier }) => {
-      // Redirect to billing if subscription is not active
-      // Inactive, expired, or trial that has ended
-      const isInactive = tier === 'inactive';
-      const isExpired = tier !== 'inactive' && !isActive;
+    checkSubscriptionStatus()
+      .then(({ isActive, tier }) => {
+        // Redirect to billing if subscription is not active
+        // Inactive, expired, or trial that has ended
+        const isInactive = tier === 'inactive';
+        const isExpired = tier !== 'inactive' && !isActive;
 
-      if (isInactive || isExpired) {
+        if (isInactive || isExpired) {
+          isRedirecting.current = true;
+          router.replace('/billing');
+        }
+      })
+      .catch(() => {
+        // On error, redirect to billing as safety net
         isRedirecting.current = true;
         router.replace('/billing');
-      }
-    }).catch(() => {
-      // On error, redirect to billing as safety net
-      isRedirecting.current = true;
-      router.replace('/billing');
-    });
+      });
   }, [router]);
 
   // Load module

@@ -2,8 +2,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, sql, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { db } from '@/lib/db';
@@ -59,8 +58,16 @@ const MarkCopyCaseSchema = z.object({
   cpsStudents: z.array(z.number().int()),
 });
 
+const ResolveCopyCaseSchema = z.object({
+  subjectCode: z.string().min(1),
+  scheme: z.string().min(1),
+  date: z.date(),
+  session: z.enum(['Morning', 'Afternoon', 'All']),
+  seatNumber: z.number().int().positive(),
+});
+
 // ============================================
-// Read Operations
+// Read Operations - OPTIMIZED
 // ============================================
 
 export async function getTimetable(params?: {
@@ -69,14 +76,14 @@ export async function getTimetable(params?: {
   subjectCode?: string;
   scheme?: string;
 }) {
-  const MODULE_FN = `${MODULE}.getTimetable`;
+  const fn = `${MODULE}.getTimetable`;
+  const start = performance.now();
 
   try {
     const examCenterId = await getExamCenterId();
-
     if (!examCenterId) {
-      logger.debug(MODULE_FN, 'No exam center found');
-      return { success: true, data: [], hasData: false };
+      logger.debug(fn, 'No exam center found');
+      return { success: true, data: [], hasData: false, isBlockAllocated: false };
     }
 
     const conditions = [eq(timetable.examCenterId, examCenterId)];
@@ -85,36 +92,30 @@ export async function getTimetable(params?: {
       const dateObj = typeof params.date === 'string' ? new Date(params.date) : params.date;
       conditions.push(eq(timetable.date, dateObj));
     }
-    if (params?.session) {
-      conditions.push(eq(timetable.session, params.session));
-    }
-    if (params?.subjectCode) {
-      conditions.push(eq(timetable.subjectCode, params.subjectCode));
-    }
-    if (params?.scheme) {
-      conditions.push(eq(timetable.scheme, params.scheme));
-    }
+    if (params?.session) conditions.push(eq(timetable.session, params.session));
+    if (params?.subjectCode) conditions.push(eq(timetable.subjectCode, params.subjectCode));
+    if (params?.scheme) conditions.push(eq(timetable.scheme, params.scheme));
 
-    const entries = await db.query.timetable.findMany({
-      where: and(...conditions),
-      orderBy: [timetable.date, timetable.session, timetable.timeSlot],
-    });
+    // Fetch timetable and block allocation check in parallel
+    const [entries, allocations] = await Promise.all([
+      db.query.timetable.findMany({
+        where: and(...conditions),
+        orderBy: [timetable.date, timetable.session, timetable.timeSlot],
+      }),
+      params?.date && params?.session
+        ? db.query.blockAllocations.findMany({
+            where: and(
+              eq(blockAllocations.examCenterId, examCenterId),
+              eq(blockAllocations.date, new Date(params.date)),
+              eq(blockAllocations.session, params.session),
+            ),
+            limit: 1,
+          })
+        : Promise.resolve([]),
+    ]);
 
-    // Check if block allocations exist for any of these entries
-    let isBlockAllocated = false;
-    if (params?.date && params?.session) {
-      const allocations = await db.query.blockAllocations.findMany({
-        where: and(
-          eq(blockAllocations.examCenterId, examCenterId),
-          eq(blockAllocations.date, new Date(params.date)),
-          eq(blockAllocations.session, params.session),
-        ),
-        limit: 1,
-      });
-      isBlockAllocated = allocations.length > 0;
-    }
-
-    logger.debug(MODULE_FN, `Fetched ${entries.length} timetable entries`, {
+    const duration = performance.now() - start;
+    logger.debug(fn, `Fetched ${entries.length} entries in ${duration.toFixed(0)}ms`, {
       examCenterId,
       filters: params,
     });
@@ -123,27 +124,27 @@ export async function getTimetable(params?: {
       success: true,
       data: entries,
       hasData: entries.length > 0,
-      isBlockAllocated,
+      isBlockAllocated: allocations.length > 0,
     };
   } catch (error) {
-    logger.error(MODULE_FN, 'Failed to fetch timetable', { error });
+    logger.error(fn, 'Failed to fetch timetable', { error });
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
       data: [],
       hasData: false,
+      isBlockAllocated: false,
     };
   }
 }
 
 export async function getTimetableEntryById(id: string) {
-  const MODULE_FN = `${MODULE}.getTimetableEntryById`;
+  const fn = `${MODULE}.getTimetableEntryById`;
 
   try {
     const examCenterId = await getExamCenterId();
-
     if (!examCenterId) {
-      logger.debug(MODULE_FN, 'No exam center found');
+      logger.debug(fn, 'No exam center found');
       return { success: true, data: null };
     }
 
@@ -151,30 +152,20 @@ export async function getTimetableEntryById(id: string) {
       where: and(eq(timetable.id, id), eq(timetable.examCenterId, examCenterId)),
     });
 
-    if (!entry) {
-      logger.debug(MODULE_FN, 'Timetable entry not found', { id });
-      return { success: true, data: null };
-    }
-
-    logger.debug(MODULE_FN, 'Timetable entry fetched', { id });
-    return { success: true, data: entry };
+    return { success: true, data: entry || null };
   } catch (error) {
-    logger.error(MODULE_FN, 'Failed to fetch timetable entry', { error });
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
+    logger.error(fn, 'Failed to fetch timetable entry', { error });
+    return { success: false, error: 'Failed to fetch entry', data: null };
   }
 }
 
 export async function getUniqueDates() {
-  const MODULE_FN = `${MODULE}.getUniqueDates`;
+  const fn = `${MODULE}.getUniqueDates`;
 
   try {
     const examCenterId = await getExamCenterId();
-
     if (!examCenterId) {
-      logger.debug(MODULE_FN, 'No exam center found');
+      logger.debug(fn, 'No exam center found');
       return { success: true, data: [] };
     }
 
@@ -184,27 +175,20 @@ export async function getUniqueDates() {
       .where(eq(timetable.examCenterId, examCenterId))
       .orderBy(timetable.date);
 
-    const dates = results.map((r) => r.date);
-
-    logger.debug(MODULE_FN, `Fetched ${dates.length} unique dates`);
-    return { success: true, data: dates };
+    return { success: true, data: results.map((r) => r.date) };
   } catch (error) {
-    logger.error(MODULE_FN, 'Failed to fetch unique dates', { error });
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
+    logger.error(fn, 'Failed to fetch unique dates', { error });
+    return { success: false, error: 'Failed to fetch dates', data: [] };
   }
 }
 
 export async function getUniqueSessions() {
-  const MODULE_FN = `${MODULE}.getUniqueSessions`;
+  const fn = `${MODULE}.getUniqueSessions`;
 
   try {
     const examCenterId = await getExamCenterId();
-
     if (!examCenterId) {
-      logger.debug(MODULE_FN, 'No exam center found');
+      logger.debug(fn, 'No exam center found');
       return { success: true, data: [] };
     }
 
@@ -213,25 +197,203 @@ export async function getUniqueSessions() {
       .from(timetable)
       .where(eq(timetable.examCenterId, examCenterId));
 
-    const sessions = results.map((r) => r.session);
-
-    logger.debug(MODULE_FN, `Fetched ${sessions.length} unique sessions`);
-    return { success: true, data: sessions };
+    return { success: true, data: results.map((r) => r.session) };
   } catch (error) {
-    logger.error(MODULE_FN, 'Failed to fetch unique sessions', { error });
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
+    logger.error(fn, 'Failed to fetch unique sessions', { error });
+    return { success: false, error: 'Failed to fetch sessions', data: [] };
+  }
+}
+
+export async function getTimetableEntries(params?: {
+  date?: Date;
+  session?: 'Morning' | 'Afternoon';
+  subjectCode?: string;
+  scheme?: string;
+}) {
+  const fn = `${MODULE}.getTimetableEntries`;
+
+  try {
+    const examCenterId = await getExamCenterId();
+    if (!examCenterId) {
+      logger.debug(fn, 'No exam center found');
+      return { success: true, data: [] };
+    }
+
+    const conditions = [eq(timetable.examCenterId, examCenterId)];
+    if (params?.date) conditions.push(eq(timetable.date, params.date));
+    if (params?.session) conditions.push(eq(timetable.session, params.session));
+    if (params?.subjectCode) conditions.push(eq(timetable.subjectCode, params.subjectCode));
+    if (params?.scheme) conditions.push(eq(timetable.scheme, params.scheme));
+
+    const entries = await db.query.timetable.findMany({
+      where: and(...conditions),
+      orderBy: [timetable.date, timetable.session, timetable.timeSlot],
+    });
+
+    return { success: true, data: entries };
+  } catch (error) {
+    logger.error(fn, 'Failed to fetch timetable entries', { error });
+    return { success: false, error: 'Failed to fetch entries', data: [] };
+  }
+}
+
+export async function getTimetableBySubject(subjectCode: string, scheme?: string) {
+  const fn = `${MODULE}.getTimetableBySubject`;
+
+  try {
+    const examCenterId = await getExamCenterId();
+    if (!examCenterId) {
+      logger.debug(fn, 'No exam center found');
+      return { success: true, data: [] };
+    }
+
+    const conditions = [
+      eq(timetable.examCenterId, examCenterId),
+      eq(timetable.subjectCode, subjectCode),
+    ];
+    if (scheme) conditions.push(eq(timetable.scheme, scheme));
+
+    const entries = await db.query.timetable.findMany({
+      where: and(...conditions),
+      orderBy: [timetable.date, timetable.session],
+    });
+
+    return { success: true, data: entries };
+  } catch (error) {
+    logger.error(fn, 'Failed to fetch timetable by subject', { error });
+    return { success: false, error: 'Failed to fetch entries', data: [] };
   }
 }
 
 // ============================================
-// Write Operations
+// Statistics - OPTIMIZED with SINGLE QUERY
+// ============================================
+
+export async function getTimetableStats() {
+  const fn = `${MODULE}.getTimetableStats`;
+  const start = performance.now();
+
+  try {
+    const examCenterId = await getExamCenterId();
+    if (!examCenterId) {
+      logger.debug(fn, 'No exam center found');
+      return {
+        success: true,
+        data: {
+          totalEntries: 0,
+          uniqueSubjects: 0,
+          uniqueSchemes: 0,
+          examinees: 0,
+          students: 0,
+          dateRange: null,
+          totalAbsent: 0,
+          totalCps: 0,
+        },
+      };
+    }
+
+    // ✅ SINGLE QUERY with all stats + student counts in one go
+    const result = await db.execute(sql`
+      WITH timetable_stats AS (
+        SELECT
+          COUNT(*) as total_entries,
+          COUNT(DISTINCT subject_code) as unique_subjects,
+          COUNT(DISTINCT scheme) as unique_schemes,
+          COALESCE(SUM(jsonb_array_length(absent_numbers)), 0) as total_absent,
+          COALESCE(SUM(jsonb_array_length(cps_students)), 0) as total_cps,
+          MIN(date) as min_date,
+          MAX(date) as max_date,
+          COALESCE(SUM(total_students), 0) as total_students
+        FROM timetable
+        WHERE exam_center_id = ${examCenterId}
+      ),
+      student_stats AS (
+        SELECT
+          COUNT(DISTINCT seat_number) as examinees,
+          COUNT(DISTINCT enrollment_number) as students
+        FROM students
+        WHERE exam_center_id = ${examCenterId} AND is_deleted = false
+      )
+      SELECT
+        ts.*,
+        ss.examinees,
+        ss.students
+      FROM timetable_stats ts
+      CROSS JOIN student_stats ss
+    `);
+
+    const row = result.rows[0] as any;
+
+    const statsData = {
+      totalEntries: Number(row?.total_entries || 0),
+      uniqueSubjects: Number(row?.unique_subjects || 0),
+      uniqueSchemes: Number(row?.unique_schemes || 0),
+      examinees: Number(row?.examinees || 0),
+      students: Number(row?.students || 0),
+      totalAbsent: Number(row?.total_absent || 0),
+      totalCps: Number(row?.total_cps || 0),
+      totalStudents: Number(row?.total_students || 0),
+      dateRange: row?.min_date && row?.max_date
+        ? { min: new Date(row.min_date), max: new Date(row.max_date) }
+        : null,
+    };
+
+    const duration = performance.now() - start;
+    logger.debug(fn, `Stats fetched in ${duration.toFixed(0)}ms (1 query)`, statsData);
+
+    return { success: true, data: statsData };
+  } catch (error) {
+    logger.error(fn, 'Failed to fetch timetable stats', { error });
+    return {
+      success: false,
+      error: 'Failed to fetch stats',
+      data: {
+        totalEntries: 0,
+        uniqueSubjects: 0,
+        uniqueSchemes: 0,
+        examinees: 0,
+        students: 0,
+        dateRange: null,
+        totalAbsent: 0,
+        totalCps: 0,
+      },
+    };
+  }
+}
+
+export async function hasTimetable(): Promise<{ success: true; data: boolean } | { success: false; error: string }> {
+  const fn = `${MODULE}.hasTimetable`;
+
+  try {
+    const examCenterId = await getExamCenterId();
+    if (!examCenterId) {
+      logger.debug(fn, 'No exam center found');
+      return { success: true, data: false };
+    }
+
+    // ✅ Use EXISTS instead of COUNT for better performance
+    const result = await db.execute(sql`
+      SELECT EXISTS(
+        SELECT 1 FROM timetable WHERE exam_center_id = ${examCenterId} LIMIT 1
+      ) as exists
+    `);
+
+    const hasData = (result.rows[0] as any)?.exists === true;
+    logger.debug(fn, `Timetable exists: ${hasData}`);
+    return { success: true, data: hasData };
+  } catch (error) {
+    logger.error(fn, 'Failed to check timetable existence', { error });
+    return { success: false, error: 'Failed to check existence' };
+  }
+}
+
+// ============================================
+// Write Operations - OPTIMIZED BATCH INSERT
 // ============================================
 
 export async function importTimetable(data: z.infer<typeof BulkImportSchema>) {
-  const MODULE_FN = `${MODULE}.importTimetable`;
+  const fn = `${MODULE}.importTimetable`;
+  const start = performance.now();
 
   try {
     const validated = BulkImportSchema.parse(data);
@@ -241,17 +403,12 @@ export async function importTimetable(data: z.infer<typeof BulkImportSchema>) {
       return { success: false, error: 'No entries to import' };
     }
 
-    // Start transaction
     const result = await db.transaction(async (tx) => {
-      // If overwrite is true, delete existing entries for this exam center
       if (validated.overwrite) {
         await tx.delete(timetable).where(eq(timetable.examCenterId, examCenter.id));
-        logger.info(MODULE_FN, 'Cleared existing timetable entries', {
-          examCenterId: examCenter.id,
-        });
+        logger.info(fn, 'Cleared existing timetable entries', { examCenterId: examCenter.id });
       }
 
-      // Prepare values
       const values = validated.entries.map((entry) => ({
         examCenterId: examCenter.id,
         examDay: entry.examDay,
@@ -267,7 +424,7 @@ export async function importTimetable(data: z.infer<typeof BulkImportSchema>) {
         cpsStudents: entry.cpsStudents,
       }));
 
-      // Insert in batches to avoid overwhelming the DB
+      // Batch insert with conflict handling
       const BATCH_SIZE = 500;
       const insertedEntries = [];
 
@@ -280,30 +437,26 @@ export async function importTimetable(data: z.infer<typeof BulkImportSchema>) {
       return insertedEntries;
     });
 
-    logger.info(MODULE_FN, `Imported ${result.length} timetable entries`, {
+    const duration = performance.now() - start;
+    logger.info(fn, `Imported ${result.length} entries in ${duration.toFixed(0)}ms`, {
       examCenterId: examCenter.id,
       overwrite: validated.overwrite,
-      count: result.length,
     });
-    revalidatePath('/exam-center/exam-setup/timetable');
 
+    revalidatePath('/exam-center/exam-setup/timetable');
     return { success: true, data: result };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      logger.warn(MODULE_FN, 'Validation failed', { issues: error.issues });
+      logger.warn(fn, 'Validation failed', { issues: error.issues });
       return { success: false, error: error.issues };
     }
-
-    logger.error(MODULE_FN, 'Failed to import timetable', { error });
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to import timetable',
-    };
+    logger.error(fn, 'Failed to import timetable', { error });
+    return { success: false, error: 'Failed to import timetable' };
   }
 }
 
 export async function updateTimetableEntry(data: z.infer<typeof UpdateEntrySchema>) {
-  const MODULE_FN = `${MODULE}.updateTimetableEntry`;
+  const fn = `${MODULE}.updateTimetableEntry`;
 
   try {
     const validated = UpdateEntrySchema.parse(data);
@@ -317,30 +470,25 @@ export async function updateTimetableEntry(data: z.infer<typeof UpdateEntrySchem
       .returning();
 
     if (!updated) {
-      logger.warn(MODULE_FN, 'Timetable entry not found', { id });
+      logger.warn(fn, 'Timetable entry not found', { id });
       return { success: false, error: 'Timetable entry not found' };
     }
 
-    logger.info(MODULE_FN, 'Timetable entry updated', { id });
+    logger.info(fn, 'Timetable entry updated', { id });
     revalidatePath('/exam-center/exam-setup/timetable');
-
     return { success: true, data: updated };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      logger.warn(MODULE_FN, 'Validation failed', { issues: error.issues });
+      logger.warn(fn, 'Validation failed', { issues: error.issues });
       return { success: false, error: error.issues };
     }
-
-    logger.error(MODULE_FN, 'Failed to update timetable entry', { error });
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to update timetable entry',
-    };
+    logger.error(fn, 'Failed to update timetable entry', { error });
+    return { success: false, error: 'Failed to update entry' };
   }
 }
 
 export async function deleteTimetableEntry(id: string) {
-  const MODULE_FN = `${MODULE}.deleteTimetableEntry`;
+  const fn = `${MODULE}.deleteTimetableEntry`;
 
   try {
     const examCenter = await requireExamCenter();
@@ -351,25 +499,21 @@ export async function deleteTimetableEntry(id: string) {
       .returning();
 
     if (!deleted) {
-      logger.warn(MODULE_FN, 'Timetable entry not found', { id });
+      logger.warn(fn, 'Timetable entry not found', { id });
       return { success: false, error: 'Timetable entry not found' };
     }
 
-    logger.info(MODULE_FN, 'Timetable entry deleted', { id });
+    logger.info(fn, 'Timetable entry deleted', { id });
     revalidatePath('/exam-center/exam-setup/timetable');
-
     return { success: true, data: deleted };
   } catch (error) {
-    logger.error(MODULE_FN, 'Failed to delete timetable entry', { error });
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to delete timetable entry',
-    };
+    logger.error(fn, 'Failed to delete timetable entry', { error });
+    return { success: false, error: 'Failed to delete entry' };
   }
 }
 
 export async function deleteAllTimetable() {
-  const MODULE_FN = `${MODULE}.deleteAllTimetable`;
+  const fn = `${MODULE}.deleteAllTimetable`;
 
   try {
     const examCenter = await requireExamCenter();
@@ -379,19 +523,16 @@ export async function deleteAllTimetable() {
       .where(eq(timetable.examCenterId, examCenter.id))
       .returning();
 
-    logger.warn(MODULE_FN, 'Deleted all timetable entries', {
+    logger.warn(fn, 'Deleted all timetable entries', {
       examCenterId: examCenter.id,
       count: deleted.length,
     });
-    revalidatePath('/exam-center/exam-setup/timetable');
 
+    revalidatePath('/exam-center/exam-setup/timetable');
     return { success: true, data: deleted };
   } catch (error) {
-    logger.error(MODULE_FN, 'Failed to delete all timetable entries', { error });
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to delete timetable entries',
-    };
+    logger.error(fn, 'Failed to delete all timetable entries', { error });
+    return { success: false, error: 'Failed to delete entries' };
   }
 }
 
@@ -400,13 +541,12 @@ export async function deleteAllTimetable() {
 // ============================================
 
 export async function markAbsent(data: z.infer<typeof MarkAbsentSchema>) {
-  const MODULE_FN = `${MODULE}.markAbsent`;
+  const fn = `${MODULE}.markAbsent`;
 
   try {
     const validated = MarkAbsentSchema.parse(data);
     const examCenter = await requireExamCenter();
 
-    // Find the timetable entry
     const entry = await db.query.timetable.findFirst({
       where: and(
         eq(timetable.examCenterId, examCenter.id),
@@ -418,7 +558,7 @@ export async function markAbsent(data: z.infer<typeof MarkAbsentSchema>) {
     });
 
     if (!entry) {
-      logger.warn(MODULE_FN, 'Timetable entry not found', {
+      logger.warn(fn, 'Timetable entry not found', {
         subjectCode: validated.subjectCode,
         scheme: validated.scheme,
         date: validated.date,
@@ -436,92 +576,30 @@ export async function markAbsent(data: z.infer<typeof MarkAbsentSchema>) {
       .where(eq(timetable.id, entry.id))
       .returning();
 
-    logger.info(MODULE_FN, 'Absent students marked', {
+    logger.info(fn, 'Absent students marked', {
       id: entry.id,
       count: validated.absentNumbers.length,
     });
-    revalidatePath('/exam-center/exam-setup/timetable');
 
+    revalidatePath('/exam-center/exam-setup/timetable');
     return { success: true, data: updated };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      logger.warn(MODULE_FN, 'Validation failed', { issues: error.issues });
+      logger.warn(fn, 'Validation failed', { issues: error.issues });
       return { success: false, error: error.issues };
     }
-
-    logger.error(MODULE_FN, 'Failed to mark absent students', { error });
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to mark absent students',
-    };
-  }
-}
-
-// Add to lib/actions/timetable.ts
-
-// ============================================
-// Get Timetable Entries with Filters
-// ============================================
-
-export async function getTimetableEntries(params?: {
-  date?: Date;
-  session?: 'Morning' | 'Afternoon';
-  subjectCode?: string;
-  scheme?: string;
-}): Promise<{
-  success: boolean;
-  data?: any[];
-  error?: string;
-}> {
-  const MODULE_FN = `${MODULE}.getTimetableEntries`;
-
-  try {
-    const examCenterId = await getExamCenterId();
-
-    if (!examCenterId) {
-      logger.debug(MODULE_FN, 'No exam center found');
-      return { success: true, data: [] };
-    }
-
-    const conditions = [eq(timetable.examCenterId, examCenterId)];
-
-    if (params?.date) {
-      conditions.push(eq(timetable.date, params.date));
-    }
-    if (params?.session) {
-      conditions.push(eq(timetable.session, params.session));
-    }
-    if (params?.subjectCode) {
-      conditions.push(eq(timetable.subjectCode, params.subjectCode));
-    }
-    if (params?.scheme) {
-      conditions.push(eq(timetable.scheme, params.scheme));
-    }
-
-    const entries = await db.query.timetable.findMany({
-      where: and(...conditions),
-      orderBy: [timetable.date, timetable.session, timetable.timeSlot],
-    });
-
-    logger.debug(MODULE_FN, `Fetched ${entries.length} timetable entries`);
-    return { success: true, data: entries };
-  } catch (error) {
-    logger.error(MODULE_FN, 'Failed to fetch timetable entries', { error });
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
+    logger.error(fn, 'Failed to mark absent students', { error });
+    return { success: false, error: 'Failed to mark absent' };
   }
 }
 
 export async function markCopyCase(data: z.infer<typeof MarkCopyCaseSchema>) {
-  const MODULE_FN = `${MODULE}.markCopyCase`;
+  const fn = `${MODULE}.markCopyCase`;
 
   try {
     const validated = MarkCopyCaseSchema.parse(data);
     const examCenter = await requireExamCenter();
 
-    // Find the timetable entry
     const entry = await db.query.timetable.findFirst({
       where: and(
         eq(timetable.examCenterId, examCenter.id),
@@ -533,7 +611,7 @@ export async function markCopyCase(data: z.infer<typeof MarkCopyCaseSchema>) {
     });
 
     if (!entry) {
-      logger.warn(MODULE_FN, 'Timetable entry not found', {
+      logger.warn(fn, 'Timetable entry not found', {
         subjectCode: validated.subjectCode,
         scheme: validated.scheme,
         date: validated.date,
@@ -551,237 +629,30 @@ export async function markCopyCase(data: z.infer<typeof MarkCopyCaseSchema>) {
       .where(eq(timetable.id, entry.id))
       .returning();
 
-    logger.info(MODULE_FN, 'Copy case students marked', {
+    logger.info(fn, 'Copy case students marked', {
       id: entry.id,
       count: validated.cpsStudents.length,
     });
-    revalidatePath('/exam-center/exam-setup/timetable');
 
+    revalidatePath('/exam-center/exam-setup/timetable');
     return { success: true, data: updated };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      logger.warn(MODULE_FN, 'Validation failed', { issues: error.issues });
+      logger.warn(fn, 'Validation failed', { issues: error.issues });
       return { success: false, error: error.issues };
     }
-
-    logger.error(MODULE_FN, 'Failed to mark copy case students', { error });
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to mark copy case students',
-    };
+    logger.error(fn, 'Failed to mark copy case students', { error });
+    return { success: false, error: 'Failed to mark copy case' };
   }
 }
-
-// ============================================
-// Export Operations
-// ============================================
-
-export async function exportTimetable() {
-  const MODULE_FN = `${MODULE}.exportTimetable`;
-
-  try {
-    const examCenter = await requireExamCenter();
-
-    const entries = await db.query.timetable.findMany({
-      where: eq(timetable.examCenterId, examCenter.id),
-      orderBy: [timetable.date, timetable.session],
-    });
-
-    // Convert dates to ISO strings for JSON export
-    const exportData = entries.map((entry) => ({
-      ...entry,
-      date: entry.date.toISOString(),
-      createdAt: entry.createdAt.toISOString(),
-      updatedAt: entry.updatedAt.toISOString(),
-    }));
-
-    logger.info(MODULE_FN, `Exported ${exportData.length} timetable entries`, {
-      examCenterId: examCenter.id,
-      count: exportData.length,
-    });
-
-    return { success: true, data: exportData };
-  } catch (error) {
-    logger.error(MODULE_FN, 'Failed to export timetable', { error });
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to export timetable',
-    };
-  }
-}
-
-// ============================================
-// Statistics / Analytics
-// ============================================
-
-// lib/actions/timetable.ts or wherever getTimetableStats is defined
-
-export async function getTimetableStats() {
-  const MODULE_FN = `${MODULE}.getTimetableStats`;
-
-  try {
-    const examCenterId = await getExamCenterId();
-
-    if (!examCenterId) {
-      logger.debug(MODULE_FN, 'No exam center found');
-      return {
-        success: true,
-        data: {
-          totalEntries: 0,
-          uniqueSubjects: 0,
-          uniqueSchemes: 0,
-          examinees: 0, // unique seat numbers
-          students: 0, // unique enrollment numbers
-          dateRange: null,
-          totalAbsent: 0,
-          totalCps: 0,
-        },
-      };
-    }
-
-    // Run queries in parallel for performance
-    const [timetableStats, studentStats] = await Promise.all([
-      // Timetable stats (entries, subjects, schemes, absent, cps)
-      db
-        .select({
-          totalEntries: sql<number>`count(*)`,
-          uniqueSubjects: sql<number>`count(DISTINCT ${timetable.subjectCode})`,
-          uniqueSchemes: sql<number>`count(DISTINCT ${timetable.scheme})`,
-          totalAbsent: sql<number>`COALESCE(sum(jsonb_array_length(${timetable.absentNumbers})), 0)`,
-          totalCps: sql<number>`COALESCE(sum(jsonb_array_length(${timetable.cpsStudents})), 0)`,
-          minDate: sql<Date | null>`min(${timetable.date})`,
-          maxDate: sql<Date | null>`max(${timetable.date})`,
-        })
-        .from(timetable)
-        .where(eq(timetable.examCenterId, examCenterId)),
-
-      // Student stats (unique examinees and students)
-      db
-        .select({
-          examinees: sql<number>`count(DISTINCT ${students.seatNumber})`,
-          students: sql<number>`count(DISTINCT ${students.enrollmentNumber})`,
-        })
-        .from(students)
-        .where(and(eq(students.examCenterId, examCenterId), eq(students.isDeleted, false))),
-    ]);
-
-    const ttResult = timetableStats[0];
-    const stResult = studentStats[0];
-
-    const statsData = {
-      totalEntries: Number(ttResult?.totalEntries) || 0,
-      uniqueSubjects: Number(ttResult?.uniqueSubjects) || 0,
-      uniqueSchemes: Number(ttResult?.uniqueSchemes) || 0,
-      examinees: Number(stResult?.examinees) || 0,
-      students: Number(stResult?.students) || 0,
-      totalAbsent: Number(ttResult?.totalAbsent) || 0,
-      totalCps: Number(ttResult?.totalCps) || 0,
-      dateRange:
-        ttResult?.minDate && ttResult?.maxDate
-          ? { min: new Date(ttResult.minDate), max: new Date(ttResult.maxDate) }
-          : null,
-    };
-
-    logger.debug(MODULE_FN, 'Timetable stats calculated', statsData);
-    return { success: true, data: statsData };
-  } catch (error) {
-    logger.error(MODULE_FN, 'Failed to fetch timetable stats', { error });
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
-}
-
-export async function hasTimetable(): Promise<
-  { success: true; data: boolean } | { success: false; error: string }
-> {
-  const MODULE_FN = `${MODULE}.hasTimetable`;
-
-  try {
-    const examCenterId = await getExamCenterId();
-
-    if (!examCenterId) {
-      logger.debug(MODULE_FN, 'No exam center found');
-      return { success: true, data: false };
-    }
-
-    const result = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(timetable)
-      .where(eq(timetable.examCenterId, examCenterId));
-
-    const hasData = Number(result[0]?.count || 0) > 0;
-
-    logger.debug(MODULE_FN, `Timetable exists: ${hasData}`);
-    return { success: true, data: hasData };
-  } catch (error) {
-    logger.error(MODULE_FN, 'Failed to check timetable existence', { error });
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
-}
-
-export async function getTimetableBySubject(subjectCode: string, scheme?: string) {
-  const MODULE_FN = `${MODULE}.getTimetableBySubject`;
-
-  try {
-    const examCenterId = await getExamCenterId();
-
-    if (!examCenterId) {
-      logger.debug(MODULE_FN, 'No exam center found');
-      return { success: true, data: [] };
-    }
-
-    const conditions = [
-      eq(timetable.examCenterId, examCenterId),
-      eq(timetable.subjectCode, subjectCode),
-    ];
-
-    if (scheme) {
-      conditions.push(eq(timetable.scheme, scheme));
-    }
-
-    const entries = await db.query.timetable.findMany({
-      where: and(...conditions),
-      orderBy: [timetable.date, timetable.session],
-    });
-
-    logger.debug(MODULE_FN, `Fetched ${entries.length} entries for subject ${subjectCode}`);
-    return { success: true, data: entries };
-  } catch (error) {
-    logger.error(MODULE_FN, 'Failed to fetch timetable by subject', { error });
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
-}
-
-// lib/actions/timetable.ts - Add this function
-
-// ============================================
-// Resolve Copy Cases
-// ============================================
-
-const ResolveCopyCaseSchema = z.object({
-  subjectCode: z.string().min(1),
-  scheme: z.string().min(1),
-  date: z.date(),
-  session: z.enum(['Morning', 'Afternoon', 'All']),
-  seatNumber: z.number().int().positive(),
-});
 
 export async function resolveCopyCase(data: z.infer<typeof ResolveCopyCaseSchema>) {
-  const MODULE_FN = `${MODULE}.resolveCopyCase`;
+  const fn = `${MODULE}.resolveCopyCase`;
 
   try {
     const validated = ResolveCopyCaseSchema.parse(data);
     const examCenter = await requireExamCenter();
 
-    // Find the timetable entry
     const entry = await db.query.timetable.findFirst({
       where: and(
         eq(timetable.examCenterId, examCenter.id),
@@ -793,35 +664,22 @@ export async function resolveCopyCase(data: z.infer<typeof ResolveCopyCaseSchema
     });
 
     if (!entry) {
-      logger.warn(MODULE_FN, 'Timetable entry not found', {
-        subjectCode: validated.subjectCode,
-        scheme: validated.scheme,
-        date: validated.date,
-        session: validated.session,
-      });
+      logger.warn(fn, 'Timetable entry not found');
       return { success: false, error: 'Timetable entry not found' };
     }
 
-    // Check if the seat is in cpsStudents
     const cpsStudents = entry.cpsStudents || [];
     if (!cpsStudents.includes(validated.seatNumber)) {
-      logger.warn(MODULE_FN, 'Seat number not in copy case list', {
-        seatNumber: validated.seatNumber,
-        cpsStudents,
-      });
+      logger.warn(fn, 'Seat number not in copy case list', { seatNumber: validated.seatNumber });
       return { success: false, error: 'This student is not marked as a copy case' };
     }
 
-    // Check if already resolved
     const cpsResolved = entry.cpsResolved || [];
     if (cpsResolved.includes(validated.seatNumber)) {
-      logger.warn(MODULE_FN, 'Copy case already resolved', {
-        seatNumber: validated.seatNumber,
-      });
+      logger.warn(fn, 'Copy case already resolved', { seatNumber: validated.seatNumber });
       return { success: false, error: 'This copy case has already been resolved' };
     }
 
-    // Add to resolved list
     const updatedResolved = [...cpsResolved, validated.seatNumber].sort();
 
     const [updated] = await db
@@ -833,25 +691,54 @@ export async function resolveCopyCase(data: z.infer<typeof ResolveCopyCaseSchema
       .where(eq(timetable.id, entry.id))
       .returning();
 
-    logger.info(MODULE_FN, 'Copy case resolved', {
+    logger.info(fn, 'Copy case resolved', {
       id: entry.id,
       seatNumber: validated.seatNumber,
       totalResolved: updatedResolved.length,
     });
+
     revalidatePath('/exam-center/exam-setup/timetable');
     revalidatePath('/msbte-reports/f13');
-
     return { success: true, data: updated };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      logger.warn(MODULE_FN, 'Validation failed', { issues: error.issues });
+      logger.warn(fn, 'Validation failed', { issues: error.issues });
       return { success: false, error: error.issues };
     }
+    logger.error(fn, 'Failed to resolve copy case', { error });
+    return { success: false, error: 'Failed to resolve copy case' };
+  }
+}
 
-    logger.error(MODULE_FN, 'Failed to resolve copy case', { error });
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to resolve copy case',
-    };
+// ============================================
+// Export Operations
+// ============================================
+
+export async function exportTimetable() {
+  const fn = `${MODULE}.exportTimetable`;
+
+  try {
+    const examCenter = await requireExamCenter();
+
+    const entries = await db.query.timetable.findMany({
+      where: eq(timetable.examCenterId, examCenter.id),
+      orderBy: [timetable.date, timetable.session],
+    });
+
+    const exportData = entries.map((entry) => ({
+      ...entry,
+      date: entry.date.toISOString(),
+      createdAt: entry.createdAt.toISOString(),
+      updatedAt: entry.updatedAt.toISOString(),
+    }));
+
+    logger.info(fn, `Exported ${exportData.length} timetable entries`, {
+      examCenterId: examCenter.id,
+    });
+
+    return { success: true, data: exportData };
+  } catch (error) {
+    logger.error(fn, 'Failed to export timetable', { error });
+    return { success: false, error: 'Failed to export timetable' };
   }
 }

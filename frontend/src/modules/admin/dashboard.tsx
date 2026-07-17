@@ -33,25 +33,24 @@ import {
 import { toast } from 'sonner';
 
 import {
-  getAdminStats,
-  getOrganizations,
-  getUsers,
-  getEmailLogs,
-  getPayments,
-  getAuditLogs,
-  getPromoCodes,
   createPromoCode,
+  deleteOrganization,
   deletePromoCode,
+  deleteUser,
+  getAdminStats,
+  getAuditLogs,
+  getEmailLogs,
+  getOrganizations,
+  getPayments,
+  getPromoCodes,
+  getSystemHealth,
+  getUsers,
   updateOrganization,
   updateUserRole,
-  deleteUser,
-  deleteOrganization,
-  getSystemHealth,
 } from '@/lib/actions/admin';
 import { cn } from '@/lib/utils';
 
 import { useUserInfo } from '@/hooks/useUserInfo';
-import { useAuth } from '@/components/auth/AuthProvider';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -74,7 +73,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
   TableBody,
@@ -83,8 +81,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 import { PageHeader } from '@/components/layout/page-layout';
+
+import { useAuth } from '@/components/auth/AuthProvider';
 
 // ============================================================================
 // Types
@@ -107,7 +108,10 @@ const StatCards = ({ stats, loading }: { stats: any; loading: boolean }) => {
     return (
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {Array.from({ length: 10 }).map((_, i) => (
-          <Skeleton key={i} className="h-28 rounded-xl" />
+          <Skeleton
+            key={i}
+            className="h-28 rounded-xl"
+          />
         ))}
       </div>
     );
@@ -177,19 +181,19 @@ const StatCards = ({ stats, loading }: { stats: any; loading: boolean }) => {
             key={idx}
             className="group relative overflow-hidden border-0 bg-gradient-to-br from-white to-neutral-50/50 shadow-sm transition-all hover:shadow-md dark:from-neutral-950 dark:to-neutral-900/50"
           >
-            <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-emerald-500/50 via-blue-500/50 to-purple-500/50 opacity-0 transition-opacity group-hover:opacity-100" />
-            <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-gradient-to-br from-emerald-500/5 to-blue-500/5 blur-2xl transition-opacity group-hover:opacity-100" />
+            <div className="absolute top-0 right-0 left-0 h-0.5 bg-gradient-to-r from-emerald-500/50 via-blue-500/50 to-purple-500/50 opacity-0 transition-opacity group-hover:opacity-100" />
+            <div className="absolute -top-8 -right-8 h-24 w-24 rounded-full bg-gradient-to-br from-emerald-500/5 to-blue-500/5 blur-2xl transition-opacity group-hover:opacity-100" />
             <CardContent className="relative p-4">
               <div className="flex items-start justify-between">
                 <div className="min-w-0">
-                  <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 truncate">
+                  <p className="truncate text-xs font-medium text-neutral-500 dark:text-neutral-400">
                     {card.label}
                   </p>
                   <p className={cn('mt-0.5 text-2xl font-bold tracking-tight', card.color)}>
                     {card.value}
                   </p>
                   {card.subtext && (
-                    <p className="text-[10px] text-neutral-400 truncate">{card.subtext}</p>
+                    <p className="truncate text-[10px] text-neutral-400">{card.subtext}</p>
                   )}
                 </div>
                 <div
@@ -271,17 +275,11 @@ const SystemHealthCard = () => {
                   : 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
               )}
             >
-              {isHealthy ? (
-                <CheckCircle className="h-5 w-5" />
-              ) : (
-                <Bell className="h-5 w-5" />
-              )}
+              {isHealthy ? <CheckCircle className="h-5 w-5" /> : <Bell className="h-5 w-5" />}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <p className="font-semibold">
-                  System {isHealthy ? 'Healthy' : 'Degraded'}
-                </p>
+                <p className="font-semibold">System {isHealthy ? 'Healthy' : 'Degraded'}</p>
                 <Badge
                   variant={isHealthy ? 'default' : 'destructive'}
                   className="text-[10px] font-medium"
@@ -293,7 +291,8 @@ const SystemHealthCard = () => {
                 {health.emailFailures24h > 0 &&
                   `${health.emailFailures24h} email failures in 24h · `}
                 {health.pendingUploads > 0 && `${health.pendingUploads} pending uploads`}
-                {health.emailFailures24h === 0 && health.pendingUploads === 0 &&
+                {health.emailFailures24h === 0 &&
+                  health.pendingUploads === 0 &&
                   'All systems operational'}
               </p>
             </div>
@@ -304,9 +303,7 @@ const SystemHealthCard = () => {
               Database: {health.database}
             </span>
             <span className="hidden sm:inline">•</span>
-            <span className="hidden sm:inline">
-              Frontend: {health.frontend}
-            </span>
+            <span className="hidden sm:inline">Frontend: {health.frontend}</span>
             <span className="hidden sm:inline">•</span>
             <span className="hidden sm:inline">
               Last checked: {format(new Date(health.timestamp), 'HH:mm:ss')}
@@ -399,17 +396,20 @@ const OrganizationsTab = () => {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-3">
-        <div className="relative flex-1 min-w-[200px]">
+        <div className="relative min-w-[200px] flex-1">
           <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-neutral-400" />
           <Input
             placeholder="Search organizations..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 h-10 rounded-xl border-neutral-200/60 bg-white/50 backdrop-blur-sm focus:ring-2 focus:ring-emerald-500/20 dark:border-neutral-800/60 dark:bg-neutral-950/50"
+            className="h-10 rounded-xl border-neutral-200/60 bg-white/50 pl-9 backdrop-blur-sm focus:ring-2 focus:ring-emerald-500/20 dark:border-neutral-800/60 dark:bg-neutral-950/50"
           />
         </div>
-        <Select value={filterTier} onValueChange={setFilterTier}>
-          <SelectTrigger className="w-36 h-10 rounded-xl border-neutral-200/60 bg-white/50 backdrop-blur-sm dark:border-neutral-800/60 dark:bg-neutral-950/50">
+        <Select
+          value={filterTier}
+          onValueChange={setFilterTier}
+        >
+          <SelectTrigger className="h-10 w-36 rounded-xl border-neutral-200/60 bg-white/50 backdrop-blur-sm dark:border-neutral-800/60 dark:bg-neutral-950/50">
             <SelectValue placeholder="All Tiers" />
           </SelectTrigger>
           <SelectContent>
@@ -435,28 +435,28 @@ const OrganizationsTab = () => {
           <TableHeader className="bg-neutral-50/50 dark:bg-neutral-900/30">
             <TableRow>
               <TableHead className="w-6" />
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+              <TableHead className="text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Organization
               </TableHead>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+              <TableHead className="text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Slug
               </TableHead>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+              <TableHead className="text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Tier
               </TableHead>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider text-right">
+              <TableHead className="text-right text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Expires
               </TableHead>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider text-center">
+              <TableHead className="text-center text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Centers
               </TableHead>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider text-center">
+              <TableHead className="text-center text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Users
               </TableHead>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider text-center">
+              <TableHead className="text-center text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Payments
               </TableHead>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider text-right">
+              <TableHead className="text-right text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Actions
               </TableHead>
             </TableRow>
@@ -464,7 +464,10 @@ const OrganizationsTab = () => {
           <TableBody>
             {orgs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="py-12 text-center">
+                <TableCell
+                  colSpan={9}
+                  className="py-12 text-center"
+                >
                   <div className="flex flex-col items-center gap-2">
                     <Building2 className="h-8 w-8 text-neutral-300 dark:text-neutral-600" />
                     <p className="text-sm text-neutral-500">No organizations found</p>
@@ -477,12 +480,12 @@ const OrganizationsTab = () => {
                 <>
                   <TableRow
                     key={org.id}
-                    className="hover:bg-neutral-50/50 dark:hover:bg-neutral-900/30 transition-colors"
+                    className="transition-colors hover:bg-neutral-50/50 dark:hover:bg-neutral-900/30"
                   >
                     <TableCell>
                       <button
                         onClick={() => setExpandedOrg(expandedOrg === org.id ? null : org.id)}
-                        className="p-1 text-neutral-400 hover:text-neutral-600 transition-colors"
+                        className="p-1 text-neutral-400 transition-colors hover:text-neutral-600"
                       >
                         {expandedOrg === org.id ? (
                           <ChevronDown className="h-4 w-4" />
@@ -496,7 +499,9 @@ const OrganizationsTab = () => {
                       {org.slug}
                     </TableCell>
                     <TableCell>
-                      <Badge className={cn('border font-medium', getTierBadge(org.subscriptionTier))}>
+                      <Badge
+                        className={cn('border font-medium', getTierBadge(org.subscriptionTier))}
+                      >
                         {org.subscriptionTier}
                       </Badge>
                     </TableCell>
@@ -537,10 +542,13 @@ const OrganizationsTab = () => {
                   </TableRow>
                   {expandedOrg === org.id && (
                     <TableRow className="bg-neutral-50/30 dark:bg-neutral-900/20">
-                      <TableCell colSpan={9} className="p-4">
+                      <TableCell
+                        colSpan={9}
+                        className="p-4"
+                      >
                         <div className="grid grid-cols-2 gap-4 text-sm">
                           <div>
-                            <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                            <p className="text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                               Organization Details
                             </p>
                             <div className="mt-2 space-y-1">
@@ -558,7 +566,7 @@ const OrganizationsTab = () => {
                             </div>
                           </div>
                           <div>
-                            <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                            <p className="text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                               Quick Actions
                             </p>
                             <div className="mt-2 flex gap-2">
@@ -688,7 +696,7 @@ const UsersTab = () => {
             placeholder="Search users..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 h-10 rounded-xl border-neutral-200/60 bg-white/50 backdrop-blur-sm focus:ring-2 focus:ring-emerald-500/20 dark:border-neutral-800/60 dark:bg-neutral-950/50"
+            className="h-10 rounded-xl border-neutral-200/60 bg-white/50 pl-9 backdrop-blur-sm focus:ring-2 focus:ring-emerald-500/20 dark:border-neutral-800/60 dark:bg-neutral-950/50"
           />
         </div>
         <Button
@@ -705,22 +713,22 @@ const UsersTab = () => {
         <Table>
           <TableHeader className="bg-neutral-50/50 dark:bg-neutral-900/30">
             <TableRow>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+              <TableHead className="text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 User
               </TableHead>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+              <TableHead className="text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Email
               </TableHead>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+              <TableHead className="text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Verified
               </TableHead>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+              <TableHead className="text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Role
               </TableHead>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+              <TableHead className="text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Organization
               </TableHead>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider text-right">
+              <TableHead className="text-right text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Actions
               </TableHead>
             </TableRow>
@@ -728,7 +736,10 @@ const UsersTab = () => {
           <TableBody>
             {users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-12 text-center">
+                <TableCell
+                  colSpan={6}
+                  className="py-12 text-center"
+                >
                   <div className="flex flex-col items-center gap-2">
                     <Users className="h-8 w-8 text-neutral-300 dark:text-neutral-600" />
                     <p className="text-sm text-neutral-500">No users found</p>
@@ -739,7 +750,7 @@ const UsersTab = () => {
               users.map((user) => (
                 <TableRow
                   key={user.id}
-                  className="hover:bg-neutral-50/50 dark:hover:bg-neutral-900/30 transition-colors"
+                  className="transition-colors hover:bg-neutral-50/50 dark:hover:bg-neutral-900/30"
                 >
                   <TableCell className="font-medium">{user.name}</TableCell>
                   <TableCell className="text-sm">{user.email}</TableCell>
@@ -752,7 +763,7 @@ const UsersTab = () => {
                     ) : (
                       <Badge
                         variant="outline"
-                        className="text-neutral-400 border-neutral-300/30"
+                        className="border-neutral-300/30 text-neutral-400"
                       >
                         <XCircle className="mr-1 h-3 w-3" />
                         Unverified
@@ -760,7 +771,10 @@ const UsersTab = () => {
                     )}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="secondary" className="text-xs font-medium">
+                    <Badge
+                      variant="secondary"
+                      className="text-xs font-medium"
+                    >
                       {user.role || 'member'}
                     </Badge>
                   </TableCell>
@@ -878,17 +892,20 @@ const EmailLogsTab = () => {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-3">
-        <div className="relative flex-1 min-w-[200px]">
+        <div className="relative min-w-[200px] flex-1">
           <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-neutral-400" />
           <Input
             placeholder="Search emails..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 h-10 rounded-xl border-neutral-200/60 bg-white/50 backdrop-blur-sm focus:ring-2 focus:ring-emerald-500/20 dark:border-neutral-800/60 dark:bg-neutral-950/50"
+            className="h-10 rounded-xl border-neutral-200/60 bg-white/50 pl-9 backdrop-blur-sm focus:ring-2 focus:ring-emerald-500/20 dark:border-neutral-800/60 dark:bg-neutral-950/50"
           />
         </div>
-        <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="w-36 h-10 rounded-xl border-neutral-200/60 bg-white/50 backdrop-blur-sm dark:border-neutral-800/60 dark:bg-neutral-950/50">
+        <Select
+          value={status}
+          onValueChange={setStatus}
+        >
+          <SelectTrigger className="h-10 w-36 rounded-xl border-neutral-200/60 bg-white/50 backdrop-blur-sm dark:border-neutral-800/60 dark:bg-neutral-950/50">
             <SelectValue placeholder="All Status" />
           </SelectTrigger>
           <SelectContent>
@@ -911,22 +928,22 @@ const EmailLogsTab = () => {
         <Table>
           <TableHeader className="bg-neutral-50/50 dark:bg-neutral-900/30">
             <TableRow>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+              <TableHead className="text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Date
               </TableHead>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+              <TableHead className="text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Recipient
               </TableHead>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+              <TableHead className="text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Subject
               </TableHead>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+              <TableHead className="text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Type
               </TableHead>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+              <TableHead className="text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Status
               </TableHead>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+              <TableHead className="text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Error
               </TableHead>
             </TableRow>
@@ -934,7 +951,10 @@ const EmailLogsTab = () => {
           <TableBody>
             {logs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-12 text-center">
+                <TableCell
+                  colSpan={6}
+                  className="py-12 text-center"
+                >
                   <div className="flex flex-col items-center gap-2">
                     <Mail className="h-8 w-8 text-neutral-300 dark:text-neutral-600" />
                     <p className="text-sm text-neutral-500">No email logs found</p>
@@ -945,7 +965,7 @@ const EmailLogsTab = () => {
               logs.map((log) => (
                 <TableRow
                   key={log.id}
-                  className="hover:bg-neutral-50/50 dark:hover:bg-neutral-900/30 transition-colors"
+                  className="transition-colors hover:bg-neutral-50/50 dark:hover:bg-neutral-900/30"
                 >
                   <TableCell className="text-sm whitespace-nowrap text-neutral-600 dark:text-neutral-400">
                     {format(new Date(log.sentAt), 'dd MMM HH:mm')}
@@ -953,7 +973,10 @@ const EmailLogsTab = () => {
                   <TableCell className="font-medium">{log.recipientEmail}</TableCell>
                   <TableCell className="max-w-xs truncate">{log.subject}</TableCell>
                   <TableCell>
-                    <Badge variant="secondary" className="text-xs font-medium">
+                    <Badge
+                      variant="secondary"
+                      className="text-xs font-medium"
+                    >
                       {log.orderType}
                     </Badge>
                   </TableCell>
@@ -964,7 +987,10 @@ const EmailLogsTab = () => {
                         Sent
                       </Badge>
                     ) : (
-                      <Badge variant="destructive" className="text-xs">
+                      <Badge
+                        variant="destructive"
+                        className="text-xs"
+                      >
                         <MailX className="mr-1 h-3 w-3" />
                         Failed
                       </Badge>
@@ -1048,8 +1074,11 @@ const PaymentsTab = () => {
   return (
     <div className="space-y-4">
       <div className="flex gap-3">
-        <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="w-40 h-10 rounded-xl border-neutral-200/60 bg-white/50 backdrop-blur-sm dark:border-neutral-800/60 dark:bg-neutral-950/50">
+        <Select
+          value={status}
+          onValueChange={setStatus}
+        >
+          <SelectTrigger className="h-10 w-40 rounded-xl border-neutral-200/60 bg-white/50 backdrop-blur-sm dark:border-neutral-800/60 dark:bg-neutral-950/50">
             <SelectValue placeholder="All Status" />
           </SelectTrigger>
           <SelectContent>
@@ -1074,22 +1103,22 @@ const PaymentsTab = () => {
         <Table>
           <TableHeader className="bg-neutral-50/50 dark:bg-neutral-900/30">
             <TableRow>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+              <TableHead className="text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Organization
               </TableHead>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+              <TableHead className="text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Plan
               </TableHead>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider text-right">
+              <TableHead className="text-right text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Amount
               </TableHead>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+              <TableHead className="text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Status
               </TableHead>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+              <TableHead className="text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Date
               </TableHead>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+              <TableHead className="text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Payment ID
               </TableHead>
             </TableRow>
@@ -1097,7 +1126,10 @@ const PaymentsTab = () => {
           <TableBody>
             {payments.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-12 text-center">
+                <TableCell
+                  colSpan={6}
+                  className="py-12 text-center"
+                >
                   <div className="flex flex-col items-center gap-2">
                     <Banknote className="h-8 w-8 text-neutral-300 dark:text-neutral-600" />
                     <p className="text-sm text-neutral-500">No payments found</p>
@@ -1108,11 +1140,9 @@ const PaymentsTab = () => {
               payments.map((payment) => (
                 <TableRow
                   key={payment.id}
-                  className="hover:bg-neutral-50/50 dark:hover:bg-neutral-900/30 transition-colors"
+                  className="transition-colors hover:bg-neutral-50/50 dark:hover:bg-neutral-900/30"
                 >
-                  <TableCell className="font-medium">
-                    {payment.organization?.name || '—'}
-                  </TableCell>
+                  <TableCell className="font-medium">{payment.organization?.name || '—'}</TableCell>
                   <TableCell>{payment.planName}</TableCell>
                   <TableCell className="text-right font-semibold">
                     ₹{(payment.amount / 100).toLocaleString()}
@@ -1122,13 +1152,13 @@ const PaymentsTab = () => {
                       className={cn(
                         'font-medium',
                         payment.status === 'paid' &&
-                        'border-emerald-500/30 bg-emerald-50/50 text-emerald-700 dark:border-emerald-800/30 dark:bg-emerald-950/20 dark:text-emerald-400',
+                          'border-emerald-500/30 bg-emerald-50/50 text-emerald-700 dark:border-emerald-800/30 dark:bg-emerald-950/20 dark:text-emerald-400',
                         payment.status === 'pending' &&
-                        'border-amber-500/30 bg-amber-50/50 text-amber-700 dark:border-amber-800/30 dark:bg-amber-950/20 dark:text-amber-400',
+                          'border-amber-500/30 bg-amber-50/50 text-amber-700 dark:border-amber-800/30 dark:bg-amber-950/20 dark:text-amber-400',
                         payment.status === 'failed' &&
-                        'border-red-500/30 bg-red-50/50 text-red-700 dark:border-red-800/30 dark:bg-red-950/20 dark:text-red-400',
+                          'border-red-500/30 bg-red-50/50 text-red-700 dark:border-red-800/30 dark:bg-red-950/20 dark:text-red-400',
                         payment.status === 'refunded' &&
-                        'border-neutral-300/30 bg-neutral-50/50 text-neutral-600 dark:border-neutral-700/30 dark:bg-neutral-900/20 dark:text-neutral-400',
+                          'border-neutral-300/30 bg-neutral-50/50 text-neutral-600 dark:border-neutral-700/30 dark:bg-neutral-900/20 dark:text-neutral-400',
                       )}
                     >
                       {payment.status}
@@ -1217,17 +1247,20 @@ const AuditLogsTab = () => {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-3">
-        <div className="relative flex-1 min-w-[200px]">
+        <div className="relative min-w-[200px] flex-1">
           <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-neutral-400" />
           <Input
             placeholder="Search logs..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 h-10 rounded-xl border-neutral-200/60 bg-white/50 backdrop-blur-sm focus:ring-2 focus:ring-emerald-500/20 dark:border-neutral-800/60 dark:bg-neutral-950/50"
+            className="h-10 rounded-xl border-neutral-200/60 bg-white/50 pl-9 backdrop-blur-sm focus:ring-2 focus:ring-emerald-500/20 dark:border-neutral-800/60 dark:bg-neutral-950/50"
           />
         </div>
-        <Select value={type} onValueChange={setType}>
-          <SelectTrigger className="w-40 h-10 rounded-xl border-neutral-200/60 bg-white/50 backdrop-blur-sm dark:border-neutral-800/60 dark:bg-neutral-950/50">
+        <Select
+          value={type}
+          onValueChange={setType}
+        >
+          <SelectTrigger className="h-10 w-40 rounded-xl border-neutral-200/60 bg-white/50 backdrop-blur-sm dark:border-neutral-800/60 dark:bg-neutral-950/50">
             <SelectValue placeholder="All Types" />
           </SelectTrigger>
           <SelectContent>
@@ -1253,19 +1286,19 @@ const AuditLogsTab = () => {
         <Table>
           <TableHeader className="bg-neutral-50/50 dark:bg-neutral-900/30">
             <TableRow>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+              <TableHead className="text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Time
               </TableHead>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+              <TableHead className="text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 User
               </TableHead>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+              <TableHead className="text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Action
               </TableHead>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+              <TableHead className="text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Entity
               </TableHead>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+              <TableHead className="text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Details
               </TableHead>
             </TableRow>
@@ -1273,7 +1306,10 @@ const AuditLogsTab = () => {
           <TableBody>
             {logs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="py-12 text-center">
+                <TableCell
+                  colSpan={5}
+                  className="py-12 text-center"
+                >
                   <div className="flex flex-col items-center gap-2">
                     <Activity className="h-8 w-8 text-neutral-300 dark:text-neutral-600" />
                     <p className="text-sm text-neutral-500">No audit logs found</p>
@@ -1284,14 +1320,17 @@ const AuditLogsTab = () => {
               logs.map((log) => (
                 <TableRow
                   key={log.id}
-                  className="hover:bg-neutral-50/50 dark:hover:bg-neutral-900/30 transition-colors"
+                  className="transition-colors hover:bg-neutral-50/50 dark:hover:bg-neutral-900/30"
                 >
                   <TableCell className="text-sm whitespace-nowrap text-neutral-600 dark:text-neutral-400">
                     {format(new Date(log.createdAt), 'dd MMM HH:mm:ss')}
                   </TableCell>
                   <TableCell>{log.user?.name || 'System'}</TableCell>
                   <TableCell>
-                    <Badge variant="secondary" className="text-xs font-medium">
+                    <Badge
+                      variant="secondary"
+                      className="text-xs font-medium"
+                    >
                       {log.action}
                     </Badge>
                   </TableCell>
@@ -1419,22 +1458,22 @@ const PromoCodesTab = () => {
         <Table>
           <TableHeader className="bg-neutral-50/50 dark:bg-neutral-900/30">
             <TableRow>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+              <TableHead className="text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Code
               </TableHead>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+              <TableHead className="text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Type
               </TableHead>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider text-right">
+              <TableHead className="text-right text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Amount
               </TableHead>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider text-center">
+              <TableHead className="text-center text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Status
               </TableHead>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+              <TableHead className="text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Expires
               </TableHead>
-              <TableHead className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider text-right">
+              <TableHead className="text-right text-xs font-medium tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
                 Actions
               </TableHead>
             </TableRow>
@@ -1442,7 +1481,10 @@ const PromoCodesTab = () => {
           <TableBody>
             {codes.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-12 text-center">
+                <TableCell
+                  colSpan={6}
+                  className="py-12 text-center"
+                >
                   <div className="flex flex-col items-center gap-2">
                     <Plus className="h-8 w-8 text-neutral-300 dark:text-neutral-600" />
                     <p className="text-sm text-neutral-500">No promo codes found</p>
@@ -1454,11 +1496,14 @@ const PromoCodesTab = () => {
               codes.map((code) => (
                 <TableRow
                   key={code.id}
-                  className="hover:bg-neutral-50/50 dark:hover:bg-neutral-900/30 transition-colors"
+                  className="transition-colors hover:bg-neutral-50/50 dark:hover:bg-neutral-900/30"
                 >
                   <TableCell className="font-mono font-medium">{code.code}</TableCell>
                   <TableCell>
-                    <Badge variant="secondary" className="text-xs font-medium">
+                    <Badge
+                      variant="secondary"
+                      className="text-xs font-medium"
+                    >
                       {code.type}
                     </Badge>
                   </TableCell>
@@ -1467,7 +1512,10 @@ const PromoCodesTab = () => {
                   </TableCell>
                   <TableCell className="text-center">
                     {code.isUsed ? (
-                      <Badge variant="destructive" className="text-xs">
+                      <Badge
+                        variant="destructive"
+                        className="text-xs"
+                      >
                         Used
                       </Badge>
                     ) : (
@@ -1496,16 +1544,17 @@ const PromoCodesTab = () => {
         </Table>
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+      >
         <DialogContent className="max-w-md rounded-2xl border-0 shadow-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl">
               <Shield className="h-5 w-5 text-emerald-500" />
               Create Promo Code
             </DialogTitle>
-            <DialogDescription>
-              Create a new promo code for trials or discounts.
-            </DialogDescription>
+            <DialogDescription>Create a new promo code for trials or discounts.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -1514,7 +1563,7 @@ const PromoCodesTab = () => {
                 value={newCode.code}
                 onChange={(e) => setNewCode({ ...newCode, code: e.target.value.toUpperCase() })}
                 placeholder="e.g., TRIAL2024"
-                className="font-mono rounded-xl border-neutral-200/60 focus:ring-2 focus:ring-emerald-500/20"
+                className="rounded-xl border-neutral-200/60 font-mono focus:ring-2 focus:ring-emerald-500/20"
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -1615,14 +1664,14 @@ export default function AdminPanel() {
   if (role !== 'owner' && role !== 'admin') {
     return (
       <div className="flex min-h-[400px] flex-col items-center justify-center">
-        <div className="text-center max-w-md">
+        <div className="max-w-md text-center">
           <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-red-100 to-red-200 dark:from-red-900/30 dark:to-red-800/30">
             <XCircle className="h-10 w-10 text-red-600 dark:text-red-400" />
           </div>
           <h2 className="text-2xl font-bold">Access Denied</h2>
           <p className="text-muted-foreground mt-2 text-sm">
-            You don't have permission to view this page. Only organization owners and admins
-            can access the admin panel.
+            You don't have permission to view this page. Only organization owners and admins can
+            access the admin panel.
           </p>
           <Button className="mt-6 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-sm hover:shadow-md">
             Return to Dashboard
@@ -1640,7 +1689,7 @@ export default function AdminPanel() {
         icon={Settings}
         actions={
           <div className="flex items-center gap-2">
-            <Badge className="bg-gradient-to-r from-emerald-500/20 to-emerald-600/20 text-emerald-700 dark:from-emerald-400/20 dark:to-emerald-500/20 dark:text-emerald-400 border-0">
+            <Badge className="border-0 bg-gradient-to-r from-emerald-500/20 to-emerald-600/20 text-emerald-700 dark:from-emerald-400/20 dark:to-emerald-500/20 dark:text-emerald-400">
               <Shield className="mr-1 h-3 w-3" />
               Admin
             </Badge>
@@ -1657,12 +1706,19 @@ export default function AdminPanel() {
         }
       />
 
-      <StatCards stats={stats} loading={loading} />
+      <StatCards
+        stats={stats}
+        loading={loading}
+      />
 
       <SystemHealthCard />
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="flex-wrap h-auto gap-1 bg-transparent p-0">
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="space-y-4"
+      >
+        <TabsList className="h-auto flex-wrap gap-1 bg-transparent p-0">
           <TabsTrigger
             value="organizations"
             className="rounded-xl px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm dark:data-[state=active]:bg-neutral-950"

@@ -15,7 +15,7 @@
       "Regular updates",
       "Full technical support"
     ],
-    "popular": true,
+    "popular": false,
     "offer": false,
     "cta": "Select Plan",
     "amount": 499900,
@@ -24,7 +24,7 @@
   {
     "id": "1year_online",
     "title": "1 Year",
-    "price": "₹6,999",
+    "price": "₹7,999",
     "period": "year",
     "description": "The standard subscription for institutions conducting examinations throughout the academic year.",
     "features": [
@@ -36,13 +36,14 @@
       "Full technical support"
     ],
     "cta": "Select Plan",
-    "amount": 699900,
+    "amount": 799900,
+    "popular":true,
     "disabled": false
   },
   {
     "id": "5years_online",
     "title": "5 Years",
-    "price": "₹32,000",
+    "price": "₹35,000",
     "period": "5 years",
     "description": "Built for institutions committed to long-term digital examination management.",
     "features": [
@@ -61,8 +62,8 @@
     "highlightDetail": "Become a founding institutional partner.",
     "popular": false,
     "cta": "Select Plan",
-    "amount": 3200000,
-    "disabled": true
+    "amount": 3500000,
+    "disabled": false
   },
   {
     "id": "lifetime_access",

@@ -8,6 +8,20 @@
       "when": 1783324565854,
       "tag": "0000_bizarre_adam_warlock",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1784044912121,
+      "tag": "0001_icy_strong_guy",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784045121262,
+      "tag": "0002_tricky_blue_blade",
+      "breakpoints": true
     }
   ]
 }

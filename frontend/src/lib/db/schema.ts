@@ -1,4 +1,4 @@
-// modules//block-allocation/supervision-order
+// lib/db/schema.ts
 import { relations, sql } from 'drizzle-orm';
 import {
   boolean,
@@ -207,9 +207,14 @@ export const examCenters = pgTable(
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
   (table) => ({
-    // Enforce one organization = one exam center
     orgUniqueIdx: uniqueIndex('exam_center_org_unique').on(table.orgId),
     orgIdx: index('exam_centers_org_idx').on(table.orgId),
+    // NEW: For dashboard center lookup
+    orgActiveIdx: index('idx_exam_centers_org_active').on(
+      table.orgId,
+      table.isActive,
+      table.isDeleted
+    ),
   }),
 );
 
@@ -234,6 +239,11 @@ export const connectedInstitutes = pgTable(
     centerInstituteIdx: uniqueIndex('connected_inst_center_inst_idx').on(
       table.examCenterId,
       table.instituteCode,
+    ),
+    // NEW: For dashboard institute list
+    centerActiveIdx: index('idx_connected_institutes_center').on(
+      table.examCenterId,
+      table.isActive
     ),
   }),
 );
@@ -266,6 +276,20 @@ export const students = pgTable(
   (table) => ({
     centerSeatIdx: uniqueIndex('students_center_seat_idx').on(table.examCenterId, table.seatNumber),
     enrollmentIdx: index('students_enrollment_idx').on(table.enrollmentNumber),
+    // NEW: For dashboard student counts and department distribution
+    centerDeptIdx: index('idx_students_center_dept').on(
+      table.examCenterId,
+      table.scheme,
+      table.isDeleted
+    ),
+    centerInstituteIdx: index('idx_students_center_institute').on(
+      table.examCenterId,
+      table.connectedInstituteId,
+      table.isDeleted
+    ),
+    centerEnrollmentIdx: index('idx_students_center_enrollment')
+      .on(table.examCenterId, table.enrollmentNumber)
+      .where(sql`${table.isDeleted} = false`),
   }),
 );
 
@@ -284,8 +308,8 @@ export const staff = pgTable(
     name: text('name').notNull(),
     department: text('department').notNull(),
     email: text('email'),
-    staffType: text('staff_type').notNull(), // SUPERVISOR | RELIEVER | CONTROL_ROOM
-    role: text('role'), // LECTURER | LAB_ASSISTANT | HOD
+    staffType: text('staff_type').notNull(),
+    role: text('role'),
     designation: text('designation'),
     postHeldInExamination: text('post_held_in_examination'),
     isDeleted: boolean('is_deleted').default(false).notNull(),
@@ -295,6 +319,12 @@ export const staff = pgTable(
   (table) => ({
     centerUidIdx: uniqueIndex('staff_center_uid_idx').on(table.examCenterId, table.uid),
     staffTypeIdx: index('staff_type_idx').on(table.staffType),
+    // NEW: For dashboard staff statistics
+    centerTypeIdx: index('idx_staff_center_type').on(
+      table.examCenterId,
+      table.staffType,
+      table.isDeleted
+    ),
   }),
 );
 
@@ -324,14 +354,17 @@ export const blocks = pgTable(
       table.examCenterId,
       table.location,
     ),
+    // NEW: For dashboard blocks list
+    centerActiveIdx: index('idx_blocks_center_active').on(
+      table.examCenterId,
+      table.isDeleted
+    ),
   }),
 );
 
 // ============================================
 // Timetable
 // ============================================
-
-// lib/db/schema.ts - Add this to timetable table definition
 
 export const timetable = pgTable(
   'timetable',
@@ -366,8 +399,27 @@ export const timetable = pgTable(
     ),
     dateIdx: index('tt_date_idx').on(table.date),
     centerDateIdx: index('tt_center_date_idx').on(table.examCenterId, table.date),
+    // NEW: Critical indexes for dashboard queries
+    centerStatsIdx: index('idx_timetable_center_stats').on(
+      table.examCenterId, 
+      table.date, 
+      table.session
+    ),
+    centerSubjectIdx: index('idx_timetable_center_subject').on(
+      table.examCenterId,
+      table.subjectCode,
+      table.scheme
+    ),
+    centerCpsIdx: index('idx_timetable_center_cps')
+      .on(table.examCenterId)
+      .where(sql`${table.cpsStudents} IS NOT NULL AND ${table.cpsStudents} != '[]'::jsonb`),
+    centerDateStatsIdx: index('idx_timetable_center_date_stats').on(
+      table.examCenterId,
+      sql`${table.date} DESC`
+    ),
   }),
 );
+
 // ============================================
 // Block Allocations
 // ============================================
@@ -412,6 +464,20 @@ export const blockAllocations = pgTable(
     dateSessionIdx: index('alloc_date_session_idx').on(table.date, table.session),
     blockIdx: index('alloc_block_idx').on(table.blockId),
     instituteIdx: index('alloc_institute_idx').on(table.connectedInstituteId),
+    // NEW: For dashboard allocation counts and daily schedule
+    centerDateSessionIdx: index('idx_block_allocations_center_date_session').on(
+      table.examCenterId,
+      table.date,
+      table.session
+    ),
+    centerBlockIdx: index('idx_block_allocations_center_block').on(
+      table.examCenterId,
+      table.blockId
+    ),
+    blockDateSessionIdx: index('idx_block_allocations_date_session').on(
+      table.date,
+      table.session
+    ),
   }),
 );
 
@@ -445,6 +511,7 @@ export const studentsRelations = relations(students, ({ one }) => ({
     references: [connectedInstitutes.id],
   }),
 }));
+
 // ============================================
 // Orders (Staff duty orders)
 // ============================================
@@ -459,7 +526,7 @@ export const orders = pgTable(
     staffId: uuid('staff_id')
       .notNull()
       .references(() => staff.id),
-    orderType: text('order_type').notNull(), // supervision | reliever | control_room | oic
+    orderType: text('order_type').notNull(),
     date: timestamp('date'),
     session: text('session'),
     orderKey: text('order_key'),
@@ -470,6 +537,8 @@ export const orders = pgTable(
   (table) => ({
     staffIdx: index('orders_staff_idx').on(table.staffId),
     dateIdx: index('orders_date_idx').on(table.date),
+    // NEW: For dashboard order counts
+    centerIdx: index('idx_orders_center').on(table.examCenterId),
   }),
 );
 
@@ -527,6 +596,8 @@ export const qpInventory = pgTable(
       table.session,
       table.subjectCode,
     ),
+    // NEW: For dashboard QP inventory status
+    centerIdx: index('idx_qp_inventory_center').on(table.examCenterId),
   }),
 );
 
@@ -560,7 +631,9 @@ export const auditLogs = pgTable(
 export const UPLOAD_STATUSES = ['UPLOADED', 'PROCESSING', 'PROCESSED', 'FAILED'] as const;
 export type UploadStatus = (typeof UPLOAD_STATUSES)[number];
 
-// lib/db/schema.ts - Update uploads table
+// ============================================
+// Uploads
+// ============================================
 
 export const uploads = pgTable(
   'uploads',
@@ -586,13 +659,11 @@ export const uploads = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
-    // ✅ NEW: Unique constraint includes institute ID
     uniqueUploadIdx: uniqueIndex('upload_exam_center_file_type_institute_idx').on(
       table.examCenterId,
       table.fileType,
       table.connectedInstituteId,
     ),
-    // ✅ Allow one NULL institute upload per file type
     uniqueNullInstituteIdx: uniqueIndex('upload_exam_center_file_type_null_institute_idx')
       .on(table.examCenterId, table.fileType)
       .where(sql`${table.connectedInstituteId} IS NULL`),
@@ -600,6 +671,10 @@ export const uploads = pgTable(
     instituteUploadIdx: index('upload_institute_idx').on(table.connectedInstituteId),
   }),
 );
+
+// ============================================
+// Email Logs
+// ============================================
 
 export const emailLogs = pgTable(
   'email_logs',
@@ -617,9 +692,9 @@ export const emailLogs = pgTable(
     recipientEmail: text('recipient_email').notNull(),
     recipientName: text('recipient_name'),
     subject: text('subject').notNull(),
-    orderType: text('order_type').notNull(), // supervision | reliever | chief
+    orderType: text('order_type').notNull(),
     orderKey: text('order_key'),
-    status: text('status').notNull(), // sent | failed
+    status: text('status').notNull(),
     errorMessage: text('error_message'),
     sentAt: timestamp('sent_at', { withTimezone: true }).defaultNow().notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -632,7 +707,10 @@ export const emailLogs = pgTable(
   }),
 );
 
-// Add relations
+// ============================================
+// Email Logs Relations
+// ============================================
+
 export const emailLogsRelations = relations(emailLogs, ({ one }) => ({
   organization: one(organizations, {
     fields: [emailLogs.orgId],

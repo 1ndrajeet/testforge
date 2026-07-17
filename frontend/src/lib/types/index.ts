@@ -506,58 +506,58 @@ export interface UserInfo {
 
 // Timetable Schemas
 export type TimetableEntryInput = z.infer<
-  typeof import('../actions/timetable') extends { TimetableEntrySchema: infer S } ? S : never
+  typeof import('../actions2/timetable') extends { TimetableEntrySchema: infer S } ? S : never
 >;
 export type BulkImportInput = z.infer<
-  typeof import('../actions/timetable') extends { BulkImportSchema: infer S } ? S : never
+  typeof import('../actions2/timetable') extends { BulkImportSchema: infer S } ? S : never
 >;
 export type UpdateEntryInput = z.infer<
-  typeof import('../actions/timetable') extends { UpdateEntrySchema: infer S } ? S : never
+  typeof import('../actions2/timetable') extends { UpdateEntrySchema: infer S } ? S : never
 >;
 export type MarkAbsentInput = z.infer<
-  typeof import('../actions/timetable') extends { MarkAbsentSchema: infer S } ? S : never
+  typeof import('../actions2/timetable') extends { MarkAbsentSchema: infer S } ? S : never
 >;
 export type MarkCopyCaseInput = z.infer<
-  typeof import('../actions/timetable') extends { MarkCopyCaseSchema: infer S } ? S : never
+  typeof import('../actions2/timetable') extends { MarkCopyCaseSchema: infer S } ? S : never
 >;
 
 // Staff Schemas
 export type CreateStaffInput = z.infer<
-  typeof import('../actions/staff') extends { CreateStaffSchema: infer S } ? S : never
+  typeof import('../actions2/staff') extends { CreateStaffSchema: infer S } ? S : never
 >;
 export type UpdateStaffInput = z.infer<
-  typeof import('../actions/staff') extends { UpdateStaffSchema: infer S } ? S : never
+  typeof import('../actions2/staff') extends { UpdateStaffSchema: infer S } ? S : never
 >;
 export type BulkCreateStaffInput = z.infer<
-  typeof import('../actions/staff') extends { BulkCreateStaffSchema: infer S } ? S : never
+  typeof import('../actions2/staff') extends { BulkCreateStaffSchema: infer S } ? S : never
 >;
 export type AssignSupervisorsInput = z.infer<
-  typeof import('../actions/staff') extends { AssignSupervisorsSchema: infer S } ? S : never
+  typeof import('../actions2/staff') extends { AssignSupervisorsSchema: infer S } ? S : never
 >;
 export type ReplaceStaffInput = z.infer<
-  typeof import('../actions/staff') extends { ReplaceStaffSchema: infer S } ? S : never
+  typeof import('../actions2/staff') extends { ReplaceStaffSchema: infer S } ? S : never
 >;
 
 // Allocation Schemas
 export type CreateAllocationInput = z.infer<
-  typeof import('../actions/allocation') extends { CreateAllocationSchema: infer S } ? S : never
+  typeof import('../actions2/allocation') extends { CreateAllocationSchema: infer S } ? S : never
 >;
 export type UpdateAllocationInput = z.infer<
-  typeof import('../actions/allocation') extends { UpdateAllocationSchema: infer S } ? S : never
+  typeof import('../actions2/allocation') extends { UpdateAllocationSchema: infer S } ? S : never
 >;
 export type AssignSupervisorInput = z.infer<
-  typeof import('../actions/allocation') extends { AssignSupervisorSchema: infer S } ? S : never
+  typeof import('../actions2/allocation') extends { AssignSupervisorSchema: infer S } ? S : never
 >;
 export type BulkAssignSupervisorsInput = z.infer<
-  typeof import('../actions/allocation') extends { BulkAssignSupervisorsSchema: infer S }
+  typeof import('../actions2/allocation') extends { BulkAssignSupervisorsSchema: infer S }
     ? S
     : never
 >;
 export type AutoAllocateInput = z.infer<
-  typeof import('../actions/allocation') extends { AutoAllocateSchema: infer S } ? S : never
+  typeof import('../actions2/allocation') extends { AutoAllocateSchema: infer S } ? S : never
 >;
 export type ClearAllocationsInput = z.infer<
-  typeof import('../actions/allocation') extends { ClearAllocationsSchema: infer S } ? S : never
+  typeof import('../actions2/allocation') extends { ClearAllocationsSchema: infer S } ? S : never
 >;
 
 // ============================================

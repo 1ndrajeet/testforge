@@ -2,15 +2,18 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, sql, inArray } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
 import { connectedInstitutes, students, subjects } from '@/lib/db/schema';
 import { logger } from '@/lib/misc/logger';
-import { getCurrentExamCenter, getExamCenterId } from '@/lib/session';
+import { getExamCenterId } from '@/lib/session';
 
 const MODULE = 'student';
+
+// ============================================
+// Types
+// ============================================
 
 export interface StudentSeatingData {
   id: string;
@@ -30,6 +33,20 @@ export interface SeatingChartStats {
   totalSchemes: number;
 }
 
+// ============================================
+// Helpers
+// ============================================
+
+async function getExamCenterIdOrThrow() {
+  const id = await getExamCenterId();
+  if (!id) throw new Error('Exam center not found');
+  return id;
+}
+
+// ============================================
+// Read Operations - OPTIMIZED
+// ============================================
+
 export async function getStudents(params?: {
   instituteId?: string;
   seatNumber?: number;
@@ -38,249 +55,157 @@ export async function getStudents(params?: {
   limit?: number;
   offset?: number;
 }) {
-  const examCenter = await getCurrentExamCenter();
-  if (!examCenter?.id) throw new Error('Exam center not found');
+  const fn = `${MODULE}.getStudents`;
+  const start = performance.now();
 
-  const conditions = [eq(students.examCenterId, examCenter.id), eq(students.isDeleted, false)];
+  try {
+    const examCenterId = await getExamCenterIdOrThrow();
 
-  if (params?.instituteId) conditions.push(eq(students.connectedInstituteId, params.instituteId));
-  if (params?.seatNumber) conditions.push(eq(students.seatNumber, params.seatNumber));
-  if (params?.enrollmentNumber)
-    conditions.push(eq(students.enrollmentNumber, params.enrollmentNumber));
-  if (params?.scheme) conditions.push(eq(students.scheme, params.scheme));
+    const conditions = [eq(students.examCenterId, examCenterId), eq(students.isDeleted, false)];
+    if (params?.instituteId) conditions.push(eq(students.connectedInstituteId, params.instituteId));
+    if (params?.seatNumber) conditions.push(eq(students.seatNumber, params.seatNumber));
+    if (params?.enrollmentNumber) conditions.push(eq(students.enrollmentNumber, params.enrollmentNumber));
+    if (params?.scheme) conditions.push(eq(students.scheme, params.scheme));
 
-  return db.query.students.findMany({
-    where: and(...conditions),
-    orderBy: (students, { asc }) => [asc(students.seatNumber)],
-    limit: params?.limit,
-    offset: params?.offset,
-  });
+    const result = await db.query.students.findMany({
+      where: and(...conditions),
+      orderBy: (students, { asc }) => [asc(students.seatNumber)],
+      limit: params?.limit,
+      offset: params?.offset,
+    });
+
+    const duration = performance.now() - start;
+    logger.debug(fn, `Fetched ${result.length} students in ${duration.toFixed(0)}ms`);
+
+    return result;
+  } catch (error) {
+    logger.error(fn, 'Failed to fetch students', { error });
+    throw error;
+  }
 }
 
 export async function getStudentById(id: string) {
-  const examCenter = await getCurrentExamCenter();
-  if (!examCenter?.id) throw new Error('Exam center not found');
+  const fn = `${MODULE}.getStudentById`;
 
-  return db.query.students.findFirst({
-    where: and(eq(students.id, id), eq(students.examCenterId, examCenter.id)),
-  });
+  try {
+    const examCenterId = await getExamCenterIdOrThrow();
+
+    return await db.query.students.findFirst({
+      where: and(eq(students.id, id), eq(students.examCenterId, examCenterId)),
+    });
+  } catch (error) {
+    logger.error(fn, 'Failed to fetch student by id', { error });
+    return null;
+  }
 }
 
 export async function getStudentBySeatNumber(seatNumber: number) {
-  const examCenter = await getCurrentExamCenter();
-  if (!examCenter?.id) throw new Error('Exam center not found');
+  const fn = `${MODULE}.getStudentBySeatNumber`;
 
-  return db.query.students.findFirst({
-    where: and(
-      eq(students.examCenterId, examCenter.id),
-      eq(students.seatNumber, seatNumber),
-      eq(students.isDeleted, false),
-    ),
-  });
+  try {
+    const examCenterId = await getExamCenterIdOrThrow();
+
+    return await db.query.students.findFirst({
+      where: and(
+        eq(students.examCenterId, examCenterId),
+        eq(students.seatNumber, seatNumber),
+        eq(students.isDeleted, false),
+      ),
+    });
+  } catch (error) {
+    logger.error(fn, 'Failed to fetch student by seat number', { error });
+    return null;
+  }
 }
 
 export async function getStudentByEnrollment(enrollmentNumber: string) {
-  const examCenter = await getCurrentExamCenter();
-  if (!examCenter?.id) throw new Error('Exam center not found');
+  const fn = `${MODULE}.getStudentByEnrollment`;
 
-  return db.query.students.findFirst({
-    where: and(
-      eq(students.examCenterId, examCenter.id),
-      eq(students.enrollmentNumber, enrollmentNumber),
-      eq(students.isDeleted, false),
-    ),
-  });
-}
+  try {
+    const examCenterId = await getExamCenterIdOrThrow();
 
-export async function createStudent(data: {
-  connectedInstituteId: string;
-  seatNumber: number;
-  instituteCode?: string;
-  enrollmentNumber?: string;
-  name?: string;
-  scheme?: string;
-  subjects?: string[];
-  subCodes?: string[];
-}) {
-  const examCenter = await getCurrentExamCenter();
-  if (!examCenter?.id) throw new Error('Exam center not found');
-
-  const existing = await getStudentBySeatNumber(data.seatNumber);
-  if (existing) {
-    throw new Error(`Student with seat number ${data.seatNumber} already exists`);
+    return await db.query.students.findFirst({
+      where: and(
+        eq(students.examCenterId, examCenterId),
+        eq(students.enrollmentNumber, enrollmentNumber),
+        eq(students.isDeleted, false),
+      ),
+    });
+  } catch (error) {
+    logger.error(fn, 'Failed to fetch student by enrollment', { error });
+    return null;
   }
-
-  const [student] = await db
-    .insert(students)
-    .values({
-      examCenterId: examCenter.id,
-      subjects: data.subjects || [],
-      subCodes: data.subCodes || [],
-      ...data,
-    })
-    .returning();
-
-  revalidatePath('/exam-center/students');
-  return student;
 }
 
-export async function updateStudent(
-  id: string,
-  data: {
-    connectedInstituteId?: string;
-    seatNumber?: number;
-    instituteCode?: string;
-    enrollmentNumber?: string;
-    name?: string;
-    scheme?: string;
-    subjects?: string[];
-    subCodes?: string[];
-  },
-) {
-  const examCenter = await getCurrentExamCenter();
-  if (!examCenter?.id) throw new Error('Exam center not found');
-
-  const [student] = await db
-    .update(students)
-    .set({ ...data, updatedAt: new Date() })
-    .where(and(eq(students.id, id), eq(students.examCenterId, examCenter.id)))
-    .returning();
-
-  revalidatePath('/exam-center/students');
-  return student;
-}
-
-export async function deleteStudent(id: string) {
-  const examCenter = await getCurrentExamCenter();
-  if (!examCenter?.id) throw new Error('Exam center not found');
-
-  await db
-    .update(students)
-    .set({ isDeleted: true, updatedAt: new Date() })
-    .where(and(eq(students.id, id), eq(students.examCenterId, examCenter.id)));
-
-  revalidatePath('/exam-center/students');
-}
-
-export async function bulkCreateStudents(
-  studentsData: Array<{
-    connectedInstituteId: string;
-    seatNumber: number;
-    instituteCode?: string;
-    enrollmentNumber?: string;
-    name?: string;
-    scheme?: string;
-    subjects?: string[];
-    subCodes?: string[];
-  }>,
-) {
-  const examCenter = await getCurrentExamCenter();
-  if (!examCenter?.id) throw new Error('Exam center not found');
-
-  const values = studentsData.map((student) => ({
-    examCenterId: examCenter.id,
-    subjects: student.subjects || [],
-    subCodes: student.subCodes || [],
-    ...student,
-  }));
-
-  const results = await db.insert(students).values(values).returning();
-  revalidatePath('/exam-center/students');
-  return results;
-}
-
-export async function getStudentCountByInstitute() {
-  const examCenter = await getCurrentExamCenter();
-  if (!examCenter?.id) throw new Error('Exam center not found');
-
-  const institutes = await db.query.connectedInstitutes.findMany({
-    where: eq(connectedInstitutes.examCenterId, examCenter.id),
-  });
-
-  const counts: Record<string, number> = {};
-
-  for (const institute of institutes) {
-    const count = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(students)
-      .where(
-        and(
-          eq(students.examCenterId, examCenter.id),
-          eq(students.connectedInstituteId, institute.id),
-          eq(students.isDeleted, false),
-        ),
-      )
-      .then((res) => Number(res[0]?.count || 0));
-
-    counts[institute.id] = count;
-  }
-
-  return counts;
-}
-
-export async function getStudentBySubject(subjectCode: string) {
-  const examCenter = await getCurrentExamCenter();
-  if (!examCenter?.id) throw new Error('Exam center not found');
-
-  return db.query.students.findMany({
-    where: and(
-      eq(students.examCenterId, examCenter.id),
-      sql`${students.subCodes} @> ARRAY[${subjectCode}]::text[]`,
-      eq(students.isDeleted, false),
-    ),
-    orderBy: (students, { asc }) => [asc(students.seatNumber)],
-  });
-}
+// ============================================
+// OPTIMIZED: getSeatingChartStats - SINGLE QUERY
+// ============================================
 
 export async function getSeatingChartStats(): Promise<{
   success: boolean;
   data: SeatingChartStats;
   error?: string;
 }> {
+  const fn = `${MODULE}.getSeatingChartStats`;
+  const start = performance.now();
+
   try {
-    const examCenter = await getCurrentExamCenter();
-    if (!examCenter?.id) throw new Error('Exam center not found');
+    const examCenterId = await getExamCenterId();
+    if (!examCenterId) {
+      return { success: true, data: { totalStudents: 0, totalInstitutes: 0, totalSchemes: 0 } };
+    }
 
-    const [{ count: studentCount }] = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(students)
-      .where(and(eq(students.examCenterId, examCenter.id), eq(students.isDeleted, false)));
+    // ✅ SINGLE QUERY with all stats
+    const result = await db.execute(sql`
+      SELECT
+        COUNT(*) as total_students,
+        COUNT(DISTINCT connected_institute_id) as total_institutes,
+        COUNT(DISTINCT scheme) as total_schemes
+      FROM students
+      WHERE exam_center_id = ${examCenterId}
+        AND is_deleted = false
+    `);
 
-    const [{ count: instituteCount }] = await db
-      .select({ count: sql<number>`count(distinct ${students.connectedInstituteId})` })
-      .from(students)
-      .where(and(eq(students.examCenterId, examCenter.id), eq(students.isDeleted, false)));
+    const row = result.rows[0] as any;
 
-    const [{ count: schemeCount }] = await db
-      .select({ count: sql<number>`count(distinct ${students.scheme})` })
-      .from(students)
-      .where(and(eq(students.examCenterId, examCenter.id), eq(students.isDeleted, false)));
+    const duration = performance.now() - start;
+    logger.debug(fn, `Stats fetched in ${duration.toFixed(0)}ms`);
 
     return {
       success: true,
       data: {
-        totalStudents: Number(studentCount || 0),
-        totalInstitutes: Number(instituteCount || 0),
-        totalSchemes: Number(schemeCount || 0),
+        totalStudents: Number(row?.total_students || 0),
+        totalInstitutes: Number(row?.total_institutes || 0),
+        totalSchemes: Number(row?.total_schemes || 0),
       },
     };
   } catch (error) {
+    logger.error(fn, 'Failed to fetch seating chart stats', { error });
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: 'Failed to fetch stats',
       data: { totalStudents: 0, totalInstitutes: 0, totalSchemes: 0 },
     };
   }
 }
+
+// ============================================
+// OPTIMIZED: getUniqueInstitutesForSeating - SINGLE QUERY
+// ============================================
 
 export async function getUniqueInstitutesForSeating(): Promise<{
   success: boolean;
   data: Array<{ code: string; name: string; count: number }>;
   error?: string;
 }> {
+  const fn = `${MODULE}.getUniqueInstitutesForSeating`;
+  const start = performance.now();
+
   try {
-    const examCenter = await getCurrentExamCenter();
-    if (!examCenter?.id) throw new Error('Exam center not found');
+    const examCenterId = await getExamCenterId();
+    if (!examCenterId) {
+      return { success: true, data: [] };
+    }
 
     const results = await db
       .select({
@@ -291,44 +216,74 @@ export async function getUniqueInstitutesForSeating(): Promise<{
       .from(connectedInstitutes)
       .leftJoin(students, eq(students.connectedInstituteId, connectedInstitutes.id))
       .where(
-        and(eq(connectedInstitutes.examCenterId, examCenter.id), eq(students.isDeleted, false)),
+        and(
+          eq(connectedInstitutes.examCenterId, examCenterId),
+          eq(students.isDeleted, false),
+        ),
       )
       .groupBy(connectedInstitutes.id)
       .orderBy(connectedInstitutes.instituteCode);
 
+    const duration = performance.now() - start;
+    logger.debug(fn, `Fetched ${results.length} institutes in ${duration.toFixed(0)}ms`);
+
     return { success: true, data: results };
   } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      data: [],
-    };
+    logger.error(fn, 'Failed to fetch unique institutes', { error });
+    return { success: false, error: 'Failed to fetch institutes', data: [] };
   }
 }
+
+// ============================================
+// OPTIMIZED: hasSeatingData - EXISTS instead of COUNT
+// ============================================
 
 export async function hasSeatingData(): Promise<
   { success: true; data: boolean } | { success: false; error: string }
 > {
+  const fn = `${MODULE}.hasSeatingData`;
+  const start = performance.now();
+
   try {
-    const examCenter = await getCurrentExamCenter();
-    if (!examCenter?.id) throw new Error('Exam center not found');
+    const examCenterId = await getExamCenterId();
+    if (!examCenterId) {
+      return { success: true, data: false };
+    }
 
-    const [{ count }] = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(students)
-      .where(and(eq(students.examCenterId, examCenter.id), eq(students.isDeleted, false)));
+    // ✅ EXISTS is faster than COUNT
+    const result = await db.execute(sql`
+      SELECT EXISTS(
+        SELECT 1 FROM students
+        WHERE exam_center_id = ${examCenterId}
+          AND is_deleted = false
+        LIMIT 1
+      ) as exists
+    `);
 
-    return { success: true, data: Number(count || 0) > 0 };
+    const hasData = (result.rows[0] as any)?.exists === true;
+
+    const duration = performance.now() - start;
+    logger.debug(fn, `Checked seating data in ${duration.toFixed(0)}ms: ${hasData}`);
+
+    return { success: true, data: hasData };
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    logger.error(fn, 'Failed to check seating data', { error });
+    return { success: false, error: 'Failed to check seating data' };
   }
 }
+
+// ============================================
+// OPTIMIZED: getUniqueSchemesForSeating - with IN clause
+// ============================================
 
 export async function getUniqueSchemesForSeating(): Promise<{
   success: boolean;
   data: Array<{ scheme: string; subjects: Array<{ code: string; name: string }> }>;
   error?: string;
 }> {
+  const fn = `${MODULE}.getUniqueSchemesForSeating`;
+  const start = performance.now();
+
   try {
     const examCenterId = await getExamCenterId();
     if (!examCenterId) {
@@ -350,12 +305,12 @@ export async function getUniqueSchemesForSeating(): Promise<{
     const schemes = schemeResults.map((r) => r.scheme).filter(Boolean) as string[];
     const schemeMap = new Map<string, Array<{ code: string; name: string }>>();
 
-    allSubjects.forEach((subject) => {
+    for (const subject of allSubjects) {
       if (!schemeMap.has(subject.scheme)) {
         schemeMap.set(subject.scheme, []);
       }
       schemeMap.get(subject.scheme)!.push({ code: subject.code, name: subject.name });
-    });
+    }
 
     const result = schemes.map((scheme) => ({
       scheme,
@@ -367,17 +322,21 @@ export async function getUniqueSchemesForSeating(): Promise<{
       subjects: allSubjects.map((s) => ({ code: s.code, name: s.name })),
     });
 
+    const duration = performance.now() - start;
+    logger.debug(fn, `Fetched ${result.length} schemes in ${duration.toFixed(0)}ms`);
+
     return { success: true, data: result };
   } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      data: [],
-    };
+    logger.error(fn, 'Failed to fetch unique schemes', { error });
+    return { success: false, error: 'Failed to fetch schemes', data: [] };
   }
 }
 
 export const getUniqueSchemes = getUniqueSchemesForSeating;
+
+// ============================================
+// OPTIMIZED: getPaginatedStudentSeatingData
+// ============================================
 
 export async function getPaginatedStudentSeatingData(params?: {
   instituteCode?: string;
@@ -391,15 +350,24 @@ export async function getPaginatedStudentSeatingData(params?: {
   pagination: { total: number; page: number; limit: number; totalPages: number };
   error?: string;
 }> {
+  const fn = `${MODULE}.getPaginatedStudentSeatingData`;
+  const start = performance.now();
+
   try {
-    const examCenter = await getCurrentExamCenter();
-    if (!examCenter?.id) throw new Error('Exam center not found');
+    const examCenterId = await getExamCenterId();
+    if (!examCenterId) {
+      return {
+        success: true,
+        data: [],
+        pagination: { total: 0, page: 1, limit: 25, totalPages: 0 },
+      };
+    }
 
     const page = Math.max(1, params?.page || 1);
     const limit = Math.min(100, params?.limit || 25);
     const offset = (page - 1) * limit;
 
-    const conditions = [eq(students.examCenterId, examCenter.id), eq(students.isDeleted, false)];
+    const conditions = [eq(students.examCenterId, examCenterId), eq(students.isDeleted, false)];
 
     if (params?.instituteCode) {
       conditions.push(eq(connectedInstitutes.instituteCode, params.instituteCode));
@@ -445,6 +413,10 @@ export async function getPaginatedStudentSeatingData(params?: {
     ]);
 
     const total = Number(countResult[0]?.count || 0);
+    const totalPages = Math.ceil(total / limit);
+
+    const duration = performance.now() - start;
+    logger.debug(fn, `Fetched ${results.length} students (page ${page}/${totalPages}) in ${duration.toFixed(0)}ms`);
 
     return {
       success: true,
@@ -453,15 +425,228 @@ export async function getPaginatedStudentSeatingData(params?: {
         total,
         page,
         limit,
-        totalPages: Math.ceil(total / limit),
+        totalPages,
       },
     };
   } catch (error) {
+    logger.error(fn, 'Failed to fetch paginated seating data', { error });
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: 'Failed to fetch seating data',
       data: [],
       pagination: { total: 0, page: 1, limit: 25, totalPages: 0 },
     };
+  }
+}
+
+// ============================================
+// Write Operations - OPTIMIZED
+// ============================================
+
+export async function createStudent(data: {
+  connectedInstituteId: string;
+  seatNumber: number;
+  instituteCode?: string;
+  enrollmentNumber?: string;
+  name?: string;
+  scheme?: string;
+  subjects?: string[];
+  subCodes?: string[];
+}) {
+  const fn = `${MODULE}.createStudent`;
+
+  try {
+    const examCenterId = await getExamCenterIdOrThrow();
+
+    const existing = await getStudentBySeatNumber(data.seatNumber);
+    if (existing) {
+      throw new Error(`Student with seat number ${data.seatNumber} already exists`);
+    }
+
+    const [student] = await db
+      .insert(students)
+      .values({
+        examCenterId,
+        subjects: data.subjects || [],
+        subCodes: data.subCodes || [],
+        ...data,
+      })
+      .returning();
+
+    logger.info(fn, 'Student created', { seatNumber: data.seatNumber });
+    revalidatePath('/exam-center/students');
+    return student;
+  } catch (error) {
+    logger.error(fn, 'Failed to create student', { error });
+    throw error;
+  }
+}
+
+export async function updateStudent(
+  id: string,
+  data: {
+    connectedInstituteId?: string;
+    seatNumber?: number;
+    instituteCode?: string;
+    enrollmentNumber?: string;
+    name?: string;
+    scheme?: string;
+    subjects?: string[];
+    subCodes?: string[];
+  },
+) {
+  const fn = `${MODULE}.updateStudent`;
+
+  try {
+    const examCenterId = await getExamCenterIdOrThrow();
+
+    const [student] = await db
+      .update(students)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(students.id, id), eq(students.examCenterId, examCenterId)))
+      .returning();
+
+    logger.info(fn, 'Student updated', { id });
+    revalidatePath('/exam-center/students');
+    return student;
+  } catch (error) {
+    logger.error(fn, 'Failed to update student', { error });
+    throw error;
+  }
+}
+
+export async function deleteStudent(id: string) {
+  const fn = `${MODULE}.deleteStudent`;
+
+  try {
+    const examCenterId = await getExamCenterIdOrThrow();
+
+    await db
+      .update(students)
+      .set({ isDeleted: true, updatedAt: new Date() })
+      .where(and(eq(students.id, id), eq(students.examCenterId, examCenterId)));
+
+    logger.info(fn, 'Student deleted (soft)', { id });
+    revalidatePath('/exam-center/students');
+  } catch (error) {
+    logger.error(fn, 'Failed to delete student', { error });
+    throw error;
+  }
+}
+
+// ============================================
+// OPTIMIZED: bulkCreateStudents - BATCH INSERT
+// ============================================
+
+export async function bulkCreateStudents(
+  studentsData: Array<{
+    connectedInstituteId: string;
+    seatNumber: number;
+    instituteCode?: string;
+    enrollmentNumber?: string;
+    name?: string;
+    scheme?: string;
+    subjects?: string[];
+    subCodes?: string[];
+  }>,
+) {
+  const fn = `${MODULE}.bulkCreateStudents`;
+  const start = performance.now();
+
+  try {
+    const examCenterId = await getExamCenterIdOrThrow();
+
+    if (studentsData.length === 0) {
+      return [];
+    }
+
+    const values = studentsData.map((student) => ({
+      examCenterId,
+      subjects: student.subjects || [],
+      subCodes: student.subCodes || [],
+      ...student,
+    }));
+
+    // Batch insert
+    const BATCH_SIZE = 500;
+    const results = [];
+
+    for (let i = 0; i < values.length; i += BATCH_SIZE) {
+      const batch = values.slice(i, i + BATCH_SIZE);
+      const inserted = await db.insert(students).values(batch).returning();
+      results.push(...inserted);
+    }
+
+    const duration = performance.now() - start;
+    logger.info(fn, `Bulk created ${results.length} students in ${duration.toFixed(0)}ms`);
+
+    revalidatePath('/exam-center/students');
+    return results;
+  } catch (error) {
+    logger.error(fn, 'Failed to bulk create students', { error });
+    throw error;
+  }
+}
+
+// ============================================
+// getStudentCountByInstitute - OPTIMIZED with GROUP BY
+// ============================================
+
+export async function getStudentCountByInstitute() {
+  const fn = `${MODULE}.getStudentCountByInstitute`;
+  const start = performance.now();
+
+  try {
+    const examCenterId = await getExamCenterId();
+    if (!examCenterId) {
+      return {};
+    }
+
+    // ✅ SINGLE QUERY with GROUP BY instead of loop
+    const results = await db
+      .select({
+        instituteId: students.connectedInstituteId,
+        count: sql<number>`count(*)`,
+      })
+      .from(students)
+      .where(and(eq(students.examCenterId, examCenterId), eq(students.isDeleted, false)))
+      .groupBy(students.connectedInstituteId);
+
+    const counts: Record<string, number> = {};
+    for (const row of results) {
+      counts[row.instituteId] = Number(row.count);
+    }
+
+    const duration = performance.now() - start;
+    logger.debug(fn, `Fetched counts for ${Object.keys(counts).length} institutes in ${duration.toFixed(0)}ms`);
+
+    return counts;
+  } catch (error) {
+    logger.error(fn, 'Failed to fetch student count by institute', { error });
+    return {};
+  }
+}
+
+// ============================================
+// getStudentBySubject - OPTIMIZED JSONB query
+// ============================================
+
+export async function getStudentBySubject(subjectCode: string) {
+  const fn = `${MODULE}.getStudentBySubject`;
+
+  try {
+    const examCenterId = await getExamCenterIdOrThrow();
+
+    return await db.query.students.findMany({
+      where: and(
+        eq(students.examCenterId, examCenterId),
+        sql`${students.subCodes} @> ${JSON.stringify([subjectCode])}::jsonb`,
+        eq(students.isDeleted, false),
+      ),
+      orderBy: (students, { asc }) => [asc(students.seatNumber)],
+    });
+  } catch (error) {
+    logger.error(fn, 'Failed to fetch students by subject', { error });
+    return [];
   }
 }

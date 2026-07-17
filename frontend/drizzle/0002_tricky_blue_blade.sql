@@ -1,0 +1,1 @@
+CREATE INDEX "alloc_date_session_idx" ON "block_allocations" USING btree ("date","session");

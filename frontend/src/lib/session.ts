@@ -25,6 +25,7 @@ import {
   timetable,
 } from '@/lib/db/schema';
 import { logger } from '@/lib/misc/logger';
+
 // lib/session.ts - Add this
 
 export async function requireAdmin() {

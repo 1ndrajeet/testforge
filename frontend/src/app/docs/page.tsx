@@ -2,10 +2,11 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+
+import { useRouter } from 'next/navigation';
 
 import { ArrowLeft, ChevronDown, FileText, Shield, Users } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 
 import { cn } from '@/lib/utils';
 
@@ -65,8 +66,8 @@ const TERMS_SECTIONS: DocumentSection = {
             <li>Document and file processing for institutional workflows</li>
           </ul>
           <p className="text-neutral-600 dark:text-neutral-400">
-            TestForge assists institutions in exam operations. The final verification and accuracy of
-            all outputs remain the sole responsibility of the institution.
+            TestForge assists institutions in exam operations. The final verification and accuracy
+            of all outputs remain the sole responsibility of the institution.
           </p>
         </div>
       ),
@@ -96,7 +97,10 @@ const TERMS_SECTIONS: DocumentSection = {
       title: 'Data Usage',
       content: (
         <div className="space-y-3">
-          <p>TestForge processes only academic and institutional data required for examination operations, including:</p>
+          <p>
+            TestForge processes only academic and institutional data required for examination
+            operations, including:
+          </p>
           <ul className="list-disc space-y-1.5 pl-6 text-neutral-600 dark:text-neutral-400">
             <li>Student information (name, enrollment number, seat number)</li>
             <li>Staff and supervisor details</li>
@@ -234,7 +238,9 @@ const TERMS_SECTIONS: DocumentSection = {
           <ul className="list-disc space-y-1.5 pl-6 text-neutral-600 dark:text-neutral-400">
             <li>TestForge is not liable for indirect, incidental, or consequential damages</li>
             <li>Institutions are solely responsible for validating critical examination outputs</li>
-            <li>Liability, if any, is limited to the total amount paid for the subscription period</li>
+            <li>
+              Liability, if any, is limited to the total amount paid for the subscription period
+            </li>
           </ul>
         </div>
       ),
@@ -292,12 +298,8 @@ const TERMS_SECTIONS: DocumentSection = {
       title: 'Contact',
       content: (
         <div className="space-y-1.5">
-          <p className="font-medium text-neutral-800 dark:text-neutral-200">
-            Acharya Technologies
-          </p>
-          <p className="text-neutral-600 dark:text-neutral-400">
-            Kolhapur, Maharashtra, India
-          </p>
+          <p className="font-medium text-neutral-800 dark:text-neutral-200">Acharya Technologies</p>
+          <p className="text-neutral-600 dark:text-neutral-400">Kolhapur, Maharashtra, India</p>
           <p>
             <a
               href="mailto:support@testforge.tech"
@@ -417,7 +419,9 @@ const PRIVACY_SECTIONS: DocumentSection = {
       content: (
         <div className="space-y-3">
           <ul className="list-disc space-y-1.5 pl-6 text-neutral-600 dark:text-neutral-400">
-            <li>Operational examination data is retained only as long as necessary for exam cycles</li>
+            <li>
+              Operational examination data is retained only as long as necessary for exam cycles
+            </li>
             <li>Institutional configuration may be retained for continuity of service</li>
             <li>Account data is retained until deletion is requested</li>
           </ul>
@@ -528,12 +532,8 @@ const PRIVACY_SECTIONS: DocumentSection = {
       title: 'Contact',
       content: (
         <div className="space-y-1.5">
-          <p className="font-medium text-neutral-800 dark:text-neutral-200">
-            Acharya Technologies
-          </p>
-          <p className="text-neutral-600 dark:text-neutral-400">
-            Kolhapur, Maharashtra, India
-          </p>
+          <p className="font-medium text-neutral-800 dark:text-neutral-200">Acharya Technologies</p>
+          <p className="text-neutral-600 dark:text-neutral-400">Kolhapur, Maharashtra, India</p>
           <p>
             <a
               href="mailto:support@testforge.tech"
@@ -567,7 +567,7 @@ function AccordionSection({
         onClick={onToggle}
         className="group flex w-full items-start gap-4 py-4 text-left transition-colors hover:bg-neutral-50/50 dark:hover:bg-neutral-900/30"
       >
-        <span className="mt-0.5 min-w-[2.5rem] text-sm font-mono font-medium text-neutral-400 tabular-nums dark:text-neutral-500">
+        <span className="mt-0.5 min-w-[2.5rem] font-mono text-sm font-medium text-neutral-400 tabular-nums dark:text-neutral-500">
           {section.number}
         </span>
         <div className="flex-1">
@@ -584,11 +584,7 @@ function AccordionSection({
       </button>
       {isOpen && (
         <div className="pb-6 pl-[4.5rem] text-sm text-neutral-600 dark:text-neutral-400">
-          {typeof section.content === 'string' ? (
-            <p>{section.content}</p>
-          ) : (
-            section.content
-          )}
+          {typeof section.content === 'string' ? <p>{section.content}</p> : section.content}
         </div>
       )}
     </div>
@@ -768,7 +764,10 @@ export default function TermsPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-4 py-6 sm:px-6">
       {/* Navigation */}
-      <nav className="flex items-center gap-3" aria-label="Breadcrumb">
+      <nav
+        className="flex items-center gap-3"
+        aria-label="Breadcrumb"
+      >
         <Button
           variant="ghost"
           size="sm"
@@ -778,9 +777,15 @@ export default function TermsPage() {
           <ArrowLeft className="h-4 w-4" />
           Back
         </Button>
-        <div className="h-5 w-px bg-neutral-300 dark:bg-neutral-700" aria-hidden="true" />
+        <div
+          className="h-5 w-px bg-neutral-300 dark:bg-neutral-700"
+          aria-hidden="true"
+        />
         <span className="text-sm text-neutral-500 dark:text-neutral-400">Legal</span>
-        <div className="h-5 w-px bg-neutral-300 dark:bg-neutral-700" aria-hidden="true" />
+        <div
+          className="h-5 w-px bg-neutral-300 dark:bg-neutral-700"
+          aria-hidden="true"
+        />
         <span className="text-sm font-medium text-neutral-900 dark:text-neutral-50">
           {currentDoc.shortTitle}
         </span>
@@ -830,7 +835,10 @@ export default function TermsPage() {
             >
               support@testforge.tech
             </a>
-            <span className="h-3 w-px bg-neutral-300 dark:bg-neutral-700" aria-hidden="true" />
+            <span
+              className="h-3 w-px bg-neutral-300 dark:bg-neutral-700"
+              aria-hidden="true"
+            />
             <span>Version 1.2</span>
           </div>
         </div>

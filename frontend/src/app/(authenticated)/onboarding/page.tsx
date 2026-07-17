@@ -1,7 +1,7 @@
 // app/(authenticated)/onboarding/page.tsx
 'use client';
 
-import React, { useEffect, useState, useTransition, useCallback, Suspense, useRef } from 'react';
+import React, { Suspense, useCallback, useEffect, useRef, useState, useTransition } from 'react';
 
 import { useRouter, useSearchParams } from 'next/navigation';
 
@@ -47,6 +47,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 
 import { useAppStore } from '@/stores/appStore';
+
 import { LAUNCH_OFFER_PRICE } from '../../page';
 
 // Types
@@ -99,14 +100,14 @@ function setOnboardingComplete() {
 export function writeStorage(key: string, value: unknown) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
-  } catch { }
+  } catch {}
 }
 
 export function clearOnboardingStorage() {
   Object.values(STORAGE_KEYS).forEach((k) => {
     try {
       localStorage.removeItem(k);
-    } catch { }
+    } catch {}
   });
 }
 
@@ -124,19 +125,21 @@ let razorpayLoaded = false;
 
 export async function ensureRazorpay() {
   if (typeof window === 'undefined') return;
-  
+
   if (window.Razorpay || razorpayLoaded) {
     razorpayLoaded = true;
     return;
   }
-  
+
   if (razorpayLoadPromise) {
     return razorpayLoadPromise;
   }
-  
+
   razorpayLoadPromise = new Promise<void>((resolve, reject) => {
-    const existingScript = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
-    
+    const existingScript = document.querySelector(
+      'script[src="https://checkout.razorpay.com/v1/checkout.js"]',
+    );
+
     if (existingScript) {
       if (window.Razorpay) {
         razorpayLoaded = true;
@@ -144,21 +147,29 @@ export async function ensureRazorpay() {
         resolve();
         return;
       }
-      
-      existingScript.addEventListener('load', () => {
-        razorpayLoaded = true;
-        razorpayLoadPromise = null;
-        resolve();
-      }, { once: true });
-      
-      existingScript.addEventListener('error', () => {
-        razorpayLoadPromise = null;
-        reject(new Error('Failed to load Razorpay SDK'));
-      }, { once: true });
-      
+
+      existingScript.addEventListener(
+        'load',
+        () => {
+          razorpayLoaded = true;
+          razorpayLoadPromise = null;
+          resolve();
+        },
+        { once: true },
+      );
+
+      existingScript.addEventListener(
+        'error',
+        () => {
+          razorpayLoadPromise = null;
+          reject(new Error('Failed to load Razorpay SDK'));
+        },
+        { once: true },
+      );
+
       return;
     }
-    
+
     const script = document.createElement('script');
     script.src = 'https://checkout.razorpay.com/v1/checkout.js';
     script.async = true;
@@ -173,7 +184,7 @@ export async function ensureRazorpay() {
     };
     document.head.appendChild(script);
   });
-  
+
   return razorpayLoadPromise;
 }
 
@@ -770,12 +781,12 @@ function ExamCenterStep({
       const fd = new FormData();
       Object.entries(form).forEach(([k, v]) => fd.append(k, String(v)));
       fd.append('orgId', organization!.id);
-      
+
       // If we have an existing center ID, pass it
       if (form.id) {
         fd.append('centerId', form.id);
       }
-      
+
       const result = await saveExamCenter(fd);
       if (result.error) return setError(result.error);
       if (result.examCenter) {
@@ -1429,7 +1440,13 @@ function OnboardingPageContent() {
   const getStepFromQuery = useCallback((): StepId | null => {
     const stepParam = searchParams.get('step');
     if (!stepParam) return null;
-    const validSteps: StepId[] = ['organization', 'exam_center', 'subscription', 'review', 'complete'];
+    const validSteps: StepId[] = [
+      'organization',
+      'exam_center',
+      'subscription',
+      'review',
+      'complete',
+    ];
     return validSteps.includes(stepParam as StepId) ? (stepParam as StepId) : null;
   }, [searchParams]);
 
@@ -1475,7 +1492,7 @@ function OnboardingPageContent() {
           // Check if subscription is actually expired or inactive
           const { getCurrentSubscription } = await import('@/lib/actions/subscription');
           const sub = await getCurrentSubscription();
-          
+
           // If subscription is inactive or expired, redirect to billing
           if (sub.tier === 'inactive' || !sub.isActive) {
             router.replace('/billing');
@@ -1496,8 +1513,11 @@ function OnboardingPageContent() {
         }
 
         const plans: Plan[] = result.plans ?? pricingPlans;
-        const preferred = readStorage<string>(STORAGE_KEYS.SELECTED_PLAN) ??
-          plans.find((p) => p.popular)?.id ?? plans[0]?.id ?? '';
+        const preferred =
+          readStorage<string>(STORAGE_KEYS.SELECTED_PLAN) ??
+          plans.find((p) => p.popular)?.id ??
+          plans[0]?.id ??
+          '';
 
         // Batch updates
         React.startTransition(() => {
@@ -1529,7 +1549,9 @@ function OnboardingPageContent() {
 
     fetchStatus();
 
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+    };
   }, [router, getStepFromQuery, updateStepInUrl]);
 
   // Step navigation
@@ -1668,7 +1690,8 @@ function OnboardingPageContent() {
       <div className="flex min-h-screen items-center justify-center bg-neutral-50 dark:bg-neutral-950">
         <HashLoader
           size={60}
-          color="#059669" />
+          color="#059669"
+        />
       </div>
     );
   }
@@ -1763,13 +1786,16 @@ function OnboardingPageContent() {
 
 export default function OnboardingPage() {
   return (
-    <Suspense fallback={
-      <div className="flex min-h-screen items-center justify-center bg-neutral-50 dark:bg-neutral-950">
-        <HashLoader
-          size={60}
-          color="#059669" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-neutral-50 dark:bg-neutral-950">
+          <HashLoader
+            size={60}
+            color="#059669"
+          />
+        </div>
+      }
+    >
       <OnboardingPageContent />
     </Suspense>
   );

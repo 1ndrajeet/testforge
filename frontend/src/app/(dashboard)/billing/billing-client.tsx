@@ -27,8 +27,8 @@ import {
   Zap,
 } from 'lucide-react';
 
-import { cn } from '@/lib/utils';
 import { logger } from '@/lib/misc/logger';
+import { cn } from '@/lib/utils';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -153,9 +153,7 @@ class RazorpayLoader {
         return;
       }
 
-      const existingScript = document.querySelector(
-        `script[src="${RAZORPAY_SCRIPT_URL}"]`
-      );
+      const existingScript = document.querySelector(`script[src="${RAZORPAY_SCRIPT_URL}"]`);
 
       if (existingScript) {
         const onLoad = () => {
@@ -168,7 +166,11 @@ class RazorpayLoader {
         };
 
         existingScript.addEventListener('load', onLoad, { once: true });
-        existingScript.addEventListener('error', () => reject(new Error('Failed to load Razorpay')), { once: true });
+        existingScript.addEventListener(
+          'error',
+          () => reject(new Error('Failed to load Razorpay')),
+          { once: true },
+        );
 
         setTimeout(() => {
           if (!this.isLoaded) {
@@ -237,7 +239,7 @@ class PaymentManager {
     plan: Plan,
     user: { name: string; email: string },
     onSuccess: () => void,
-    onError?: (error: Error) => void
+    onError?: (error: Error) => void,
   ): Promise<void> {
     if (this.isProcessing && this.pendingRequest) {
       logger.warn('payment', 'Payment already in progress, returning existing promise');
@@ -259,7 +261,7 @@ class PaymentManager {
     plan: Plan,
     user: { name: string; email: string },
     onSuccess: () => void,
-    onError?: (error: Error) => void
+    onError?: (error: Error) => void,
   ): Promise<void> {
     try {
       await this.razorpayLoader.ensureLoaded();
@@ -413,7 +415,13 @@ function getCurrentCycleLabel() {
 // Shared visual atoms
 // ============================================
 
-function CodeChip({ children, tone = 'navy' }: { children: React.ReactNode; tone?: 'navy' | 'gold' | 'emerald' }) {
+function CodeChip({
+  children,
+  tone = 'navy',
+}: {
+  children: React.ReactNode;
+  tone?: 'navy' | 'gold' | 'emerald';
+}) {
   const toneClasses = {
     navy: 'bg-emerald-500/[0.06] text-emerald-500 border-emerald-500/15 dark:bg-white/5 dark:text-slate-200 dark:border-white/10',
     gold: 'bg-navy-500/10 text-navy-500 border-navy-500 dark:text-navy-400',
@@ -464,7 +472,7 @@ function ExamFinancialHeader({
       className="relative overflow-hidden rounded-2xl border border-emerald-500/10 bg-gradient-to-br from-emerald-500 via-emerald-500 to-emerald-600 p-6 text-white shadow-lg sm:p-8"
     >
       {/* subtle seal watermark */}
-      <Landmark className="pointer-events-none absolute -right-6 -top-6 h-40 w-40 text-white/[0.05]" />
+      <Landmark className="pointer-events-none absolute -top-6 -right-6 h-40 w-40 text-white/[0.05]" />
 
       <div className="relative flex flex-col gap-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -473,7 +481,7 @@ function ExamFinancialHeader({
               <Landmark className="h-5.5 w-5.5" />
             </div>
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/60">
+              <p className="text-[11px] font-semibold tracking-[0.14em] text-white/60 uppercase">
                 Examination Financial Operations
               </p>
               <h1 className="mt-0.5 text-2xl font-bold tracking-tight sm:text-[1.7rem]">
@@ -482,7 +490,10 @@ function ExamFinancialHeader({
             </div>
           </div>
 
-          <SealBadge label="Verified Examination Center" icon={ShieldCheck} />
+          <SealBadge
+            label="Verified Examination Center"
+            icon={ShieldCheck}
+          />
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
@@ -597,20 +608,26 @@ function AccessStatusCards({
   };
   const config = tierConfig[tier] || tierConfig.inactive;
   const Icon = config.icon;
-  const isActivePlan = tier === 'premium' || tier === 'enterprise' || (tier === 'trial' && !isExpired);
+  const isActivePlan =
+    tier === 'premium' || tier === 'enterprise' || (tier === 'trial' && !isExpired);
 
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-3">
         {/* Access Cycle Card */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
           <Card className={cn('h-full border-0 shadow-sm ring-1', config.ring)}>
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-neutral-500">
+                <p className="text-[11px] font-semibold tracking-[0.12em] text-neutral-500 uppercase">
                   Access Cycle
                 </p>
-                <div className={cn('flex h-9 w-9 items-center justify-center rounded-lg', config.bg)}>
+                <div
+                  className={cn('flex h-9 w-9 items-center justify-center rounded-lg', config.bg)}
+                >
                   <Icon className={cn('h-4.5 w-4.5', config.accent)} />
                 </div>
               </div>
@@ -639,15 +656,26 @@ function AccessStatusCards({
         </motion.div>
 
         {/* Time Remaining Card */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+        >
           <Card className="h-full border-0 shadow-sm ring-1 ring-neutral-200 dark:ring-neutral-800">
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-neutral-500">
+                <p className="text-[11px] font-semibold tracking-[0.12em] text-neutral-500 uppercase">
                   Days Remaining
                 </p>
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-100 dark:bg-neutral-800">
-                  <Timer className={cn('h-4.5 w-4.5', daysRemaining <= 7 && daysRemaining > 0 ? 'text-orange-500' : 'text-neutral-500')} />
+                  <Timer
+                    className={cn(
+                      'h-4.5 w-4.5',
+                      daysRemaining <= 7 && daysRemaining > 0
+                        ? 'text-orange-500'
+                        : 'text-neutral-500',
+                    )}
+                  />
                 </div>
               </div>
               <p className="mt-3 font-mono text-3xl font-bold text-neutral-900 dark:text-neutral-100">
@@ -665,11 +693,15 @@ function AccessStatusCards({
         </motion.div>
 
         {/* Center Info Card */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+        >
           <Card className="h-full border-0 shadow-sm ring-1 ring-neutral-200 dark:ring-neutral-800">
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-neutral-500">
+                <p className="text-[11px] font-semibold tracking-[0.12em] text-neutral-500 uppercase">
                   Center Information
                 </p>
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-100 dark:bg-neutral-800">
@@ -690,7 +722,11 @@ function AccessStatusCards({
       </div>
 
       {/* Detail panel */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15 }}
+      >
         <Card className="overflow-hidden border-0 shadow-md">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 bg-neutral-50/60 px-6 py-4 dark:border-neutral-800 dark:bg-neutral-900/40">
             <div className="flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">
@@ -714,7 +750,9 @@ function AccessStatusCards({
                 <User className="h-4 w-4 shrink-0 text-neutral-400" />
                 <div className="text-sm">
                   <span className="text-neutral-500">Account owner — </span>
-                  <span className="font-medium text-neutral-900 dark:text-neutral-100">{user.name}</span>
+                  <span className="font-medium text-neutral-900 dark:text-neutral-100">
+                    {user.name}
+                  </span>
                   <span className="text-neutral-400"> ({user.email})</span>
                 </div>
               </div>
@@ -724,9 +762,12 @@ function AccessStatusCards({
               <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/20">
                 <Infinity className="h-5 w-5 flex-shrink-0 text-amber-600 dark:text-amber-400" />
                 <div>
-                  <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Lifetime Access Granted</p>
+                  <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                    Lifetime Access Granted
+                  </p>
                   <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-400">
-                    This center has permanent access across all future examination cycles. No renewal required.
+                    This center has permanent access across all future examination cycles. No
+                    renewal required.
                   </p>
                 </div>
               </div>
@@ -736,7 +777,9 @@ function AccessStatusCards({
               <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950/20">
                 <Timer className="h-5 w-5 flex-shrink-0 text-red-600 dark:text-red-400" />
                 <div>
-                  <p className="text-sm font-medium text-red-800 dark:text-red-300">Access Cycle Expired</p>
+                  <p className="text-sm font-medium text-red-800 dark:text-red-300">
+                    Access Cycle Expired
+                  </p>
                   <p className="mt-0.5 text-xs text-red-700 dark:text-red-400">
                     Renew to continue processing examination operations for this center.
                   </p>
@@ -748,7 +791,9 @@ function AccessStatusCards({
               <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/20">
                 <FileText className="h-5 w-5 flex-shrink-0 text-amber-600 dark:text-amber-400" />
                 <div>
-                  <p className="text-sm font-medium text-amber-800 dark:text-amber-300">No Active Access Cycle</p>
+                  <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                    No Active Access Cycle
+                  </p>
                   <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-400">
                     Select a cycle plan below to activate examination operations for this center.
                   </p>
@@ -760,7 +805,9 @@ function AccessStatusCards({
               <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950/20">
                 <Zap className="h-5 w-5 flex-shrink-0 text-blue-600 dark:text-blue-400" />
                 <div>
-                  <p className="text-sm font-medium text-blue-800 dark:text-blue-300">Trial Cycle Active</p>
+                  <p className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                    Trial Cycle Active
+                  </p>
                   <p className="mt-0.5 text-xs text-blue-700 dark:text-blue-400">
                     Upgrade before the trial ends to avoid disruption to examination operations.
                   </p>
@@ -772,7 +819,9 @@ function AccessStatusCards({
               <div className="flex items-center gap-3 rounded-lg border border-emerald-500/15 bg-emerald-500/[0.04] p-4 dark:border-white/10 dark:bg-white/5">
                 <Crown className="h-5 w-5 flex-shrink-0 text-emerald-500 dark:text-slate-300" />
                 <div>
-                  <p className="text-sm font-medium text-emerald-500 dark:text-slate-200">Premium Access Active</p>
+                  <p className="text-sm font-medium text-emerald-500 dark:text-slate-200">
+                    Premium Access Active
+                  </p>
                   <p className="mt-0.5 text-xs text-neutral-600 dark:text-neutral-400">
                     Full examination operations access for this center.
                   </p>
@@ -931,7 +980,7 @@ function CyclePlanCard({
           <span className="font-mono text-4xl font-bold text-neutral-900 dark:text-neutral-100">
             {plan.price}
           </span>
-          <span className="text-sm font-sans text-neutral-500">/{plan.period}</span>
+          <span className="font-sans text-sm text-neutral-500">/{plan.period}</span>
         </div>
 
         {/* Original Price (if any) */}
@@ -961,15 +1010,16 @@ function CyclePlanCard({
         )}
 
         {/* Description */}
-        <p className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">
-          {plan.description}
-        </p>
+        <p className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">{plan.description}</p>
 
         {/* Features */}
         <div className="mt-6 flex-1">
           <ul className="space-y-2.5">
             {plan.features.map((feature) => (
-              <li key={feature} className="flex items-start gap-3 text-sm">
+              <li
+                key={feature}
+                className="flex items-start gap-3 text-sm"
+              >
                 <Check
                   className={cn(
                     'mt-0.5 h-4 w-4 flex-shrink-0',
@@ -1244,7 +1294,13 @@ function CyclePlansSection({
 // Transaction Ledger (payment history, reframed)
 // ============================================
 
-function TransactionLedger({ payments, refreshTrigger }: { payments: Payment[]; refreshTrigger: number }) {
+function TransactionLedger({
+  payments,
+  refreshTrigger,
+}: {
+  payments: Payment[];
+  refreshTrigger: number;
+}) {
   const [loading, setLoading] = useState(true);
   const [localPayments, setLocalPayments] = useState<Payment[]>(payments);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -1294,12 +1350,20 @@ function TransactionLedger({ payments, refreshTrigger }: { payments: Payment[]; 
 
   if (paidPayments.length === 0) {
     return (
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="py-16 text-center">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="py-16 text-center"
+      >
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-neutral-100 dark:bg-neutral-800">
           <ScrollText className="h-8 w-8 text-neutral-400" />
         </div>
-        <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100">No transactions on record</h3>
-        <p className="mt-1 text-sm text-neutral-500">Completed examination cycle payments will appear here</p>
+        <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100">
+          No transactions on record
+        </h3>
+        <p className="mt-1 text-sm text-neutral-500">
+          Completed examination cycle payments will appear here
+        </p>
       </motion.div>
     );
   }
@@ -1307,7 +1371,9 @@ function TransactionLedger({ payments, refreshTrigger }: { payments: Payment[]; 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-neutral-900 dark:text-neutral-100">Transaction Ledger</h2>
+        <h2 className="text-lg font-bold text-neutral-900 dark:text-neutral-100">
+          Transaction Ledger
+        </h2>
         <span className="font-mono text-xs text-neutral-400">{paidPayments.length} record(s)</span>
       </div>
 
@@ -1325,8 +1391,12 @@ function TransactionLedger({ payments, refreshTrigger }: { payments: Payment[]; 
                 <CreditCard className="h-5 w-5 text-emerald-500 dark:text-slate-300" />
               </div>
               <div>
-                <p className="font-medium text-neutral-900 dark:text-neutral-100">{payment.planName}</p>
-                <p className="mt-0.5 font-mono text-xs text-neutral-400">{formatDate(payment.createdAt)}</p>
+                <p className="font-medium text-neutral-900 dark:text-neutral-100">
+                  {payment.planName}
+                </p>
+                <p className="mt-0.5 font-mono text-xs text-neutral-400">
+                  {formatDate(payment.createdAt)}
+                </p>
                 {payment.endDate && (
                   <p className="mt-0.5 text-xs text-emerald-600 dark:text-emerald-400">
                     Cycle valid until {formatDate(payment.endDate)}
@@ -1338,7 +1408,7 @@ function TransactionLedger({ payments, refreshTrigger }: { payments: Payment[]; 
               <p className="font-mono text-xl font-bold text-neutral-900 dark:text-neutral-100">
                 {formatCurrency(payment.amount)}
               </p>
-              <span className="inline-flex items-center gap-1 rounded-md border border-emerald-600/20 bg-emerald-50 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400">
+              <span className="inline-flex items-center gap-1 rounded-md border border-emerald-600/20 bg-emerald-50 px-2 py-1 text-[11px] font-semibold tracking-wide text-emerald-700 uppercase dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400">
                 <Check className="h-3 w-3" />
                 Paid
               </span>
@@ -1381,7 +1451,7 @@ export function BillingClient({
   }, []);
 
   return (
-    <div className="min-h-screen ">
+    <div className="min-h-screen">
       <div className="container mx-auto max-w-6xl px-4 py-8">
         <ExamFinancialHeader
           examCenter={examCenter}
@@ -1391,7 +1461,11 @@ export function BillingClient({
         />
 
         <div className="mt-8">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="space-y-8"
+          >
             <TabsList className="grid w-full max-w-lg grid-cols-3 rounded-xl bg-neutral-100 p-1 dark:bg-neutral-800">
               <TabsTrigger
                 value="current"
@@ -1414,7 +1488,11 @@ export function BillingClient({
             </TabsList>
 
             <AnimatePresence mode="wait">
-              <TabsContent value="current" className="mt-0" key={`current-${refreshTrigger}`}>
+              <TabsContent
+                value="current"
+                className="mt-0"
+                key={`current-${refreshTrigger}`}
+              >
                 <AccessStatusCards
                   subscription={subscription}
                   organization={organization}
@@ -1425,7 +1503,10 @@ export function BillingClient({
                 />
               </TabsContent>
 
-              <TabsContent value="plans" className="mt-0">
+              <TabsContent
+                value="plans"
+                className="mt-0"
+              >
                 <CyclePlansSection
                   user={user}
                   examCenter={examCenter}
@@ -1435,8 +1516,15 @@ export function BillingClient({
                 />
               </TabsContent>
 
-              <TabsContent value="history" className="mt-0" key={`history-${refreshTrigger}`}>
-                <TransactionLedger payments={payments} refreshTrigger={refreshTrigger} />
+              <TabsContent
+                value="history"
+                className="mt-0"
+                key={`history-${refreshTrigger}`}
+              >
+                <TransactionLedger
+                  payments={payments}
+                  refreshTrigger={refreshTrigger}
+                />
               </TabsContent>
             </AnimatePresence>
           </Tabs>

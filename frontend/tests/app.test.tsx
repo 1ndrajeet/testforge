@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ============================================================
 // MOCKS
@@ -139,7 +139,7 @@ describe('Authentication', () => {
       mockSignIn.mockResolvedValueOnce({ data: mockSession });
 
       const result = await mockSignIn('test@testforge.tech', 'password123');
-      
+
       expect(result.data.user).toBeDefined();
       expect(result.data.user.email).toBe('test@testforge.tech');
       expect(mockSignIn).toHaveBeenCalledWith('test@testforge.tech', 'password123');
@@ -149,7 +149,9 @@ describe('Authentication', () => {
       const error = new Error('Invalid email or password');
       mockSignIn.mockRejectedValueOnce(error);
 
-      await expect(mockSignIn('wrong@test.com', 'wrongpass')).rejects.toThrow('Invalid email or password');
+      await expect(mockSignIn('wrong@test.com', 'wrongpass')).rejects.toThrow(
+        'Invalid email or password',
+      );
     });
 
     it('fails login with unverified email', async () => {
@@ -165,12 +167,12 @@ describe('Authentication', () => {
   describe('Signup Flow', () => {
     it('creates account successfully', async () => {
       const newUser = { ...mockUser, id: 'new-user-123', email: 'new@testforge.tech' };
-      mockSignUp.mockResolvedValueOnce({ 
-        data: { user: newUser } 
+      mockSignUp.mockResolvedValueOnce({
+        data: { user: newUser },
       });
 
       const result = await mockSignUp('new@testforge.tech', 'password123', 'New User');
-      
+
       expect(result.data.user).toBeDefined();
       expect(result.data.user.email).toBe('new@testforge.tech');
       expect(mockSignUp).toHaveBeenCalledWith('new@testforge.tech', 'password123', 'New User');
@@ -179,7 +181,9 @@ describe('Authentication', () => {
     it('fails signup with existing email', async () => {
       mockSignUp.mockRejectedValueOnce(new Error('Email already registered'));
 
-      await expect(mockSignUp('existing@test.com', 'pass', 'Name')).rejects.toThrow('Email already registered');
+      await expect(mockSignUp('existing@test.com', 'pass', 'Name')).rejects.toThrow(
+        'Email already registered',
+      );
     });
   });
 
@@ -200,7 +204,7 @@ describe('Authentication', () => {
 
     it('signs out successfully', async () => {
       mockSignOut.mockResolvedValueOnce({});
-      
+
       await mockSignOut();
       expect(mockSignOut).toHaveBeenCalled();
     });
@@ -284,8 +288,8 @@ describe('Organization & Onboarding', () => {
     it('gets onboarding status', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ 
-          status: 'needs_subscription', 
+        json: async () => ({
+          status: 'needs_subscription',
           data: { organization: mockOrganization },
           plans: [
             { id: 'semester_online', title: 'Semester', amount: 289900 },
@@ -304,7 +308,10 @@ describe('Organization & Onboarding', () => {
     it('activates subscription', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ success: true, subscription: { tier: 'premium', expiresAt: '2027-01-01' } }),
+        json: async () => ({
+          success: true,
+          subscription: { tier: 'premium', expiresAt: '2027-01-01' },
+        }),
       });
 
       const response = await fetch('/api/payments/checkout', {
@@ -326,7 +333,11 @@ describe('Exam Setup', () => {
   describe('Timetable', () => {
     it('uploads timetable HTML', async () => {
       const formData = new FormData();
-      formData.append('file', new Blob(['<html><body><table></table></body></html>']), 'timetable.html');
+      formData.append(
+        'file',
+        new Blob(['<html><body><table></table></body></html>']),
+        'timetable.html',
+      );
       formData.append('file_type', 'timetable');
 
       mockFetch.mockResolvedValueOnce({
@@ -390,7 +401,12 @@ describe('Exam Setup', () => {
     });
 
     it('creates new staff member', async () => {
-      const newStaff = { uid: 'STAFF003', name: 'New Staff', department: 'CS', staffType: 'SUPERVISOR' };
+      const newStaff = {
+        uid: 'STAFF003',
+        name: 'New Staff',
+        department: 'CS',
+        staffType: 'SUPERVISOR',
+      };
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -455,14 +471,23 @@ describe('Exam Setup', () => {
     });
 
     it('creates block', async () => {
-      const blockData = { blockNo: '3', location: 'Room 103', name: 'Block 3', strength: 40, distribution: [10, 10, 10, 10] };
+      const blockData = {
+        blockNo: '3',
+        location: 'Room 103',
+        name: 'Block 3',
+        strength: 40,
+        distribution: [10, 10, 10, 10],
+      };
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ success: true, data: { ...blockData, id: 'b3' } }),
       });
 
-      const response = await fetch('/api/blocks', { method: 'POST', body: JSON.stringify(blockData) });
+      const response = await fetch('/api/blocks', {
+        method: 'POST',
+        body: JSON.stringify(blockData),
+      });
       const data = await response.json();
 
       expect(data.success).toBe(true);
@@ -527,7 +552,10 @@ describe('Block Allocation', () => {
       json: async () => ({ success: true, data: { ...allocData, id: 'alloc-1' } }),
     });
 
-    const response = await fetch('/api/allocations', { method: 'POST', body: JSON.stringify(allocData) });
+    const response = await fetch('/api/allocations', {
+      method: 'POST',
+      body: JSON.stringify(allocData),
+    });
     const data = await response.json();
 
     expect(data.success).toBe(true);
@@ -726,7 +754,12 @@ describe('Reports', () => {
     it('generates supervision report', async () => {
       const supervisionData = {
         blocks: [
-          { blockNo: '1', location: 'Room 101', supervisorName: 'Dr. Smith', schemes: [{ scheme: 'EE-6-I', subjectCode: 'ESE101', students: 30 }] },
+          {
+            blockNo: '1',
+            location: 'Room 101',
+            supervisorName: 'Dr. Smith',
+            schemes: [{ scheme: 'EE-6-I', subjectCode: 'ESE101', students: 30 }],
+          },
         ],
       };
 
@@ -743,9 +776,7 @@ describe('Reports', () => {
 
     it('generates malpractice report (Format 13)', async () => {
       const malpracticeData = {
-        records: [
-          { seatNumber: 10003, subjectCode: 'ESE101', scheme: 'EE-6-I' },
-        ],
+        records: [{ seatNumber: 10003, subjectCode: 'ESE101', scheme: 'EE-6-I' }],
       };
 
       mockFetch.mockResolvedValueOnce({
@@ -843,14 +874,22 @@ describe('Office Orders', () => {
   });
 
   it('creates order', async () => {
-    const orderData = { staffId: 's1', orderType: 'supervision', date: '2026-04-24', session: 'Morning' };
+    const orderData = {
+      staffId: 's1',
+      orderType: 'supervision',
+      date: '2026-04-24',
+      session: 'Morning',
+    };
 
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ success: true, data: { ...orderData, id: 'o3' } }),
     });
 
-    const response = await fetch('/api/orders', { method: 'POST', body: JSON.stringify(orderData) });
+    const response = await fetch('/api/orders', {
+      method: 'POST',
+      body: JSON.stringify(orderData),
+    });
     const data = await response.json();
 
     expect(data.success).toBe(true);
@@ -951,11 +990,11 @@ describe('Billing & Subscriptions', () => {
   it('gets subscription status', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ 
-        tier: 'premium', 
-        planName: 'Annual Plan', 
-        expiresAt: '2027-01-01', 
-        isActive: true 
+      json: async () => ({
+        tier: 'premium',
+        planName: 'Annual Plan',
+        expiresAt: '2027-01-01',
+        isActive: true,
       }),
     });
 

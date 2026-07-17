@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
+import pricingPlans from '@/config/pricing.json';
 import {
   Activity,
   AlertTriangle,
@@ -185,12 +186,13 @@ function Nav() {
   return (
     <header
       id="top"
-      className={`sticky top-0 z-50 w-full transition-all duration-500 ${scrolled
-        ? `border-b ${theme === 'dark' ? 'border-white/5 bg-[#0a0a0a]/90 shadow-2xl shadow-black/50' : 'border-neutral-200/60 bg-white/90 shadow-sm'} backdrop-blur-xl`
-        : theme === 'dark'
-          ? 'bg-transparent backdrop-blur'
-          : 'bg-white/60 backdrop-blur'
-        }`}
+      className={`sticky top-0 z-50 w-full transition-all duration-500 ${
+        scrolled
+          ? `border-b ${theme === 'dark' ? 'border-white/5 bg-[#0a0a0a]/90 shadow-2xl shadow-black/50' : 'border-neutral-200/60 bg-white/90 shadow-sm'} backdrop-blur-xl`
+          : theme === 'dark'
+            ? 'bg-transparent backdrop-blur'
+            : 'bg-white/60 backdrop-blur'
+      }`}
     >
       {/* Interactive glow - only in dark mode */}
       {theme === 'dark' && (
@@ -217,15 +219,17 @@ function Nav() {
             <a
               key={l.href}
               href={l.href}
-              className={`group relative text-sm transition-colors ${theme === 'dark'
-                ? 'text-neutral-400 hover:text-white'
-                : 'text-neutral-500 hover:text-neutral-900'
-                }`}
+              className={`group relative text-sm transition-colors ${
+                theme === 'dark'
+                  ? 'text-neutral-400 hover:text-white'
+                  : 'text-neutral-500 hover:text-neutral-900'
+              }`}
             >
               {l.label}
               <span
-                className={`absolute -bottom-0.5 left-0 h-px w-0 transition-all duration-300 group-hover:w-full ${theme === 'dark' ? 'bg-emerald-400' : 'bg-emerald-600'
-                  }`}
+                className={`absolute -bottom-0.5 left-0 h-px w-0 transition-all duration-300 group-hover:w-full ${
+                  theme === 'dark' ? 'bg-emerald-400' : 'bg-emerald-600'
+                }`}
               />
             </a>
           ))}
@@ -241,10 +245,11 @@ function Nav() {
                     variant="ghost"
                     size="icon"
                     onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                    className={`rounded-full ${theme === 'dark'
-                      ? 'text-neutral-400 hover:bg-white/10 hover:text-white'
-                      : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900'
-                      }`}
+                    className={`rounded-full ${
+                      theme === 'dark'
+                        ? 'text-neutral-400 hover:bg-white/10 hover:text-white'
+                        : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900'
+                    }`}
                   >
                     <Sun className="h-4 w-4 scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
                     <Moon className="absolute h-4 w-4 scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
@@ -265,8 +270,9 @@ function Nav() {
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={user.image || ''} />
                     <AvatarFallback
-                      className={`bg-gradient-to-br from-emerald-500 to-emerald-600 text-white ${theme === 'dark' ? '' : 'shadow-sm'
-                        }`}
+                      className={`bg-gradient-to-br from-emerald-500 to-emerald-600 text-white ${
+                        theme === 'dark' ? '' : 'shadow-sm'
+                      }`}
                     >
                       {getInitials()}
                     </AvatarFallback>
@@ -362,8 +368,9 @@ function Nav() {
                 <DropdownMenuSeparator className={theme === 'dark' ? 'bg-white/5' : ''} />
                 <DropdownMenuItem
                   onClick={handleSignOut}
-                  className={`cursor-pointer text-red-600 ${theme === 'dark' ? 'hover:bg-white/5 focus:bg-white/5' : 'focus:bg-red-50'
-                    }`}
+                  className={`cursor-pointer text-red-600 ${
+                    theme === 'dark' ? 'hover:bg-white/5 focus:bg-white/5' : 'focus:bg-red-50'
+                  }`}
                 >
                   <LogOut className="mr-2 h-4 w-4" /> Log out
                 </DropdownMenuItem>
@@ -375,10 +382,11 @@ function Nav() {
                 asChild
                 variant="outline"
                 size="sm"
-                className={`rounded-full ${theme === 'dark'
-                  ? 'border-white/10 bg-white/5 text-white hover:border-white/20 hover:bg-white/10'
-                  : 'border-neutral-300 hover:bg-neutral-50'
-                  }`}
+                className={`rounded-full ${
+                  theme === 'dark'
+                    ? 'border-white/10 bg-white/5 text-white hover:border-white/20 hover:bg-white/10'
+                    : 'border-neutral-300 hover:bg-neutral-50'
+                }`}
               >
                 <Link href="/login">Sign In</Link>
               </Button>
@@ -395,10 +403,11 @@ function Nav() {
             <Button
               variant="ghost"
               size="icon"
-              className={`rounded-full md:hidden ${theme === 'dark'
-                ? 'text-white hover:bg-white/10'
-                : 'text-neutral-600 hover:bg-neutral-100'
-                }`}
+              className={`rounded-full md:hidden ${
+                theme === 'dark'
+                  ? 'text-white hover:bg-white/10'
+                  : 'text-neutral-600 hover:bg-neutral-100'
+              }`}
               aria-label="Open menu"
             >
               <Menu className="h-5 w-5" />
@@ -413,16 +422,18 @@ function Nav() {
                 <a
                   key={l.href}
                   href={l.href}
-                  className={`group relative text-base font-medium transition-colors ${theme === 'dark'
-                    ? 'text-white/70 hover:text-white'
-                    : 'text-neutral-600 hover:text-neutral-900'
-                    }`}
+                  className={`group relative text-base font-medium transition-colors ${
+                    theme === 'dark'
+                      ? 'text-white/70 hover:text-white'
+                      : 'text-neutral-600 hover:text-neutral-900'
+                  }`}
                   onClick={() => setIsMenuOpen(false)}
                 >
                   {l.label}
                   <span
-                    className={`absolute -bottom-0.5 left-0 h-px w-0 transition-all duration-300 group-hover:w-full ${theme === 'dark' ? 'bg-emerald-400' : 'bg-emerald-600'
-                      }`}
+                    className={`absolute -bottom-0.5 left-0 h-px w-0 transition-all duration-300 group-hover:w-full ${
+                      theme === 'dark' ? 'bg-emerald-400' : 'bg-emerald-600'
+                    }`}
                   />
                 </a>
               ))}
@@ -475,10 +486,11 @@ function Nav() {
                 <Button
                   variant="ghost"
                   onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                  className={`justify-start gap-2 px-0 ${theme === 'dark'
-                    ? 'text-white/70 hover:text-white'
-                    : 'text-neutral-600 hover:text-neutral-900'
-                    }`}
+                  className={`justify-start gap-2 px-0 ${
+                    theme === 'dark'
+                      ? 'text-white/70 hover:text-white'
+                      : 'text-neutral-600 hover:text-neutral-900'
+                  }`}
                 >
                   {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                   {theme === 'dark' ? 'Light mode' : 'Dark mode'}
@@ -489,10 +501,11 @@ function Nav() {
                 <Button
                   onClick={handleSignOut}
                   variant="ghost"
-                  className={`justify-start gap-2 px-0 ${theme === 'dark'
-                    ? 'text-red-400 hover:bg-red-500/10 hover:text-red-300'
-                    : 'text-red-600 hover:bg-red-50 hover:text-red-700'
-                    }`}
+                  className={`justify-start gap-2 px-0 ${
+                    theme === 'dark'
+                      ? 'text-red-400 hover:bg-red-500/10 hover:text-red-300'
+                      : 'text-red-600 hover:bg-red-50 hover:text-red-700'
+                  }`}
                 >
                   <LogOut className="h-4 w-4" /> Log out
                 </Button>
@@ -596,7 +609,9 @@ function Hero() {
             <div className="text-[10px] tracking-wider text-neutral-500 uppercase dark:text-neutral-400">
               Launch offer
             </div>
-            <div className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">₹{LAUNCH_OFFER_PRICE}</div>
+            <div className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">
+              ₹{LAUNCH_OFFER_PRICE}
+            </div>
             <div className="text-[10px] text-neutral-500 dark:text-neutral-400">first semester</div>
           </div>
         </div>
@@ -874,61 +889,9 @@ function Features() {
 }
 
 function Pricing() {
-  const plans = [
-    {
-      name: 'Launch Offer',
-      price: '₹'+LAUNCH_OFFER_PRICE.toLocaleString(),
-      cadence: 'first semester',
-      desc: 'First 10 institutes only. Full access, zero risk.',
-      cta: 'Claim ₹'+LAUNCH_OFFER_PRICE.toLocaleString()+' Trial',
-      badge: 'Launch offer',
-      features: [
-        'All 22 MSBTE formats',
-        'Up to 500 students',
-        'Email support',
-        'Onboarding included',
-      ],
-      highlight: false,
-    },
-    {
-      name: 'Starter',
-      price: '₹4,999',
-      cadence: 'per cycle',
-      desc: 'For smaller centers running a single exam cycle.',
-      cta: 'Get started',
-      features: ['Up to 500 students', 'All formats & allocation', 'Email support'],
-      highlight: false,
-    },
-    {
-      name: 'Institute',
-      price: '₹9,999',
-      cadence: 'per cycle',
-      desc: 'Most popular for MSBTE-affiliated institutes.',
-      cta: 'Get started',
-      badge: 'Most popular',
-      features: [
-        'Unlimited students',
-        'All formats, allocation & inventory',
-        'Office orders + email automation',
-        'Priority support',
-      ],
-      highlight: true,
-    },
-    {
-      name: 'Enterprise',
-      price: 'Custom',
-      cadence: 'annual',
-      desc: 'For multi-campus groups and university affiliations.',
-      cta: 'Talk to sales',
-      features: [
-        'Everything in Institute',
-        'Multi-campus',
-        'SLA & dedicated CSM',
-        'Custom integrations',
-      ],
-      highlight: false,
-    },
-  ];
+  // Filter out disabled plans
+  const activePlans = pricingPlans.filter((plan: any) => !plan.disabled);
+
   return (
     <section
       id="pricing"
@@ -938,72 +901,105 @@ function Pricing() {
         <SectionHeader
           eyebrow="Pricing"
           title="Pay for the exam cycle. Save the rest of the year."
-          subtitle={"Launching Winter 2026. Get in early for ₹"+LAUNCH_OFFER_PRICE.toLocaleString()+"."}
+          subtitle="Launching Winter 2026. Get in early."
         />
         <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {plans.map((p, i) => (
-            <Reveal
-              key={p.name}
-              delay={i * 80}
-            >
-              <div
-                className={`relative flex h-full flex-col rounded-2xl border bg-white p-6 transition-all duration-300 dark:bg-[#121212] ${p.highlight
-                  ? 'border-emerald-300 shadow-md hover:-translate-y-1 hover:shadow-lg dark:border-emerald-500/50 dark:shadow-emerald-500/20 dark:hover:shadow-emerald-500/30'
-                  : 'border-neutral-200/60 hover:-translate-y-1 hover:shadow-lg dark:border-white/5 dark:bg-[#121212] dark:hover:border-white/10'
-                  }`}
+          {activePlans.map((plan: any, i: number) => {
+            const isPopular = plan.popular;
+            const isHighlight = !!plan.highlight;
+            const isLaunch = !!plan.launchPrice;
+
+            return (
+              <Reveal
+                key={plan.id}
+                delay={i * 80}
               >
-                {p.badge && (
-                  <div
-                    className={`absolute -top-3 left-6 rounded-full px-2.5 py-0.5 text-[10px] font-semibold tracking-wider uppercase ${p.highlight
-                      ? 'bg-emerald-600 text-white dark:bg-gradient-to-r dark:from-emerald-500 dark:to-emerald-600'
-                      : 'bg-neutral-900 text-white dark:bg-white/10 dark:text-white/70'
-                      }`}
-                  >
-                    {p.badge}
+                <div
+                  className={`relative flex h-full flex-col rounded-2xl border bg-white p-6 transition-all duration-300 dark:bg-[#121212] ${
+                    isHighlight
+                      ? 'border-emerald-300 shadow-md hover:-translate-y-1 hover:shadow-lg dark:border-emerald-500/50 dark:shadow-emerald-500/20 dark:hover:shadow-emerald-500/30'
+                      : 'border-neutral-200/60 hover:-translate-y-1 hover:shadow-lg dark:border-white/5 dark:bg-[#121212] dark:hover:border-white/10'
+                  }`}
+                >
+                  {/* Badge */}
+                  {isPopular && (
+                    <div className="absolute -top-3 left-6 rounded-full bg-emerald-600 px-2.5 py-0.5 text-[10px] font-semibold tracking-wider text-white uppercase dark:bg-gradient-to-r dark:from-emerald-500 dark:to-emerald-600">
+                      Most Popular
+                    </div>
+                  )}
+
+                  {isLaunch && (
+                    <div className="absolute -top-3 right-6 rounded-full bg-amber-500 px-2.5 py-0.5 text-[10px] font-semibold tracking-wider text-white uppercase">
+                      Launch Offer
+                    </div>
+                  )}
+
+                  {/* Name */}
+                  <div className="text-sm font-semibold dark:text-white/60">{plan.title}</div>
+
+                  {/* Price */}
+                  <div className="mt-3 flex items-baseline gap-1">
+                    <span className="text-3xl font-extrabold tracking-tight dark:text-white">
+                      {isLaunch ? plan.launchPrice : plan.price}
+                    </span>
+                    <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                      / {plan.period}
+                    </span>
                   </div>
-                )}
-                <div className="text-sm font-semibold dark:text-white/60">{p.name}</div>
-                <div className="mt-3 flex items-baseline gap-1">
-                  <span className="text-3xl font-extrabold tracking-tight dark:text-white">
-                    {p.price}
-                  </span>
-                  <span className="text-xs text-neutral-500 dark:text-neutral-400">
-                    / {p.cadence}
-                  </span>
-                </div>
-                <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">{p.desc}</p>
-                <ul className="mt-5 space-y-2">
-                  {p.features.map((f) => (
-                    <li
-                      key={f}
-                      className="flex items-start gap-2 text-sm dark:text-white/70"
-                    >
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-                <div className="mt-6 pt-2">
-                  <Button
-                    asChild
-                    className={`w-full rounded-full ${p.highlight
-                      ? 'bg-emerald-600 hover:bg-emerald-700 dark:bg-gradient-to-r dark:from-emerald-500 dark:to-emerald-600 dark:hover:from-emerald-400 dark:hover:to-emerald-500'
-                      : 'border-neutral-300 hover:bg-neutral-50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10'
+
+                  {/* Original Price (if launch) */}
+                  {isLaunch && (
+                    <span className="mt-1 text-xs text-neutral-400 line-through">{plan.price}</span>
+                  )}
+
+                  {/* Description */}
+                  <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+                    {plan.description}
+                  </p>
+
+                  {/* Features */}
+                  <ul className="mt-5 space-y-2">
+                    {plan.features.map((f: string) => (
+                      <li
+                        key={f}
+                        className="flex items-start gap-2 text-sm dark:text-white/70"
+                      >
+                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                        <span>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  {/* CTA */}
+                  <div className="mt-6 pt-2">
+                    <Button
+                      asChild
+                      className={`w-full rounded-full ${
+                        isHighlight
+                          ? 'bg-emerald-600 hover:bg-emerald-700 dark:bg-gradient-to-r dark:from-emerald-500 dark:to-emerald-600 dark:hover:from-emerald-400 dark:hover:to-emerald-500'
+                          : 'border-neutral-300 hover:bg-neutral-50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10'
                       }`}
-                    variant={p.highlight ? 'default' : 'outline'}
-                  >
-                    <a href="#cta">{p.cta}</a>
-                  </Button>
+                      variant={isHighlight ? 'default' : 'outline'}
+                    >
+                      <a href="#cta">{isLaunch ? `Claim ${plan.launchPrice} Trial` : plan.cta}</a>
+                    </Button>
+                  </div>
+
+                  {/* Highlight text */}
+                  {plan.highlight && (
+                    <p className="mt-3 text-center text-xs text-emerald-600 dark:text-emerald-400">
+                      {plan.highlight}
+                    </p>
+                  )}
                 </div>
-              </div>
-            </Reveal>
-          ))}
+              </Reveal>
+            );
+          })}
         </div>
       </div>
     </section>
   );
 }
-
 function Proof() {
   return (
     <section className="py-20 sm:py-24">
@@ -1054,7 +1050,8 @@ function FinalCta() {
           Get your exam center ready for Winter 2026.
         </h2>
         <p className="mx-auto mt-3 max-w-xl text-sm text-white/85 sm:text-base">
-          Join the first 10 institutes for ₹{LAUNCH_OFFER_PRICE}. Full access. No commitment. Real onboarding support.
+          Join the first 10 institutes for ₹{LAUNCH_OFFER_PRICE}. Full access. No commitment. Real
+          onboarding support.
         </p>
         <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Button
@@ -1090,12 +1087,18 @@ function Faq() {
       a: 'All 22 official MSBTE formats — instructions, receipts (Formats 2–9), malpractice report (Format 13), Panchnama (Format 22), and everything in between. We track MSBTE changes and ship updates within the same cycle.',
     },
     {
-      q: 'How does the ₹'+ LAUNCH_OFFER_PRICE.toLocaleString() +' first semester offer work?',
-      a: 'The first 10 MSBTE-affiliated institutes that sign up pay ₹'+ LAUNCH_OFFER_PRICE.toLocaleString() +' for their first semester of full access. No hidden fees, no contract, cancel anytime.',
+      q: 'How does the ₹' + LAUNCH_OFFER_PRICE.toLocaleString() + ' first semester offer work?',
+      a:
+        'The first 10 MSBTE-affiliated institutes that sign up pay ₹' +
+        LAUNCH_OFFER_PRICE.toLocaleString() +
+        ' for their first semester of full access. No hidden fees, no contract, cancel anytime.',
     },
     {
       q: 'When does TestForge launch?',
-      a: 'Winter 2026 — in time for the next MSBTE exam cycle. ₹'+ LAUNCH_OFFER_PRICE.toLocaleString() +' partners get onboarded first and help shape the final release.',
+      a:
+        'Winter 2026 — in time for the next MSBTE exam cycle. ₹' +
+        LAUNCH_OFFER_PRICE.toLocaleString() +
+        ' partners get onboarded first and help shape the final release.',
     },
     {
       q: 'Is our student and staff data secure?',
@@ -1103,7 +1106,10 @@ function Faq() {
     },
     {
       q: 'Do we get help setting it up?',
-      a: 'Every ₹'+ LAUNCH_OFFER_PRICE.toLocaleString() +' partner gets dedicated onboarding support from our team — including data import, timetable setup and your first exam-day walkthrough.',
+      a:
+        'Every ₹' +
+        LAUNCH_OFFER_PRICE.toLocaleString() +
+        ' partner gets dedicated onboarding support from our team — including data import, timetable setup and your first exam-day walkthrough.',
     },
     {
       q: 'Can we cancel anytime?',
@@ -1238,9 +1244,7 @@ function Footer() {
         </div>
       </div>
       <div className="mx-auto mt-10 flex max-w-6xl flex-col items-center justify-between gap-3 border-t border-neutral-200/60 px-4 pt-6 text-xs text-neutral-500 sm:flex-row sm:px-6 dark:border-white/5 dark:text-neutral-400">
-        <div>
-          © {new Date().getFullYear()} Acharya Technologies. All rights reserved.
-        </div>
+        <div>© {new Date().getFullYear()} Acharya Technologies. All rights reserved.</div>
         <div className="flex items-center gap-4">
           <Link
             href="/docs/"

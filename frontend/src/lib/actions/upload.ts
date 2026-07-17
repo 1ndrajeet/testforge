@@ -47,7 +47,17 @@ export interface UploadStatusData {
 }
 
 // ============================================
-// Read Operations
+// Helpers
+// ============================================
+
+async function getExamCenterIdOrThrow() {
+  const id = await getExamCenterId();
+  if (!id) throw new Error('Exam center not found');
+  return id;
+}
+
+// ============================================
+// Read Operations - OPTIMIZED
 // ============================================
 
 export async function getUploadRecord(
@@ -58,13 +68,14 @@ export async function getUploadRecord(
   data: UploadRecord;
   error?: string;
 }> {
-  const MODULE_FN = `${MODULE}.getUploadRecord`;
+  const fn = `${MODULE}.getUploadRecord`;
+  const start = performance.now();
 
   try {
     const examCenterId = await getExamCenterId();
 
     if (!examCenterId) {
-      logger.debug(MODULE_FN, 'No exam center found');
+      logger.debug(fn, 'No exam center found');
       return {
         success: true,
         data: {
@@ -82,13 +93,11 @@ export async function getUploadRecord(
       };
     }
 
-    // Build conditions
     const conditions = [eq(uploads.examCenterId, examCenterId), eq(uploads.fileType, fileType)];
 
     if (connectedInstituteId) {
       conditions.push(eq(uploads.connectedInstituteId, connectedInstituteId));
     } else {
-      // For non-institute files, only return records with NULL connected_institute_id
       conditions.push(isNull(uploads.connectedInstituteId));
     }
 
@@ -98,7 +107,7 @@ export async function getUploadRecord(
     });
 
     if (!record) {
-      logger.debug(MODULE_FN, 'No upload record found', { fileType, connectedInstituteId });
+      logger.debug(fn, 'No upload record found', { fileType, connectedInstituteId });
       return {
         success: true,
         data: {
@@ -116,11 +125,11 @@ export async function getUploadRecord(
       };
     }
 
-    logger.debug(MODULE_FN, 'Upload record fetched', {
+    const duration = performance.now() - start;
+    logger.debug(fn, `Upload record fetched in ${duration.toFixed(0)}ms`, {
       fileType,
       status: record.status,
       recordCount: record.recordCount,
-      connectedInstituteId: record.connectedInstituteId,
     });
 
     return {
@@ -139,10 +148,10 @@ export async function getUploadRecord(
       },
     };
   } catch (error) {
-    logger.error(MODULE_FN, 'Failed to fetch upload record', { error });
+    logger.error(fn, 'Failed to fetch upload record', { error });
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to fetch upload status',
+      error: 'Failed to fetch upload status',
       data: {
         exists: false,
         status: null,
@@ -167,7 +176,7 @@ export async function getUploadStatus(
   data: UploadStatusData;
   error?: string;
 }> {
-  const MODULE_FN = `${MODULE}.getUploadStatus`;
+  const fn = `${MODULE}.getUploadStatus`;
 
   try {
     const result = await getUploadRecord(fileType, connectedInstituteId);
@@ -175,7 +184,7 @@ export async function getUploadStatus(
     if (!result.success) {
       return {
         success: false,
-        error: result.error,
+        error: result.error || 'Failed to fetch status',
         data: {
           fileExists: false,
           isProcessed: false,
@@ -207,10 +216,10 @@ export async function getUploadStatus(
       },
     };
   } catch (error) {
-    logger.error(MODULE_FN, 'Failed to get upload status', { error });
+    logger.error(fn, 'Failed to get upload status', { error });
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to get upload status',
+      error: 'Failed to get upload status',
       data: {
         fileExists: false,
         isProcessed: false,
@@ -227,7 +236,7 @@ export async function getUploadStatus(
 }
 
 // ============================================
-// Get All Uploads for a File Type
+// OPTIMIZED: getAllUploads
 // ============================================
 
 export async function getAllUploads(fileType: UploadFileType): Promise<{
@@ -235,13 +244,14 @@ export async function getAllUploads(fileType: UploadFileType): Promise<{
   data: UploadRecord[];
   error?: string;
 }> {
-  const MODULE_FN = `${MODULE}.getAllUploads`;
+  const fn = `${MODULE}.getAllUploads`;
+  const start = performance.now();
 
   try {
     const examCenterId = await getExamCenterId();
 
     if (!examCenterId) {
-      logger.debug(MODULE_FN, 'No exam center found');
+      logger.debug(fn, 'No exam center found');
       return { success: true, data: [] };
     }
 
@@ -263,20 +273,22 @@ export async function getAllUploads(fileType: UploadFileType): Promise<{
       connectedInstituteId: record.connectedInstituteId,
     }));
 
-    logger.debug(MODULE_FN, `Fetched ${records.length} upload records`, { fileType });
+    const duration = performance.now() - start;
+    logger.debug(fn, `Fetched ${records.length} upload records in ${duration.toFixed(0)}ms`, { fileType });
+
     return { success: true, data: mappedRecords };
   } catch (error) {
-    logger.error(MODULE_FN, 'Failed to fetch upload records', { error });
+    logger.error(fn, 'Failed to fetch upload records', { error });
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to fetch upload records',
+      error: 'Failed to fetch upload records',
       data: [],
     };
   }
 }
 
 // ============================================
-// Write Operations
+// Write Operations - OPTIMIZED
 // ============================================
 
 export async function updateUploadStatus(
@@ -293,13 +305,14 @@ export async function updateUploadStatus(
   data?: any;
   error?: string;
 }> {
-  const MODULE_FN = `${MODULE}.updateUploadStatus`;
+  const fn = `${MODULE}.updateUploadStatus`;
+  const start = performance.now();
 
   try {
     const examCenterId = await getExamCenterId();
 
     if (!examCenterId) {
-      logger.warn(MODULE_FN, 'No exam center found');
+      logger.warn(fn, 'No exam center found');
       return { success: false, error: 'Exam center not found' };
     }
 
@@ -308,17 +321,10 @@ export async function updateUploadStatus(
       updatedAt: new Date(),
     };
 
-    if (data?.recordCount !== undefined) {
-      updateData.recordCount = data.recordCount;
-    }
-    if (data?.errorMessage !== undefined) {
-      updateData.errorMessage = data.errorMessage;
-    }
-    if (data?.processedAt) {
-      updateData.processedAt = data.processedAt;
-    }
+    if (data?.recordCount !== undefined) updateData.recordCount = data.recordCount;
+    if (data?.errorMessage !== undefined) updateData.errorMessage = data.errorMessage;
+    if (data?.processedAt) updateData.processedAt = data.processedAt;
 
-    // Build conditions
     const conditions = [eq(uploads.examCenterId, examCenterId), eq(uploads.fileType, fileType)];
 
     if (data?.connectedInstituteId) {
@@ -334,23 +340,23 @@ export async function updateUploadStatus(
       .returning();
 
     if (!updated) {
-      logger.warn(MODULE_FN, 'Upload record not found', { fileType });
+      logger.warn(fn, 'Upload record not found', { fileType });
       return { success: false, error: 'Upload record not found' };
     }
 
-    logger.info(MODULE_FN, 'Upload status updated', {
+    const duration = performance.now() - start;
+    logger.info(fn, `Upload status updated in ${duration.toFixed(0)}ms`, {
       fileType,
       status,
       recordCount: data?.recordCount,
-      connectedInstituteId: data?.connectedInstituteId,
     });
 
     return { success: true, data: updated };
   } catch (error) {
-    logger.error(MODULE_FN, 'Failed to update upload status', { error });
+    logger.error(fn, 'Failed to update upload status', { error });
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to update upload status',
+      error: 'Failed to update upload status',
     };
   }
 }
@@ -363,13 +369,14 @@ export async function deleteUploadRecord(
   data?: any;
   error?: string;
 }> {
-  const MODULE_FN = `${MODULE}.deleteUploadRecord`;
+  const fn = `${MODULE}.deleteUploadRecord`;
+  const start = performance.now();
 
   try {
     const examCenterId = await getExamCenterId();
 
     if (!examCenterId) {
-      logger.warn(MODULE_FN, 'No exam center found');
+      logger.warn(fn, 'No exam center found');
       return { success: false, error: 'Exam center not found' };
     }
 
@@ -387,23 +394,25 @@ export async function deleteUploadRecord(
       .returning();
 
     if (!deleted) {
-      logger.warn(MODULE_FN, 'Upload record not found', { fileType, connectedInstituteId });
+      logger.warn(fn, 'Upload record not found', { fileType, connectedInstituteId });
       return { success: false, error: 'Upload record not found' };
     }
 
-    logger.info(MODULE_FN, 'Upload record deleted', { fileType, connectedInstituteId });
+    const duration = performance.now() - start;
+    logger.info(fn, `Upload record deleted in ${duration.toFixed(0)}ms`, { fileType });
+
     return { success: true, data: deleted };
   } catch (error) {
-    logger.error(MODULE_FN, 'Failed to delete upload record', { error });
+    logger.error(fn, 'Failed to delete upload record', { error });
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to delete upload record',
+      error: 'Failed to delete upload record',
     };
   }
 }
 
 // ============================================
-// Upsert Upload Record
+// OPTIMIZED: upsertUploadRecord
 // ============================================
 
 export async function upsertUploadRecord(data: {
@@ -419,19 +428,19 @@ export async function upsertUploadRecord(data: {
   data?: any;
   error?: string;
 }> {
-  const MODULE_FN = `${MODULE}.upsertUploadRecord`;
+  const fn = `${MODULE}.upsertUploadRecord`;
+  const start = performance.now();
 
   try {
     const examCenterId = await getExamCenterId();
 
     if (!examCenterId) {
-      logger.warn(MODULE_FN, 'No exam center found');
+      logger.warn(fn, 'No exam center found');
       return { success: false, error: 'Exam center not found' };
     }
 
     const { fileType, connectedInstituteId, ...rest } = data;
 
-    // Check if record exists
     const conditions = [eq(uploads.examCenterId, examCenterId), eq(uploads.fileType, fileType)];
 
     if (connectedInstituteId) {
@@ -447,7 +456,6 @@ export async function upsertUploadRecord(data: {
     let result;
 
     if (existing) {
-      // Update existing
       const [updated] = await db
         .update(uploads)
         .set({
@@ -460,7 +468,6 @@ export async function upsertUploadRecord(data: {
         .returning();
       result = updated;
     } else {
-      // Insert new
       const [inserted] = await db
         .insert(uploads)
         .values({
@@ -474,7 +481,8 @@ export async function upsertUploadRecord(data: {
       result = inserted;
     }
 
-    logger.info(MODULE_FN, 'Upload record upserted', {
+    const duration = performance.now() - start;
+    logger.info(fn, `Upload record upserted in ${duration.toFixed(0)}ms`, {
       fileType,
       connectedInstituteId,
       isUpdate: !!existing,
@@ -482,15 +490,17 @@ export async function upsertUploadRecord(data: {
 
     return { success: true, data: result };
   } catch (error) {
-    logger.error(MODULE_FN, 'Failed to upsert upload record', { error });
+    logger.error(fn, 'Failed to upsert upload record', { error });
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to upsert upload record',
+      error: 'Failed to upsert upload record',
     };
   }
 }
 
-// lib/actions/upload.ts - Add this function
+// ============================================
+// getStoredFilename - OPTIMIZED
+// ============================================
 
 export async function getStoredFilename(
   fileType: UploadFileType,
@@ -500,7 +510,8 @@ export async function getStoredFilename(
   data: { storedFilename: string | null; status: string | null };
   error?: string;
 }> {
-  const MODULE_FN = `${MODULE}.getStoredFilename`;
+  const fn = `${MODULE}.getStoredFilename`;
+  const start = performance.now();
 
   try {
     const examCenterId = await getExamCenterId();
@@ -532,6 +543,12 @@ export async function getStoredFilename(
       };
     }
 
+    const duration = performance.now() - start;
+    logger.debug(fn, `Stored filename fetched in ${duration.toFixed(0)}ms`, {
+      fileType,
+      status: record.status,
+    });
+
     return {
       success: true,
       data: {
@@ -540,10 +557,10 @@ export async function getStoredFilename(
       },
     };
   } catch (error) {
-    logger.error(MODULE_FN, 'Failed to get stored filename', { error });
+    logger.error(fn, 'Failed to get stored filename', { error });
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: 'Failed to get stored filename',
       data: { storedFilename: null, status: null },
     };
   }
