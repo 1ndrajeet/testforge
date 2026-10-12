@@ -8,3 +8,5 @@ data/
 *.yml
 .env
 snapshot-frontend.txt
+.agents
+.agents/*

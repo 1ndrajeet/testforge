@@ -1,0 +1,503 @@
+// modules/testforge-reports/qp-summary.tsx
+
+'use client';
+
+import { ReactNode, useCallback, useEffect, useState } from 'react';
+
+import { format } from 'date-fns';
+import { AlertCircle } from 'lucide-react';
+
+import { createClient } from '@/lib/supabase/client';
+import { cn } from '@/lib/utils';
+
+import { useUserInfo } from '@/hooks/useUserInfo';
+
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
+
+import { MultiPageReport, ReportPageData } from '@/components/layout/testforge-report-layout';
+
+import { SessionSelector } from '@/components/shared/date-selector';
+
+// ============================================================
+// Constants
+// ============================================================
+
+const MAX_ROWS_PER_PAGE = 12;
+
+// ============================================================
+// Types
+// ============================================================
+
+interface QPRow {
+  subjectCode: string;
+  subjectAbbr: string;
+  schemes: string;
+  totalReceived: number;
+  totalStudents: number;
+  usedForRAC: number;
+  codeWiseTotalUsed: number;
+  codeWiseBalance: number;
+}
+
+interface QPSummaryPageData extends ReportPageData {
+  rows: QPRow[];
+  date: Date;
+  totalSubjects: number;
+  totalStudents: number;
+  totalReceived: number;
+  totalBalance: number;
+  pageNumber: number;
+  totalPages: number;
+}
+
+// ============================================================
+// Render Function
+// ============================================================
+
+const renderQPSummaryTable = (pageData: QPSummaryPageData) => {
+  const {
+    rows,
+    totalSubjects,
+    totalStudents,
+    totalReceived,
+    totalBalance,
+    pageNumber,
+    totalPages,
+  } = pageData;
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex-1 overflow-hidden">
+        <table className="w-full border-collapse border border-black text-xs">
+          <thead>
+            <tr className="bg-neutral-100 print:bg-neutral-100">
+              <th className="w-[6%] border border-black p-1.5 text-center font-bold">Sr. No.</th>
+              <th className="w-[20%] border border-black p-1.5 text-left font-bold">Scheme</th>
+              <th className="w-[10%] border border-black p-1.5 text-left font-bold">
+                Subject Abbr.
+              </th>
+              <th className="w-[10%] border border-black p-1.5 text-left font-bold">
+                Subject Code
+              </th>
+              <th className="w-[10%] border border-black p-1.5 text-center font-bold">
+                Total Received
+              </th>
+              <th className="w-[10%] border border-black p-1.5 text-center font-bold">
+                Total Students
+              </th>
+              <th className="w-[10%] border border-black p-1.5 text-center font-bold">
+                Used for RAC
+              </th>
+              <th className="w-[12%] border border-black p-1.5 text-center font-bold">
+                Code Wise Total Used
+              </th>
+              <th className="w-[12%] border border-black p-1.5 text-center font-bold">
+                Code Wise Balance
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, index) => (
+              <tr
+                key={row.subjectCode}
+                className={cn('border-b border-black')}
+              >
+                <td className="border border-black p-1.5 text-center font-mono">{index + 1}</td>
+                <td className="border border-black p-1.5 pl-2 text-left">
+                  <span className="text-[10px]">{row.schemes}</span>
+                </td>
+                <td className="border border-black p-1.5 pl-2 text-left font-mono">
+                  {row.subjectAbbr}
+                </td>
+                <td className="border border-black p-1.5 pl-2 text-left font-mono font-medium">
+                  {row.subjectCode}
+                </td>
+                <td className="border border-black p-1.5 text-center font-semibold">
+                  {row.totalReceived}
+                </td>
+                <td className="border border-black p-1.5 text-center font-semibold">
+                  {row.totalStudents}
+                </td>
+                <td className="border border-black p-1.5 text-center font-semibold">
+                  {row.usedForRAC}
+                </td>
+                <td className="border border-black p-1.5 text-center font-semibold">
+                  {row.codeWiseTotalUsed}
+                </td>
+                <td
+                  className={cn(
+                    'border border-black p-1.5 text-center font-bold',
+                    row.codeWiseBalance < 0
+                      ? 'text-red-600'
+                      : row.codeWiseBalance === 0
+                        ? 'text-neutral-500'
+                        : 'text-emerald-600',
+                  )}
+                >
+                  {row.codeWiseBalance}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="border-t-2 border-black bg-neutral-200 font-bold print:bg-neutral-200">
+              <td
+                colSpan={4}
+                className="border border-black p-1.5 pr-4 text-right"
+              >
+                GRAND TOTAL
+              </td>
+              <td className="border border-black p-1.5 text-center">{totalReceived}</td>
+              <td className="border border-black p-1.5 text-center">{totalStudents}</td>
+              <td className="border border-black p-1.5 text-center">{totalSubjects * 2}</td>
+              <td className="border border-black p-1.5 text-center">
+                {totalStudents + totalSubjects * 2}
+              </td>
+              <td
+                className={cn(
+                  'border border-black p-1.5 text-center',
+                  totalBalance < 0
+                    ? 'text-red-600'
+                    : totalBalance === 0
+                      ? 'text-neutral-500'
+                      : 'text-emerald-600',
+                )}
+              >
+                {totalBalance}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      {totalPages > 1 && (
+        <div className="mt-2 border-t border-black pt-1 text-[10px]">
+          <div className="flex justify-between">
+            <span className="font-medium">QP Summary Report</span>
+            <span>
+              Page {pageNumber} of {totalPages}
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================================
+// Main Component
+// ============================================================
+
+export default function QPSummaryReport() {
+  const { examCenter, isLoading: userLoading } = useUserInfo();
+
+  const [rows, setRows] = useState<QPRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadingDates, setLoadingDates] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [dates, setDates] = useState<Date[]>([]);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedDateStr, setSelectedDateStr] = useState('');
+  const [showReport, setShowReport] = useState(false);
+  const [numberOfCopies, setNumberOfCopies] = useState(1);
+  const [showSelection, setShowSelection] = useState(true);
+
+  // Fetch available dates
+  useEffect(() => {
+    if (userLoading) return;
+    if (!examCenter?.id) {
+      setLoadingDates(false);
+      return;
+    }
+    const fetchDates = async () => {
+      try {
+        const supabase = createClient();
+        const { data } = await supabase
+          .from('timetable')
+          .select('date')
+          .eq('exam_center_id', examCenter.id)
+          .order('date');
+
+        if (data) {
+          const seen = new Set<string>();
+          const dateObjects: Date[] = [];
+          data.forEach((r: any) => {
+            const dStr =
+              typeof r.date === 'string'
+                ? r.date.split('T')[0]
+                : new Date(r.date).toISOString().split('T')[0];
+            if (!seen.has(dStr)) {
+              seen.add(dStr);
+              dateObjects.push(new Date(r.date));
+            }
+          });
+          setDates(dateObjects);
+          if (dateObjects.length) {
+            setSelectedDate(dateObjects[0]);
+            setSelectedDateStr(format(dateObjects[0], 'yyyy-MM-dd'));
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch dates:', error);
+      } finally {
+        setLoadingDates(false);
+      }
+    };
+    fetchDates();
+  }, [examCenter?.id, userLoading]);
+
+  // Fetch data - get inventory for the date
+  const fetchData = useCallback(
+    async (date: Date) => {
+      if (!examCenter?.id) return;
+      setLoading(true);
+      setError(null);
+
+      try {
+        const supabase = createClient();
+        const dateStr = format(date, 'yyyy-MM-dd');
+        const { data, error: qErr } = await supabase
+          .from('qp_inventory')
+          .select('subject_code, expected_students, received_qps')
+          .eq('exam_center_id', examCenter.id)
+          .eq('date', dateStr)
+          .order('subject_code');
+
+        if (qErr || !data || data.length === 0) {
+          setError('No inventory data found for the selected date');
+          setRows([]);
+          setShowReport(false);
+          return;
+        }
+
+        const groupedData = new Map<
+          string,
+          {
+            subjectCode: string;
+            subjectAbbr: string;
+            schemes: Set<string>;
+            totalStudents: number;
+            totalReceived: number;
+          }
+        >();
+
+        data.forEach((item: any) => {
+          const code = item.subject_code || '';
+          if (!code) return;
+
+          if (!groupedData.has(code)) {
+            groupedData.set(code, {
+              subjectCode: code,
+              subjectAbbr: code,
+              schemes: new Set<string>(),
+              totalStudents: 0,
+              totalReceived: 0,
+            });
+          }
+
+          const group = groupedData.get(code)!;
+          group.totalStudents += item.expected_students || 0;
+          group.totalReceived += item.received_qps || 0;
+        });
+
+        const qpRows: QPRow[] = Array.from(groupedData.values()).map((group) => {
+          const schemesArray = Array.from(group.schemes).filter((s) => s);
+          const schemes = schemesArray.join(', ') || 'N/A';
+          const schemesCount = schemesArray.length || 1;
+          const usedForRAC = 2 * schemesCount;
+          const codeWiseTotalUsed = usedForRAC + group.totalStudents;
+          const codeWiseBalance = group.totalReceived - codeWiseTotalUsed;
+
+          return {
+            subjectCode: group.subjectCode,
+            subjectAbbr: group.subjectAbbr,
+            schemes: schemes,
+            totalStudents: group.totalStudents,
+            totalReceived: group.totalReceived,
+            usedForRAC: usedForRAC,
+            codeWiseTotalUsed: codeWiseTotalUsed,
+            codeWiseBalance: codeWiseBalance,
+          };
+        });
+
+        qpRows.sort((a, b) => a.subjectCode.localeCompare(b.subjectCode));
+        const filteredRows = qpRows.filter((row) => row.totalReceived > 0);
+
+        if (filteredRows.length === 0) {
+          setError('No valid data found for this date');
+          setRows([]);
+          setShowReport(false);
+          return;
+        }
+
+        setRows(filteredRows);
+        setShowReport(true);
+        setShowSelection(false);
+      } catch (err) {
+        console.error('Error fetching data:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load data');
+        setRows([]);
+        setShowReport(false);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [examCenter?.id],
+  );
+
+  const handleSelect = useCallback(
+    async (session: { date: string; session: 'Morning' | 'Afternoon' | 'All' }) => {
+      const dateObj = new Date(session.date);
+      setSelectedDate(dateObj);
+      setSelectedDateStr(session.date);
+      await fetchData(dateObj);
+    },
+    [fetchData],
+  );
+
+  const handleReset = useCallback(() => {
+    setShowReport(false);
+    setShowSelection(true);
+    setRows([]);
+    setError(null);
+  }, []);
+
+  // Build pages
+  const buildPages = useCallback((): QPSummaryPageData[] => {
+    if (rows.length === 0) return [];
+
+    const totalSubjects = rows.length;
+    const totalStudents = rows.reduce((sum, r) => sum + r.totalStudents, 0);
+    const totalReceived = rows.reduce((sum, r) => sum + r.totalReceived, 0);
+    const totalBalance = rows.reduce((sum, r) => sum + r.codeWiseBalance, 0);
+
+    const pages: QPSummaryPageData[] = [];
+    let startIdx = 0;
+    let pageCounter = 0;
+
+    while (startIdx < rows.length) {
+      const chunk = rows.slice(startIdx, startIdx + MAX_ROWS_PER_PAGE);
+      pageCounter++;
+
+      const chunkSubjects = chunk.length;
+      const chunkStudents = chunk.reduce((sum, r) => sum + r.totalStudents, 0);
+      const chunkReceived = chunk.reduce((sum, r) => sum + r.totalReceived, 0);
+      const chunkBalance = chunk.reduce((sum, r) => sum + r.codeWiseBalance, 0);
+
+      pages.push({
+        id: `qp-summary-${pageCounter}`,
+        rows: chunk,
+        date: selectedDate || new Date(),
+        totalSubjects: chunkSubjects,
+        totalStudents: chunkStudents,
+        totalReceived: chunkReceived,
+        totalBalance: chunkBalance,
+        pageNumber: pageCounter,
+        totalPages: 0, // Will be updated after all pages are built
+        metadata: {
+          Page: String(pageCounter),
+          'Total Subjects': chunkSubjects,
+          'Total Students': chunkStudents,
+          'Total Received': chunkReceived,
+          'Total Balance': chunkBalance,
+        },
+      });
+
+      startIdx += MAX_ROWS_PER_PAGE;
+    }
+
+    // Update totalPages for all pages
+    const totalPages = pages.length;
+    pages.forEach((page) => {
+      page.totalPages = totalPages;
+    });
+
+    return pages;
+  }, [rows, selectedDate]);
+
+  const pages = buildPages();
+
+  // Loading
+  if (loadingDates || userLoading) {
+    return (
+      <div className="mx-auto max-w-4xl space-y-4 p-6">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-96 w-full" />
+      </div>
+    );
+  }
+
+  // Selection state
+  if (showSelection) {
+    return (
+      <div className="mx-auto max-w-4xl p-4">
+        <div className="space-y-4">
+          <SessionSelector
+            availableDates={dates}
+            availableSessions={['Morning', 'Afternoon', 'All']}
+            onSessionSelect={handleSelect}
+            defaultDate={
+              selectedDateStr || (dates.length > 0 ? format(dates[0], 'yyyy-MM-dd') : '')
+            }
+            defaultSession="Morning"
+            isLoading={loading}
+            hideSession
+            error={error}
+            title="QP Accounting Summary"
+            description="Choose a date to generate QP summary"
+            compact
+          />
+
+          {!dates.length && !error && (
+            <Alert
+              variant="default"
+              className="border-amber-200 bg-amber-50"
+            >
+              <AlertCircle className="h-4 w-4 text-amber-600" />
+              <AlertDescription>Please upload timetable and inventory data first.</AlertDescription>
+            </Alert>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Report view
+  return (
+    <div className="mx-auto max-w-4xl p-4">
+      <MultiPageReport
+        pages={pages}
+        header={{
+          title: 'ACCOUNT OF QUESTION PAPERS',
+          description: 'QP Inventory Summary Report',
+          examCenter: {
+            name: examCenter?.name || 'Examination Center',
+            code: examCenter?.code || '',
+            season: examCenter?.season || '',
+            year: examCenter?.examYear || new Date().getFullYear(),
+            date: selectedDate || new Date(),
+          },
+          headerFields: {
+            'Total Subjects': String(pages[0]?.totalSubjects || 0),
+            'Total Students': String(pages[0]?.totalStudents || 0),
+            'Total QP Received': String(pages[0]?.totalReceived || 0),
+            Balance: String(pages[0]?.totalBalance || 0),
+          },
+        }}
+        footer={{
+          showApplicationCredit: true,
+        }}
+        onBack={handleReset}
+        backButtonLabel="Clear"
+        documentTitle="QP_Summary_Report"
+        numberOfCopies={numberOfCopies}
+        onCopiesChange={setNumberOfCopies}
+        renderPageContent={renderQPSummaryTable as (pageData: ReportPageData) => ReactNode}
+        showCopyInfo={numberOfCopies > 1}
+        copyInfoText="Copy {copyNumber} of {totalCopies}"
+      />
+    </div>
+  );
+}

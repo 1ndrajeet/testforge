@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: testforge-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        value: postgresql://neondb_owner:npg_ZmUQCzTq9R6J@ep-patient-fire-aocfe4u1-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
+      - key: DEBUG
+        value: "False"
+      - key: TESTING
+        value: "False"
+      - key: SECRET_KEY
+        value: "your-super-secret-key-change-this-in-production"
+      - key: CORS_ORIGINS
+        value: "https://testforge-v2.vercel.app,https://demo.testforge.tech"
+      - key: NEXT_PUBLIC_APP_URL
+        value: "https://demo.testforge.tech"
+      - key: BETTER_AUTH_URL
+        value: "https://testforge-v2.vercel.app"
+      - key: UPLOAD_DIR
+        value: "/opt/render/project/src/uploads"
+      - key: MAX_UPLOAD_SIZE
+        value: "10485760"
+      - key: TEST_EXAM_CENTER_ID
+        value: "a3e5c386-efbb-373e-36d0-1bc812bde9d2"

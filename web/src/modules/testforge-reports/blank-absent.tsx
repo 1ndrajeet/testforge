@@ -1,0 +1,469 @@
+// modules/testforge-reports/blank-absent.tsx
+
+'use client';
+
+import { ReactNode, useEffect, useState } from 'react';
+
+import { format } from 'date-fns';
+import { AlertCircle } from 'lucide-react';
+
+import { createClient } from '@/lib/supabase/client';
+import { cn } from '@/lib/utils';
+
+import { useUserInfo } from '@/hooks/useUserInfo';
+
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
+
+import { MultiPageReport, ReportPageData } from '@/components/layout/testforge-report-layout';
+
+import { SessionSelector } from '@/components/shared/date-selector';
+
+// ============================================================
+// Constants
+// ============================================================
+
+const MAX_ROWS_PER_PAGE = 7;
+
+// ============================================================
+// Types
+// ============================================================
+
+interface BlankAbsentRow {
+  blockNo: string;
+  location: string;
+  supervisorName: string;
+  scheme: string;
+  instituteCode: string;
+  subjectCode: string;
+  subjectName: string;
+  totalStudents: number;
+  presentCount?: number;
+  absentCount?: number;
+}
+
+interface BlankAbsentPageData extends ReportPageData {
+  rows: BlankAbsentRow[];
+  date: Date;
+  session: string;
+  totalBlocks: number;
+  totalStudents: number;
+  totalSubjects: number;
+  pageNumber: number;
+  totalPages: number;
+}
+
+// ============================================================
+// Render Function
+// ============================================================
+
+const renderBlankAbsentTable = (pageData: BlankAbsentPageData) => {
+  const { rows, totalBlocks, totalStudents, totalSubjects, pageNumber, totalPages } = pageData;
+
+  const blockMap = new Map<string, BlankAbsentRow[]>();
+  rows.forEach((row) => {
+    const key = row.blockNo;
+    if (!blockMap.has(key)) blockMap.set(key, []);
+    blockMap.get(key)!.push(row);
+  });
+
+  const groupedRows = Array.from(blockMap.entries()).sort(
+    (a, b) => parseInt(a[0]) - parseInt(b[0]),
+  );
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex-1 overflow-hidden">
+        <table className="w-full border-collapse text-xs">
+          <thead>
+            <tr className="bg-neutral-100">
+              <th className="w-[12%] border border-neutral-300 px-3 py-2 text-center font-semibold text-neutral-700">
+                Block / Location
+              </th>
+              <th className="w-[15%] border border-neutral-300 px-3 py-2 text-center font-semibold text-neutral-700">
+                Supervisor
+              </th>
+              <th className="w-[20%] border border-neutral-300 px-3 py-2 text-center font-semibold text-neutral-700">
+                Scheme / Subject
+              </th>
+              <th className="w-[18%] border border-neutral-300 px-3 py-2 text-center font-semibold text-neutral-700">
+                Present / Absent / Total
+              </th>
+              <th className="w-[35%] border border-neutral-300 px-3 py-2 text-left font-semibold text-neutral-700">
+                Absent Candidates (Seat No.)
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {groupedRows.map(([blockNo, blockRows]) => {
+              const rowCount = blockRows.length;
+              const blockTotal = blockRows.reduce((sum, r) => sum + r.totalStudents, 0);
+
+              return blockRows.map((row, rowIndex) => {
+                const isFirst = rowIndex === 0;
+                const isLast = rowIndex === rowCount - 1;
+
+                return (
+                  <tr
+                    key={`${blockNo}-${rowIndex}`}
+                    className={cn(
+                      'border-b border-neutral-200',
+                      isLast && 'border-b-2 border-neutral-300',
+                    )}
+                  >
+                    {isFirst && (
+                      <td
+                        rowSpan={rowCount}
+                        className="border border-neutral-300 bg-neutral-50/80 px-3 py-2 text-center align-middle"
+                      >
+                        <div className="font-semibold text-neutral-800">{blockNo}</div>
+                        <div className="text-[10px] text-neutral-500">{row.location}</div>
+                        {rowCount > 1 && (
+                          <div className="mt-0.5 text-[10px] text-neutral-500">
+                            {blockTotal} students
+                          </div>
+                        )}
+                      </td>
+                    )}
+                    {isFirst && (
+                      <td
+                        rowSpan={rowCount}
+                        className="border border-neutral-300 px-3 py-2 text-center align-middle"
+                      >
+                        <div className="font-medium text-neutral-800">{row.supervisorName}</div>
+                      </td>
+                    )}
+                    <td className="border border-neutral-300 px-3 py-2">
+                      <div className="text-center">
+                        <div className="font-mono text-xs font-medium">
+                          ({row.instituteCode})-{row.scheme}
+                        </div>
+                        <div className="mt-0.5 text-[10px] text-neutral-600">{row.subjectCode}</div>
+                      </div>
+                    </td>
+                    <td className="border border-neutral-300 px-3 py-2">
+                      <div className="space-y-0.5 text-center">
+                        <div className="text-xs text-neutral-600">P = ________</div>
+                        <div className="text-xs text-neutral-600">A = ________</div>
+                        <hr className="border-neutral-300" />
+                        <div className="text-xs font-bold text-neutral-800">
+                          T = {row.totalStudents}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="border border-neutral-300 px-3 py-2"></td>
+                  </tr>
+                );
+              });
+            })}
+          </tbody>
+          <tfoot>
+            <tr className="border-t-2 border-neutral-400 bg-neutral-100">
+              <td
+                colSpan={2}
+                className="border border-neutral-300 px-3 py-2 text-right font-bold text-neutral-800"
+              >
+                GRAND TOTAL
+              </td>
+              <td className="border border-neutral-300 px-3 py-2 text-center font-mono text-xs text-neutral-600">
+                {totalSubjects} Subjects
+              </td>
+              <td className="border border-neutral-300 px-3 py-2 text-center font-bold text-neutral-900">
+                {totalStudents}
+              </td>
+              <td className="border border-neutral-300 px-3 py-2 text-center font-mono text-xs text-neutral-600">
+                {totalBlocks} Blocks
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      {totalPages > 1 && (
+        <div className="mt-2 border-t border-black pt-1 text-[10px]">
+          <div className="flex justify-between">
+            <span className="font-medium">Blank Absent Report</span>
+            <span>
+              Page {pageNumber} of {totalPages}
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================================
+// Main Component
+// ============================================================
+
+export default function BlankAbsentReport() {
+  const { examCenter, isLoading: userLoading } = useUserInfo();
+
+  const [rows, setRows] = useState<BlankAbsentRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadingDates, setLoadingDates] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [dates, setDates] = useState<Date[]>([]);
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedSession, setSelectedSession] = useState('');
+  const [showReport, setShowReport] = useState(false);
+  const [numberOfCopies, setNumberOfCopies] = useState(1);
+
+  // Fetch available dates
+  useEffect(() => {
+    if (userLoading) return;
+    if (!examCenter?.id) {
+      setLoadingDates(false);
+      return;
+    }
+    const fetchDates = async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from('timetable')
+        .select('date')
+        .eq('exam_center_id', examCenter.id)
+        .order('date');
+
+      if (data) {
+        const seen = new Set<string>();
+        const uniqueDates: Date[] = [];
+        data.forEach((r: any) => {
+          const dStr =
+            typeof r.date === 'string'
+              ? r.date.split('T')[0]
+              : new Date(r.date).toISOString().split('T')[0];
+          if (!seen.has(dStr)) {
+            seen.add(dStr);
+            uniqueDates.push(new Date(r.date));
+          }
+        });
+        setDates(uniqueDates);
+        if (uniqueDates.length) {
+          setSelectedDate(format(uniqueDates[0], 'yyyy-MM-dd'));
+        }
+      }
+      setLoadingDates(false);
+    };
+    fetchDates();
+  }, [examCenter?.id, userLoading]);
+
+  // Fetch data
+  const fetchData = async (date: string, session: string) => {
+    if (!examCenter?.id) return;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const supabase = createClient();
+      let query = supabase
+        .from('block_allocations')
+        .select(
+          'block_no, location, supervisor_name, scheme, subject_code, subject_name, assigned_count, seat_numbers',
+        )
+        .eq('exam_center_id', examCenter.id)
+        .eq('date', date);
+
+      if (session !== 'All') query = query.eq('session', session);
+
+      const { data, error: qErr } = await query.order('block_no');
+
+      if (qErr || !data || data.length === 0) {
+        setError('No allocation data found for the selected session');
+        setRows([]);
+        setShowReport(false);
+        return;
+      }
+
+      const blankRows: BlankAbsentRow[] = [];
+
+      data.forEach((alloc: any) => {
+        const students = alloc.assigned_count || alloc.seat_numbers?.length || 0;
+        const scheme = alloc.scheme || '';
+        const schemeParts = scheme.split('-') || [];
+        const instituteCode = schemeParts[0] || '';
+
+        blankRows.push({
+          blockNo: alloc.block_no || alloc.location || '—',
+          location: alloc.location || '—',
+          supervisorName: alloc.supervisor_name || 'Not Assigned',
+          scheme,
+          instituteCode,
+          subjectCode: alloc.subject_code || '',
+          subjectName: alloc.subject_name || alloc.subject_code || '',
+          totalStudents: students,
+        });
+      });
+
+      if (blankRows.length === 0) {
+        setError('No data found for this session');
+        setRows([]);
+        setShowReport(false);
+        return;
+      }
+
+      // Sort by block number
+      blankRows.sort((a, b) => {
+        const aNum = parseInt(a.blockNo) || 0;
+        const bNum = parseInt(b.blockNo) || 0;
+        return aNum - bNum;
+      });
+
+      setRows(blankRows);
+      setShowReport(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load data');
+      setRows([]);
+      setShowReport(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSessionSelect = async (session: {
+    date: string;
+    session: 'Morning' | 'Afternoon' | 'All';
+  }) => {
+    setSelectedDate(session.date);
+    setSelectedSession(session.session);
+    await fetchData(session.date, session.session);
+  };
+
+  const handleReset = () => {
+    setShowReport(false);
+    setRows([]);
+    setError(null);
+  };
+
+  // Build pages
+  const buildPages = (): BlankAbsentPageData[] => {
+    if (rows.length === 0) return [];
+
+    const totalBlocks = new Set(rows.map((r) => r.blockNo)).size;
+    const totalSubjects = new Set(rows.map((r) => r.subjectCode)).size;
+    const totalStudents = rows.reduce((sum, r) => sum + r.totalStudents, 0);
+
+    const pages: BlankAbsentPageData[] = [];
+    let startIdx = 0;
+    let pageCounter = 0;
+
+    while (startIdx < rows.length) {
+      const chunk = rows.slice(startIdx, startIdx + MAX_ROWS_PER_PAGE);
+      pageCounter++;
+
+      const chunkBlocks = new Set(chunk.map((r) => r.blockNo)).size;
+      const chunkSubjects = new Set(chunk.map((r) => r.subjectCode)).size;
+      const chunkStudents = chunk.reduce((sum, r) => sum + r.totalStudents, 0);
+
+      pages.push({
+        id: `blank-absent-${pageCounter}`,
+        rows: chunk,
+        date: new Date(selectedDate),
+        session: selectedSession,
+        totalBlocks: chunkBlocks,
+        totalStudents: chunkStudents,
+        totalSubjects: chunkSubjects,
+        pageNumber: pageCounter,
+        totalPages: 0, // Will be updated after all pages are built
+        metadata: {
+          Page: String(pageCounter),
+          Blocks: String(chunkBlocks),
+          Subjects: String(chunkSubjects),
+          Students: String(chunkStudents),
+        },
+      });
+
+      startIdx += MAX_ROWS_PER_PAGE;
+    }
+
+    // Update totalPages for all pages
+    const totalPages = pages.length;
+    pages.forEach((page) => {
+      page.totalPages = totalPages;
+    });
+
+    return pages;
+  };
+
+  const pages = buildPages();
+
+  // Loading
+  if (loadingDates || userLoading) {
+    return (
+      <div className="mx-auto max-w-4xl space-y-4 p-6">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-96 w-full" />
+      </div>
+    );
+  }
+
+  // Selection state
+  if (!showReport) {
+    return (
+      <div className="mx-auto max-w-4xl p-4">
+        <div className="space-y-4">
+          <SessionSelector
+            availableDates={dates}
+            availableSessions={['Morning', 'Afternoon', 'All']}
+            onSessionSelect={handleSessionSelect}
+            defaultDate={selectedDate}
+            defaultSession="Morning"
+            isLoading={loading}
+            error={error}
+            title="Blank Absent Report"
+            description="Select date & session to view blank absent report"
+            compact
+          />
+          {!dates.length && !error && (
+            <Alert
+              variant="default"
+              className="border-amber-200 bg-amber-50"
+            >
+              <AlertCircle className="h-4 w-4 text-amber-600" />
+              <AlertDescription>Upload timetable first.</AlertDescription>
+            </Alert>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Report view
+  return (
+    <div className="mx-auto max-w-4xl p-4">
+      <MultiPageReport
+        pages={pages}
+        header={{
+          title: 'Blank Absent Report',
+          description: 'Session-wise blank absent report for examination',
+          examCenter: {
+            name: examCenter?.name || 'Examination Center',
+            code: examCenter?.code || '',
+            season: examCenter?.season || '',
+            year: examCenter?.examYear || new Date().getFullYear(),
+            session: (selectedSession as 'Morning' | 'Afternoon') || 'Morning',
+            date: selectedDate ? new Date(selectedDate) : new Date(),
+          },
+          headerFields: {
+            Blocks: String(pages[0]?.totalBlocks || 0),
+            Subjects: String(pages[0]?.totalSubjects || 0),
+            Students: String(pages[0]?.totalStudents || 0),
+          },
+        }}
+        footer={{
+          showApplicationCredit: true,
+          creditText: 'Generated by TestForge',
+        }}
+        onBack={handleReset}
+        backButtonLabel="Clear"
+        documentTitle="Blank_Absent_Report"
+        numberOfCopies={numberOfCopies}
+        onCopiesChange={setNumberOfCopies}
+        renderPageContent={renderBlankAbsentTable as (pageData: ReportPageData) => ReactNode}
+        showCopyInfo={numberOfCopies > 1}
+        copyInfoText="Copy {copyNumber} of {totalCopies}"
+      />
+    </div>
+  );
+}

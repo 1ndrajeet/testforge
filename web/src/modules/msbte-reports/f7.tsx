@@ -1,0 +1,429 @@
+// modules/formats/format7.tsx - FIXED scheme parsing
+
+'use client';
+
+import { useEffect, useState } from 'react';
+
+import { format } from 'date-fns';
+import { AlertCircle } from 'lucide-react';
+
+import { createClient } from '@/lib/supabase/client';
+import { parseScheme } from '@/lib/utils';
+
+import { useUserInfo } from '@/hooks/useUserInfo';
+
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
+
+import { MultiPageReport, ReportPageData } from '@/components/layout/msbte-report-layout';
+
+import { SessionSelector } from '@/components/shared/date-selector';
+
+// ============================================================
+// Types
+// ============================================================
+
+interface PackingSlipData {
+  instituteCode: string;
+  instituteName: string;
+  date: string;
+  session: string;
+  timeSlot: string;
+  scheme: string;
+  subjectCode: string;
+  totalStudents: number;
+  sheetNo: string;
+  subjectName: string;
+  absentNumbers: number[];
+  cpsNumbers: number[];
+}
+
+// ============================================================
+// Constants & Helpers
+// ============================================================
+
+export const formatDateShort = (date: Date | string): string => {
+  return format(new Date(date), 'dd/MM/yyyy');
+};
+
+// ============================================================
+// Scheme Parser - FIXED
+// ============================================================
+
+// ============================================================
+// Render Function
+// ============================================================
+
+const renderPackingSlipContent = (
+  pageData: ReportPageData & { isCopyCase?: boolean; cpsNumbers?: number[] },
+) => {
+  const parsed = parseScheme(pageData.scheme || '');
+  const isCopyCase = pageData.isCopyCase || false;
+
+  const totalFinalStudents = isCopyCase
+    ? (pageData.cpsNumbers || []).length
+    : (pageData.totalStudents || 0) -
+      ((pageData.absentNumbers || []).length + (pageData.cpsNumbers || []).length);
+
+  const absentOrCopyStudents = isCopyCase ? pageData.cpsNumbers : pageData.absentNumbers;
+  const slipType = isCopyCase ? 'COPY CASE PACKING SLIP' : 'PACKING SLIP';
+
+  return (
+    <>
+      <div className="mb-2 text-center text-sm font-bold">{slipType}</div>
+
+      <div className="border border-black px-4 py-2">
+        <div className="details grid grid-cols-2 gap-2 text-xs">
+          <p>
+            <strong>Course:</strong> {parsed.courseName}
+          </p>
+          <div className="flex justify-between">
+            <span>
+              <strong>Sem:</strong> {parsed.semester || '—'}
+            </span>
+            <span>
+              <strong>Master:</strong> {parsed.master || '—'}
+            </span>
+          </div>
+          <p>
+            <strong>Subject Code:</strong> {pageData.subjectCode}
+          </p>
+          <p>
+            <strong>Subject Name:</strong> {pageData.subjectName}
+          </p>
+          <p className="col-span-2">
+            <strong>Total Number of Answer Books in Bundle:</strong>{' '}
+            <span className="rounded border border-black px-3 py-2">{totalFinalStudents}</span>
+          </p>
+          <p className="col-span-2">
+            <strong>Marksheet No:</strong> {pageData.sheetNo}
+          </p>
+          <p>
+            <strong>Sealed on:</strong> {formatDateShort(pageData.date!)}
+          </p>
+          <p>
+            <strong>Sealing Time:</strong> ______________ AM/PM
+          </p>
+          {absentOrCopyStudents && absentOrCopyStudents.length > 0 && (
+            <p className="col-span-2">
+              <strong>{isCopyCase ? 'Copy Case Students' : 'Absent Students'}:</strong>{' '}
+              {absentOrCopyStudents.join(', ')}
+            </p>
+          )}
+        </div>
+
+        <div className="signatures mt-12 flex justify-between text-xs">
+          <div>
+            <strong>Sealing Supervisor</strong>
+            <br />
+            <span>{pageData.sealingSupervisor || '________________________'}</span>
+          </div>
+          <div>
+            <strong>Officer In-Charge</strong>
+            <br />
+            <span>{pageData.officerIncharge || '________________________'}</span>
+          </div>
+          <div>
+            <strong>Exam Controller</strong>
+            <br />
+            <span>________________________</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-2 border-t border-dashed border-neutral-300 pt-1 text-[10px] text-neutral-500">
+        <p>1. Copy for Officer-in-charge, R.A.C</p>
+        <p>2. Copy for Distribution center.</p>
+        {isCopyCase && <p className="font-semibold text-red-600">** COPY CASE PACKING SLIP **</p>}
+      </div>
+    </>
+  );
+};
+
+// ============================================================
+// Main Component
+// ============================================================
+
+export default function Format7Report() {
+  const { examCenter, isLoading: userLoading } = useUserInfo();
+  const [data, setData] = useState<PackingSlipData[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadingDates, setLoadingDates] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [dates, setDates] = useState<Date[]>([]);
+  const [selected, setSelected] = useState('');
+  const [copies, setCopies] = useState(2);
+
+  useEffect(() => {
+    if (userLoading) return;
+    if (!examCenter?.id) {
+      setLoadingDates(false);
+      return;
+    }
+    const fetchDates = async () => {
+      const supabase = createClient();
+      const { data: ttData } = await supabase
+        .from('timetable')
+        .select('date')
+        .eq('exam_center_id', examCenter.id)
+        .order('date');
+
+      if (ttData) {
+        const seen = new Set<string>();
+        const unique: Date[] = [];
+        ttData.forEach((r: any) => {
+          const dStr =
+            typeof r.date === 'string'
+              ? r.date.split('T')[0]
+              : new Date(r.date).toISOString().split('T')[0];
+          if (!seen.has(dStr)) {
+            seen.add(dStr);
+            unique.push(new Date(r.date));
+          }
+        });
+        setDates(unique);
+        if (unique.length) setSelected(format(unique[0], 'yyyy-MM-dd'));
+      }
+      setLoadingDates(false);
+    };
+    fetchDates();
+  }, [examCenter?.id, userLoading]);
+
+  const fetchData = async (date: string, session: string) => {
+    if (!examCenter?.id) return;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const supabase = createClient();
+      let ttQuery = supabase
+        .from('timetable')
+        .select(
+          'id, subject_code, subject_name, scheme, time_slot, total_students, absent_numbers, cps_students',
+        )
+        .eq('exam_center_id', examCenter.id)
+        .eq('date', date);
+
+      let allocQuery = supabase
+        .from('block_allocations')
+        .select('subject_code, scheme, connected_institute_id')
+        .eq('exam_center_id', examCenter.id)
+        .eq('date', date);
+
+      if (session !== 'All') {
+        ttQuery = ttQuery.eq('session', session);
+        allocQuery = allocQuery.eq('session', session);
+      }
+
+      const [
+        { data: ttData, error: ttErr },
+        { data: allocData },
+        { data: instData },
+        { data: sheetData },
+      ] = await Promise.all([
+        ttQuery.order('subject_code').order('scheme'),
+        allocQuery,
+        supabase
+          .from('connected_institutes')
+          .select('id, institute_code, institute_name')
+          .eq('exam_center_id', examCenter.id),
+        supabase
+          .from('e_marksheets')
+          .select('paper_code, scheme, sheet_no')
+          .eq('exam_center_id', examCenter.id),
+      ]);
+
+      if (ttErr) throw ttErr;
+
+      if (!ttData || ttData.length === 0) {
+        setError('No packing slip data found');
+        setData([]);
+        return;
+      }
+
+      const instById = new Map<string, { code: string; name: string }>();
+      (instData || []).forEach((inst: any) => {
+        instById.set(inst.id, { code: inst.institute_code, name: inst.institute_name });
+      });
+
+      const subInstMap = new Map<string, { code: string; name: string }>();
+      (allocData || []).forEach((alloc: any) => {
+        const key = `${alloc.subject_code}_${alloc.scheme}`;
+        if (alloc.connected_institute_id && instById.has(alloc.connected_institute_id)) {
+          subInstMap.set(key, instById.get(alloc.connected_institute_id)!);
+        }
+      });
+
+      const sheetNoMap = new Map<string, string>();
+      (sheetData || []).forEach((s: any) => {
+        if (s.sheet_no) sheetNoMap.set(`${s.paper_code}_${s.scheme}`, s.sheet_no);
+      });
+
+      const defaultInst =
+        instData && instData.length > 0
+          ? { code: instData[0].institute_code, name: instData[0].institute_name }
+          : { code: examCenter.code || '', name: examCenter.name || '' };
+
+      const transformedData: PackingSlipData[] = ttData.map((entry: any) => {
+        const key = `${entry.subject_code}_${entry.scheme}`;
+        const instInfo = subInstMap.get(key) || defaultInst;
+        const sheetNo =
+          sheetNoMap.get(key) ||
+          `SHEET-${entry.subject_code}-${entry.scheme}-${entry.id.substring(0, 8)}`;
+
+        return {
+          instituteCode: instInfo.code,
+          instituteName: instInfo.name,
+          date,
+          session,
+          timeSlot: entry.time_slot || '',
+          scheme: entry.scheme || '',
+          subjectCode: entry.subject_code,
+          totalStudents: entry.total_students || 0,
+          sheetNo,
+          subjectName: entry.subject_name || entry.subject_code,
+          absentNumbers: entry.absent_numbers || [],
+          cpsNumbers: entry.cps_students || [],
+        };
+      });
+
+      if (transformedData.length > 0) {
+        setData(transformedData);
+      } else {
+        setError('No packing slip data found');
+        setData([]);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch data');
+      setData([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSelect = async (s: { date: string; session: 'Morning' | 'Afternoon' | 'All' }) => {
+    setSelected(s.date);
+    await fetchData(s.date, s.session);
+  };
+
+  const handleReset = () => {
+    setData([]);
+    setError(null);
+  };
+
+  const buildPages = (): ReportPageData[] => {
+    const pages: ReportPageData[] = [];
+
+    data.forEach((item, index) => {
+      if (item.totalStudents === 0) {
+        return;
+      }
+
+      const basePage: ReportPageData = {
+        id: `${item.instituteCode}-${item.subjectCode}-${index}`,
+        blockNo: '',
+        blockLocation: '',
+        supervisorName: '',
+        subjectCode: item.subjectCode,
+        subjectName: item.subjectName,
+        scheme: item.scheme,
+        seatNumbers: [],
+        officerIncharge: examCenter?.officerIncharge || '',
+        sealingSupervisor: examCenter?.sealingSupervisor || '',
+        instituteCode: item.instituteCode || '',
+        instituteName: item.instituteName || '',
+        sheetNo: item.sheetNo,
+        totalStudents: item.totalStudents,
+        absentNumbers: item.absentNumbers || [],
+        cpsNumbers: item.cpsNumbers || [],
+        date: new Date(item.date),
+        session: item.session as 'Morning' | 'Afternoon',
+        timeSlot: item.timeSlot,
+        season: examCenter?.season || '',
+        year: examCenter?.examYear || new Date().getFullYear(),
+        examCenterCode: examCenter?.code || '',
+        examCenterName: examCenter?.name || '',
+        isCopyCase: false,
+      };
+
+      pages.push(basePage);
+
+      if (item.cpsNumbers && item.cpsNumbers.length > 0) {
+        pages.push({
+          ...basePage,
+          id: `${item.instituteCode}-${item.subjectCode}-${index}-cps`,
+          isCopyCase: true,
+        });
+      }
+    });
+
+    return pages;
+  };
+
+  const allPages = buildPages();
+  const firstItem = data.length > 0 ? data[0] : null;
+
+  if (loadingDates) {
+    return (
+      <div className="mx-auto max-w-4xl space-y-4 p-6">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-10 w-full" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-4xl p-4">
+      {allPages.length === 0 ? (
+        <div className="space-y-4">
+          <SessionSelector
+            availableDates={dates}
+            availableSessions={['Morning', 'Afternoon', 'All']}
+            onSessionSelect={handleSelect}
+            defaultDate={selected}
+            defaultSession="Morning"
+            isLoading={loading}
+            error={error}
+            title="Format 7 - Packing Slip"
+            description="Select date & session"
+            compact
+          />
+          {!dates.length && !error && (
+            <Alert
+              variant="default"
+              className="border-amber-200 bg-amber-50"
+            >
+              <AlertCircle className="h-4 w-4 text-amber-600" />
+              <AlertDescription>Upload timetable first.</AlertDescription>
+            </Alert>
+          )}
+        </div>
+      ) : (
+        <MultiPageReport
+          pages={allPages}
+          header={{
+            title: 'FORMAT NO. 7',
+            subtitle: 'Packing Slip',
+            examSeason: examCenter?.season || '',
+            examYear: examCenter?.examYear || new Date().getFullYear(),
+            examCenterName: examCenter?.name || '',
+            examCenterCode: examCenter?.code || '',
+            date: firstItem ? new Date(firstItem.date) : new Date(),
+            session: (firstItem?.session as 'Morning' | 'Afternoon') || 'Morning',
+            instituteCode: firstItem?.instituteCode || '',
+            instituteName: firstItem?.instituteName || '',
+          }}
+          footer={{
+            showTimestamp: false,
+          }}
+          onBack={handleReset}
+          backButtonLabel="Clear"
+          documentTitle="Format_7_Report"
+          numberOfCopies={copies}
+          onCopiesChange={setCopies}
+          renderPageContent={renderPackingSlipContent}
+        />
+      )}
+    </div>
+  );
+}

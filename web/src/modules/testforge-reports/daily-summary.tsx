@@ -1,0 +1,578 @@
+// modules/testforge-reports/daily-summary.tsx - FIXED pagination
+
+'use client';
+
+import { ReactNode, useCallback, useEffect, useState } from 'react';
+
+import { format } from 'date-fns';
+import { AlertCircle } from 'lucide-react';
+
+import { createClient } from '@/lib/supabase/client';
+import { cn } from '@/lib/utils';
+
+import { useUserInfo } from '@/hooks/useUserInfo';
+
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
+
+import { MultiPageReport, ReportPageData } from '@/components/layout/testforge-report-layout';
+
+import { SessionSelector } from '@/components/shared/date-selector';
+
+// ============================================================
+// Constants
+// ============================================================
+
+const MAX_ROWS_PER_PAGE = 8;
+
+// ============================================================
+// Types
+// ============================================================
+
+interface DailySummaryRow {
+  subjectCode: string;
+  subjectName: string;
+  scheme: string;
+  blockNo: string;
+  location: string;
+  supervisorName: string;
+  totalStudents: number;
+  presentCount: number;
+  absentCount: number;
+  copyCaseCount: number;
+  packetsReceived: number;
+  packetsExpected: number;
+  status: 'complete' | 'pending' | 'discrepancy';
+}
+
+interface DailySummaryPageData extends ReportPageData {
+  rows: DailySummaryRow[];
+  date: Date;
+  session: string;
+  totalBlocks: number;
+  totalStudents: number;
+  totalPresent: number;
+  totalAbsent: number;
+  totalCopyCases: number;
+  totalSubjects: number;
+  attendanceRate: number;
+  packetDiscrepancy: number;
+  pageNumber: number;
+  totalPages: number;
+}
+
+// ============================================================
+// Render Function
+// ============================================================
+
+const renderDailySummaryTable = (pageData: DailySummaryPageData) => {
+  const {
+    rows,
+    totalBlocks,
+    totalStudents,
+    totalPresent,
+    totalAbsent,
+    totalCopyCases,
+    totalSubjects,
+    attendanceRate,
+    pageNumber,
+    totalPages,
+  } = pageData;
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex-1 overflow-hidden">
+        <table className="w-full border-collapse border border-black text-xs">
+          <thead>
+            <tr className="bg-neutral-100 print:bg-neutral-100">
+              <th className="w-[6%] border border-black p-1.5 text-center font-bold">Sr. No.</th>
+              <th className="w-[10%] border border-black p-1.5 text-center font-bold">Block</th>
+              <th className="w-[12%] border border-black p-1.5 text-left font-bold">Subject</th>
+              <th className="w-[10%] border border-black p-1.5 text-left font-bold">Scheme</th>
+              <th className="w-[14%] border border-black p-1.5 text-left font-bold">Supervisor</th>
+              <th className="w-[10%] border border-black p-1.5 text-center font-bold">Total</th>
+              <th className="w-[10%] border border-black p-1.5 text-center font-bold">Present</th>
+              <th className="w-[10%] border border-black p-1.5 text-center font-bold">Absent</th>
+              <th className="w-[10%] border border-black p-1.5 text-center font-bold">
+                Copy Cases
+              </th>
+              <th className="w-[8%] border border-black p-1.5 text-center font-bold">Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, index) => {
+              const present = row.totalStudents - row.absentCount - row.copyCaseCount;
+
+              const isFirstBlockRow = index === 0 || rows[index - 1].blockNo !== row.blockNo;
+
+              let blockRowCount = 0;
+              if (isFirstBlockRow) {
+                for (let i = index; i < rows.length && rows[i].blockNo === row.blockNo; i++) {
+                  blockRowCount++;
+                }
+              }
+
+              return (
+                <tr
+                  key={`${row.subjectCode}-${row.scheme}-${index}`}
+                  className={cn('border-b border-black')}
+                >
+                  <td className="border border-black p-1.5 text-center font-mono">{index + 1}</td>
+                  {isFirstBlockRow && (
+                    <td
+                      rowSpan={blockRowCount}
+                      className="border border-black p-1.5 text-center align-middle font-mono text-xs"
+                    >
+                      {row.blockNo}
+                      <br />
+                      <span className="text-xs font-medium text-neutral-700">
+                        Block {row.location}
+                      </span>
+                    </td>
+                  )}
+
+                  <td className="border border-black p-1.5 pl-2 text-left">
+                    <div className="flex flex-col">
+                      <span className="font-mono text-[10px] font-medium">{row.subjectCode}</span>
+                      <span className="text-[9px] text-neutral-600">{row.subjectName}</span>
+                    </div>
+                  </td>
+                  <td className="border border-black p-1.5 pl-2 text-left font-mono text-[10px]">
+                    {row.scheme}
+                  </td>
+                  <td className="border border-black p-1.5 pl-2 text-left text-[10px]">
+                    {row.supervisorName || 'Not Assigned'}
+                  </td>
+                  <td className="border border-black p-1.5 text-center font-semibold">
+                    {row.totalStudents}
+                  </td>
+                  <td className="border border-black p-1.5 text-center font-semibold text-emerald-600">
+                    {present}
+                  </td>
+                  <td className="border border-black p-1.5 text-center font-semibold text-rose-600">
+                    {row.absentCount}
+                  </td>
+                  <td className="border border-black p-1.5 text-center font-semibold text-amber-600">
+                    {row.copyCaseCount}
+                  </td>
+                  <td className="border border-black p-1.5 text-center">
+                    <span className={cn('text-[9px] font-medium')}></span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr className="border-t-2 border-black bg-neutral-200 font-bold print:bg-neutral-200">
+              <td
+                colSpan={5}
+                className="border border-black p-1.5 pr-4 text-right"
+              >
+                GRAND TOTAL
+              </td>
+              <td className="border border-black p-1.5 text-center">{totalStudents}</td>
+              <td className="border border-black p-1.5 text-center text-emerald-600">
+                {totalPresent}
+              </td>
+              <td className="border border-black p-1.5 text-center text-rose-600">{totalAbsent}</td>
+              <td className="border border-black p-1.5 text-center text-amber-600">
+                {totalCopyCases}
+              </td>
+              <td className="border border-black p-1.5 text-center">
+                <span className="text-[10px] text-neutral-600">
+                  {attendanceRate.toFixed(1)}% attendance
+                </span>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <div className="mt-2 border-t border-black pt-1.5 text-[9px]">
+        <div className="flex justify-between">
+          <span>
+            <span className="font-medium">Total Blocks:</span> {totalBlocks} &nbsp;|&nbsp;
+            <span className="font-medium">Total Subjects:</span> {totalSubjects}
+          </span>
+          <span>
+            <span className="font-medium">Attendance:</span> {attendanceRate.toFixed(1)}%
+            {totalPages > 1 && (
+              <span className="ml-2">
+                | Page {pageNumber} of {totalPages}
+              </span>
+            )}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
+// Main Component
+// ============================================================
+
+export default function DailySummaryReport() {
+  const { examCenter, isLoading: userLoading } = useUserInfo();
+
+  const [rows, setRows] = useState<DailySummaryRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadingDates, setLoadingDates] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [dates, setDates] = useState<Date[]>([]);
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedSession, setSelectedSession] = useState('');
+  const [showReport, setShowReport] = useState(false);
+  const [numberOfCopies, setNumberOfCopies] = useState(1);
+
+  // Fetch available dates
+  useEffect(() => {
+    if (userLoading) return;
+    if (!examCenter?.id) {
+      setLoadingDates(false);
+      return;
+    }
+    const fetchDates = async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from('timetable')
+        .select('date')
+        .eq('exam_center_id', examCenter.id)
+        .order('date');
+
+      const seen = new Set<string>();
+      const uniqueDates: Date[] = [];
+      (data || []).forEach((r: any) => {
+        const dStr =
+          typeof r.date === 'string'
+            ? r.date.split('T')[0]
+            : new Date(r.date).toISOString().split('T')[0];
+        if (!seen.has(dStr)) {
+          seen.add(dStr);
+          uniqueDates.push(new Date(r.date));
+        }
+      });
+
+      setDates(uniqueDates);
+      if (uniqueDates.length) {
+        setSelectedDate(format(uniqueDates[0], 'yyyy-MM-dd'));
+      }
+      setLoadingDates(false);
+    };
+    fetchDates();
+  }, [examCenter?.id, userLoading]);
+
+  // Fetch data for the selected date and session
+  const fetchData = useCallback(
+    async (date: string, session: string) => {
+      if (!examCenter?.id) return;
+      setLoading(true);
+      setError(null);
+
+      try {
+        const supabase = createClient();
+
+        let allocQuery = supabase
+          .from('block_allocations')
+          .select(
+            'subject_code, subject_name, scheme, block_no, location, supervisor_name, assigned_count, seat_numbers, session',
+          )
+          .eq('exam_center_id', examCenter.id)
+          .eq('date', date);
+        if (session && session !== 'All') {
+          allocQuery = allocQuery.eq('session', session);
+        }
+
+        let ttQuery = supabase
+          .from('timetable')
+          .select('subject_code, scheme, absent_numbers, cps_students')
+          .eq('exam_center_id', examCenter.id)
+          .eq('date', date);
+        if (session && session !== 'All') {
+          ttQuery = ttQuery.eq('session', session);
+        }
+
+        let qpQuery = supabase
+          .from('qp_inventory')
+          .select('subject_code, session, expected_packets, received_packets')
+          .eq('exam_center_id', examCenter.id)
+          .eq('date', date);
+        if (session && session !== 'All') {
+          qpQuery = qpQuery.eq('session', session);
+        }
+
+        const [{ data: allocData, error: allocErr }, { data: ttData }, { data: qpData }] =
+          await Promise.all([allocQuery, ttQuery, qpQuery]);
+
+        if (allocErr) throw allocErr;
+
+        if (!allocData || allocData.length === 0) {
+          setError('No allocation data found for the selected session');
+          setRows([]);
+          setShowReport(false);
+          return;
+        }
+
+        const absentMap = new Map<string, { absent: number[]; cps: number[] }>();
+        (ttData || []).forEach((entry: any) => {
+          const key = `${entry.subject_code}_${entry.scheme}`;
+          absentMap.set(key, {
+            absent: entry.absent_numbers || [],
+            cps: entry.cps_students || [],
+          });
+        });
+
+        const packetMap = new Map<string, { expected: number; received: number }>();
+        (qpData || []).forEach((item: any) => {
+          const key = `${item.subject_code}_${item.session}`;
+          packetMap.set(key, {
+            expected: item.expected_packets || 0,
+            received: item.received_packets || 0,
+          });
+        });
+
+        const summaryRows: DailySummaryRow[] = [];
+        let totalStudents = 0;
+        let totalAbsent = 0;
+        let totalCopyCases = 0;
+        let totalPacketDiscrepancy = 0;
+
+        allocData.forEach((alloc: any) => {
+          const key = `${alloc.subject_code}_${alloc.scheme}`;
+          const absentData = absentMap.get(key);
+          const absentCount = absentData?.absent?.length || 0;
+          const copyCaseCount = absentData?.cps?.length || 0;
+          const totalStudentsCount = alloc.assigned_count || alloc.seat_numbers?.length || 0;
+
+          let status: 'complete' | 'pending' | 'discrepancy' = 'pending';
+          const packetKey = `${alloc.subject_code}_${alloc.session}`;
+          const packetData = packetMap.get(packetKey);
+
+          if (packetData && packetData.received > 0) {
+            if (packetData.received >= packetData.expected) {
+              status = 'complete';
+            } else {
+              status = 'discrepancy';
+              totalPacketDiscrepancy += packetData.expected - packetData.received;
+            }
+          }
+
+          summaryRows.push({
+            subjectCode: alloc.subject_code,
+            subjectName: alloc.subject_name || alloc.subject_code,
+            scheme: alloc.scheme || '',
+            blockNo: alloc.block_no || alloc.location || '—',
+            location: alloc.location || '—',
+            supervisorName: alloc.supervisor_name || 'Not Assigned',
+            totalStudents: totalStudentsCount,
+            presentCount: totalStudentsCount - absentCount - copyCaseCount,
+            absentCount: absentCount,
+            copyCaseCount: copyCaseCount,
+            packetsReceived: packetData?.received || 0,
+            packetsExpected: packetData?.expected || 0,
+            status: status,
+          });
+
+          totalStudents += totalStudentsCount;
+          totalAbsent += absentCount;
+          totalCopyCases += copyCaseCount;
+        });
+
+        summaryRows.sort((a, b) => {
+          const blockA = parseInt(a.blockNo) || 0;
+          const blockB = parseInt(b.blockNo) || 0;
+          if (blockA !== blockB) return blockA - blockB;
+          return a.subjectCode.localeCompare(b.subjectCode);
+        });
+
+        if (summaryRows.length === 0) {
+          setError('No data found for this session');
+          setRows([]);
+          setShowReport(false);
+          return;
+        }
+
+        setRows(summaryRows);
+        setShowReport(true);
+      } catch (err) {
+        console.error('Error fetching data:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load data');
+        setRows([]);
+        setShowReport(false);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [examCenter?.id],
+  );
+
+  const handleSessionSelect = useCallback(
+    async (session: { date: string; session: 'Morning' | 'Afternoon' | 'All' }) => {
+      setSelectedDate(session.date);
+      setSelectedSession(session.session);
+      await fetchData(session.date, session.session);
+    },
+    [fetchData],
+  );
+
+  const handleReset = useCallback(() => {
+    setShowReport(false);
+    setRows([]);
+    setError(null);
+  }, []);
+
+  // ✅ FIX: Build pages - count ACTUAL rows (without rowspan)
+  const buildPages = useCallback((): DailySummaryPageData[] => {
+    if (rows.length === 0) return [];
+
+    // Count actual visible rows (each row is a TR, regardless of rowspan)
+    const totalActualRows = rows.length;
+
+    const totalStudents = rows.reduce((sum, r) => sum + r.totalStudents, 0);
+    const totalPresent = rows.reduce((sum, r) => sum + r.presentCount, 0);
+    const totalAbsent = rows.reduce((sum, r) => sum + r.absentCount, 0);
+    const totalCopyCases = rows.reduce((sum, r) => sum + r.copyCaseCount, 0);
+    const uniqueBlocks = new Set(rows.map((r) => r.blockNo));
+    const uniqueSubjects = new Set(rows.map((r) => r.subjectCode));
+    const attendanceRate = totalStudents > 0 ? (totalPresent / totalStudents) * 100 : 0;
+
+    const pages: DailySummaryPageData[] = [];
+    let startIdx = 0;
+    let pageCounter = 0;
+
+    // ✅ Paginate by ACTUAL rows (each row is 1 count, regardless of rowspan)
+    while (startIdx < totalActualRows) {
+      const endIdx = Math.min(startIdx + MAX_ROWS_PER_PAGE, totalActualRows);
+      const chunk = rows.slice(startIdx, endIdx);
+      pageCounter++;
+
+      const chunkStudents = chunk.reduce((sum, r) => sum + r.totalStudents, 0);
+      const chunkPresent = chunk.reduce((sum, r) => sum + r.presentCount, 0);
+      const chunkAbsent = chunk.reduce((sum, r) => sum + r.absentCount, 0);
+      const chunkCopyCases = chunk.reduce((sum, r) => sum + r.copyCaseCount, 0);
+      const chunkBlocks = new Set(chunk.map((r) => r.blockNo));
+      const chunkSubjects = new Set(chunk.map((r) => r.subjectCode));
+      const chunkAttend = chunkStudents > 0 ? (chunkPresent / chunkStudents) * 100 : 0;
+
+      pages.push({
+        id: `daily-summary-${pageCounter}`,
+        rows: chunk,
+        date: new Date(selectedDate),
+        session: selectedSession,
+        totalBlocks: chunkBlocks.size,
+        totalStudents: chunkStudents,
+        totalPresent: chunkPresent,
+        totalAbsent: chunkAbsent,
+        totalCopyCases: chunkCopyCases,
+        totalSubjects: chunkSubjects.size,
+        attendanceRate: chunkAttend,
+        packetDiscrepancy: 0,
+        pageNumber: pageCounter,
+        totalPages: 0,
+        metadata: {
+          Page: String(pageCounter),
+          Students: chunkStudents,
+          Attendance: `${chunkAttend.toFixed(1)}%`,
+        },
+      });
+
+      startIdx = endIdx;
+    }
+
+    const totalPages = pages.length;
+    pages.forEach((page) => {
+      page.totalPages = totalPages;
+    });
+
+    return pages;
+  }, [rows, selectedDate, selectedSession]);
+
+  const pages = buildPages();
+  const firstPage = pages[0];
+
+  // Loading
+  if (loadingDates || userLoading) {
+    return (
+      <div className="mx-auto max-w-4xl space-y-4 p-6">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-10 w-full" />
+        <div className="grid grid-cols-3 gap-4">
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-20 w-full" />
+        </div>
+        <Skeleton className="h-96 w-full" />
+      </div>
+    );
+  }
+
+  // Selection state
+  if (!showReport) {
+    return (
+      <div className="mx-auto max-w-4xl p-4">
+        <div className="space-y-4">
+          <SessionSelector
+            availableDates={dates}
+            availableSessions={['Morning', 'Afternoon', 'All']}
+            onSessionSelect={handleSessionSelect}
+            defaultDate={selectedDate}
+            defaultSession="Morning"
+            isLoading={loading}
+            error={error}
+            title="Daily Exam Summary"
+            description="Select date & session to view daily summary statistics"
+            compact
+          />
+          {!dates.length && !error && (
+            <Alert
+              variant="default"
+              className="border-amber-200 bg-amber-50"
+            >
+              <AlertCircle className="h-4 w-4 text-amber-600" />
+              <AlertDescription>Upload timetable first.</AlertDescription>
+            </Alert>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Report view
+  return (
+    <div className="mx-auto max-w-4xl p-4">
+      <MultiPageReport
+        pages={pages}
+        header={{
+          title: 'DAILY EXAM SUMMARY',
+          description: 'Day-wise examination statistics and attendance overview',
+          examCenter: {
+            name: examCenter?.name || 'Examination Center',
+            code: examCenter?.code || '',
+            season: examCenter?.season || '',
+            year: examCenter?.examYear || new Date().getFullYear(),
+            session: (selectedSession as 'Morning' | 'Afternoon') || 'Morning',
+            date: new Date(selectedDate),
+          },
+          headerFields: {
+            'Total Students': String(firstPage?.totalStudents || 0),
+            Attendance: `${firstPage?.attendanceRate?.toFixed(1) || 0}%`,
+            Blocks: String(firstPage?.totalBlocks || 0),
+            Subjects: String(firstPage?.totalSubjects || 0),
+          },
+        }}
+        footer={{
+          showApplicationCredit: true,
+          creditText: 'Generated by TestForge',
+        }}
+        onBack={handleReset}
+        backButtonLabel="Clear"
+        documentTitle="Daily_Exam_Summary"
+        numberOfCopies={numberOfCopies}
+        onCopiesChange={setNumberOfCopies}
+        renderPageContent={renderDailySummaryTable as (pageData: ReportPageData) => ReactNode}
+        showCopyInfo={numberOfCopies > 1}
+        copyInfoText="Copy {copyNumber} of {totalCopies}"
+      />
+    </div>
+  );
+}

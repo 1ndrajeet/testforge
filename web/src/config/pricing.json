@@ -1,0 +1,91 @@
+[
+  {
+    "id": "semester_online",
+    "title": "Semester",
+    "price": "₹4,999",
+    "launchPrice": "₹2,999",
+    "launchOffer": "Winter 2026 Launch Offer • Valid for first-time institutions only",
+    "period": "semester",
+    "description": "Ideal for institutions evaluating TestForge during a single examination cycle.",
+    "features": [
+      "Complete TestForge suite",
+      "Full MSBTE compliance",
+      "Automation & AI assistance",
+      "Cloud backup",
+      "Regular updates",
+      "Full technical support"
+    ],
+    "popular": false,
+    "offer": false,
+    "cta": "Select Plan",
+    "amount": 499900,
+    "disabled": false
+  },
+  {
+    "id": "1year_online",
+    "title": "1 Year",
+    "price": "₹7,999",
+    "period": "year",
+    "description": "The standard subscription for institutions conducting examinations throughout the academic year.",
+    "features": [
+      "Complete TestForge suite",
+      "Full MSBTE compliance",
+      "Automation & AI assistance",
+      "Cloud backup",
+      "Regular updates",
+      "Full technical support"
+    ],
+    "cta": "Select Plan",
+    "amount": 799900,
+    "popular":true,
+    "disabled": false
+  },
+  {
+    "id": "5years_online",
+    "title": "5 Years",
+    "price": "₹35,000",
+    "period": "5 years",
+    "description": "Built for institutions committed to long-term digital examination management.",
+    "features": [
+      "Complete TestForge suite",
+      "Full MSBTE compliance",
+      "Automation & AI assistance",
+      "Priority feature requests",
+      "Early access to Beta features",
+      "AI feature previews",
+      "Dedicated onboarding",
+      "Priority updates",
+      "Cloud backup",
+      "Full technical support"
+    ],
+    "highlight": "Best Value",
+    "highlightDetail": "Become a founding institutional partner.",
+    "popular": false,
+    "cta": "Select Plan",
+    "amount": 3500000,
+    "disabled": false
+  },
+  {
+    "id": "lifetime_access",
+    "title": "Lifetime",
+    "price": "₹45,000",
+    "period": "one-time",
+    "description": "Permanent ownership with lifetime updates and premium institutional support.",
+    "features": [
+      "Lifetime software access",
+      "Lifetime feature updates",
+      "Full MSBTE compliance",
+      "Automation & AI assistance",
+      "All future AI modules",
+      "Unlimited examination sessions",
+      "Priority feature requests",
+      "Early access to Beta features",
+      "VIP technical support"
+    ],
+    "highlight": "One payment. Lifetime ownership.",
+    "highlightDetail": "For institutions that never want renewals.",
+    "cta": "Select Plan",
+    "amount": 4500000,
+    "disabled": false
+  }
+]

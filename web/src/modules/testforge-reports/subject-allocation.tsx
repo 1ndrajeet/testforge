@@ -1,0 +1,463 @@
+// modules/testforge-reports/subject-allocation.tsx
+
+'use client';
+
+import { ReactNode, useEffect, useState } from 'react';
+
+import { format } from 'date-fns';
+import { AlertCircle } from 'lucide-react';
+
+import { createClient } from '@/lib/supabase/client';
+import { cn } from '@/lib/utils';
+
+import { useUserInfo } from '@/hooks/useUserInfo';
+
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
+
+import { MultiPageReport, ReportPageData } from '@/components/layout/testforge-report-layout';
+
+import { SessionSelector } from '@/components/shared/date-selector';
+
+// ============================================================
+// Constants
+// ============================================================
+
+const MAX_ROWS_PER_PAGE = 15;
+
+// ============================================================
+// Types
+// ============================================================
+
+interface AllocationRow {
+  subjectCode: string;
+  subjectName: string;
+  blockNo: string;
+  location: string;
+  scheme: string;
+  students: number;
+}
+
+interface SubjectGroup {
+  subjectCode: string;
+  subjectName: string;
+  rows: AllocationRow[];
+  totalStudents: number;
+}
+
+interface SubjectAllocationPageData extends ReportPageData {
+  groups: SubjectGroup[];
+  pageNumber: number;
+  totalPages: number;
+}
+
+// ============================================================
+// Render Function
+// ============================================================
+
+const renderSubjectAllocationTable = (pageData: SubjectAllocationPageData) => {
+  const { groups, pageNumber, totalPages } = pageData;
+  const totalBlocks = groups.reduce((sum, g) => sum + g.rows.length, 0);
+  const totalStudents = groups.reduce((sum, g) => sum + g.totalStudents, 0);
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex-1 overflow-hidden">
+        <table className="w-full border-collapse text-xs">
+          <thead>
+            <tr className="bg-neutral-100">
+              <th className="w-[15%] border border-neutral-300 px-3 py-2 text-left font-semibold text-neutral-700">
+                Subject Code
+              </th>
+              <th className="w-[25%] border border-neutral-300 px-3 py-2 text-left font-semibold text-neutral-700">
+                Subject Name
+              </th>
+              <th className="w-[12%] border border-neutral-300 px-3 py-2 text-left font-semibold text-neutral-700">
+                Block
+              </th>
+              <th className="w-[28%] border border-neutral-300 px-3 py-2 text-left font-semibold text-neutral-700">
+                Location
+              </th>
+              <th className="w-[20%] border border-neutral-300 px-3 py-2 text-center font-semibold text-neutral-700">
+                Scheme (Students)
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {groups.map((group) => {
+              const rowCount = group.rows.length;
+
+              return group.rows.map((row, rowIndex) => {
+                const isFirst = rowIndex === 0;
+                const isLast = rowIndex === rowCount - 1;
+
+                return (
+                  <tr
+                    key={`${group.subjectCode}-${rowIndex}`}
+                    className={cn(
+                      'border-b border-neutral-200',
+                      isLast && 'border-b-2 border-neutral-300',
+                    )}
+                  >
+                    {isFirst && (
+                      <td
+                        rowSpan={rowCount}
+                        className="border border-neutral-300 bg-neutral-50 px-3 py-2 align-middle font-mono text-xs font-semibold"
+                      >
+                        {group.subjectCode}
+                      </td>
+                    )}
+
+                    {isFirst && (
+                      <td
+                        rowSpan={rowCount}
+                        className="border border-neutral-300 px-3 py-2 align-middle"
+                      >
+                        {group.subjectName}
+                      </td>
+                    )}
+
+                    <td className="border border-neutral-300 px-3 py-2 text-center font-mono text-xs">
+                      {row.blockNo}
+                    </td>
+
+                    <td className="border border-neutral-300 px-3 py-2">{row.location}</td>
+
+                    <td className="border border-neutral-300 px-3 py-2 text-center font-mono text-xs">
+                      <span className="font-medium">{row.scheme}</span>
+                      <span className="mx-1 text-neutral-400">·</span>
+                      <span className="font-bold">{row.students}</span>
+                    </td>
+                  </tr>
+                );
+              });
+            })}
+          </tbody>
+          <tfoot>
+            <tr className="border-t-2 border-neutral-400 bg-neutral-100">
+              <td
+                colSpan={3}
+                className="border border-neutral-300 px-3 py-2 text-right font-bold text-neutral-800"
+              >
+                GRAND TOTAL
+              </td>
+              <td className="border border-neutral-300 px-3 py-2 text-center font-mono text-xs text-neutral-600">
+                {totalBlocks} Blocks
+              </td>
+              <td className="border border-neutral-300 px-3 py-2 text-center font-bold text-neutral-900">
+                {totalStudents}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      {totalPages > 1 && (
+        <div className="mt-2 border-t border-black pt-1 text-[10px]">
+          <div className="flex justify-between">
+            <span className="font-medium">Subject Allocation</span>
+            <span>
+              Page {pageNumber} of {totalPages}
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================================
+// Main Component
+// ============================================================
+
+export default function SubjectAllocationReport() {
+  const { examCenter, isLoading: userLoading } = useUserInfo();
+
+  const [groups, setGroups] = useState<SubjectGroup[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadingDates, setLoadingDates] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [dates, setDates] = useState<Date[]>([]);
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedSession, setSelectedSession] = useState('');
+  const [showReport, setShowReport] = useState(false);
+  const [numberOfCopies, setNumberOfCopies] = useState(1);
+
+  // Fetch available dates
+  useEffect(() => {
+    if (userLoading) return;
+    if (!examCenter?.id) {
+      setLoadingDates(false);
+      return;
+    }
+    const fetchDates = async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from('timetable')
+        .select('date')
+        .eq('exam_center_id', examCenter.id)
+        .order('date');
+
+      if (data) {
+        const seen = new Set<string>();
+        const uniqueDates: Date[] = [];
+        data.forEach((r: any) => {
+          const dStr =
+            typeof r.date === 'string'
+              ? r.date.split('T')[0]
+              : new Date(r.date).toISOString().split('T')[0];
+          if (!seen.has(dStr)) {
+            seen.add(dStr);
+            uniqueDates.push(new Date(r.date));
+          }
+        });
+        setDates(uniqueDates);
+        if (uniqueDates.length) {
+          setSelectedDate(format(uniqueDates[0], 'yyyy-MM-dd'));
+        }
+      }
+      setLoadingDates(false);
+    };
+    fetchDates();
+  }, [examCenter?.id, userLoading]);
+
+  // Fetch data
+  const fetchData = async (date: string, session: string) => {
+    if (!examCenter?.id) return;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const supabase = createClient();
+      let query = supabase
+        .from('block_allocations')
+        .select(
+          'subject_code, subject_name, block_no, location, scheme, assigned_count, seat_numbers',
+        )
+        .eq('exam_center_id', examCenter.id)
+        .eq('date', date);
+
+      if (session !== 'All') query = query.eq('session', session);
+
+      const { data, error: qErr } = await query.order('block_no');
+
+      if (qErr || !data || data.length === 0) {
+        setError('No allocation data found for the selected session');
+        setGroups([]);
+        setShowReport(false);
+        return;
+      }
+
+      const subjectMap = new Map<string, SubjectGroup>();
+
+      data.forEach((alloc: any) => {
+        const key = alloc.subject_code;
+        if (!subjectMap.has(key)) {
+          subjectMap.set(key, {
+            subjectCode: alloc.subject_code,
+            subjectName: alloc.subject_name || alloc.subject_code,
+            rows: [],
+            totalStudents: 0,
+          });
+        }
+
+        const group = subjectMap.get(key)!;
+        const students = alloc.assigned_count || alloc.seat_numbers?.length || 0;
+        const scheme = alloc.scheme || '';
+
+        group.rows.push({
+          subjectCode: alloc.subject_code,
+          subjectName: alloc.subject_name || alloc.subject_code,
+          blockNo: alloc.block_no || alloc.location || '—',
+          location: alloc.location || '—',
+          scheme,
+          students,
+        });
+        group.totalStudents += students;
+      });
+
+      const sortedGroups = Array.from(subjectMap.values()).sort((a, b) =>
+        a.subjectCode.localeCompare(b.subjectCode),
+      );
+
+      sortedGroups.forEach((group) => {
+        group.rows.sort((a, b) => {
+          const aNum = parseInt(a.blockNo) || 0;
+          const bNum = parseInt(b.blockNo) || 0;
+          return aNum - bNum;
+        });
+      });
+
+      setGroups(sortedGroups);
+      setShowReport(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load data');
+      setGroups([]);
+      setShowReport(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSessionSelect = async (session: {
+    date: string;
+    session: 'Morning' | 'Afternoon' | 'All';
+  }) => {
+    setSelectedDate(session.date);
+    setSelectedSession(session.session);
+    await fetchData(session.date, session.session);
+  };
+
+  const handleReset = () => {
+    setShowReport(false);
+    setGroups([]);
+    setError(null);
+  };
+
+  // Build pages - ✅ Count ACTUAL rows (each row is a TR)
+  const buildPages = (): SubjectAllocationPageData[] => {
+    if (groups.length === 0) return [];
+
+    // Count total actual rows (each row is 1)
+    const totalRows = groups.reduce((sum, g) => sum + g.rows.length, 0);
+
+    const pages: SubjectAllocationPageData[] = [];
+    let currentGroups: SubjectGroup[] = [];
+    let currentRowCount = 0;
+    let pageCounter = 0;
+
+    // ✅ Paginate by ACTUAL rows
+    for (const group of groups) {
+      const groupRowCount = group.rows.length;
+
+      // If adding this group would exceed max rows, save current page
+      if (currentRowCount + groupRowCount > MAX_ROWS_PER_PAGE && currentGroups.length > 0) {
+        pageCounter++;
+        pages.push({
+          id: `subject-allocation-${pageCounter}`,
+          groups: [...currentGroups],
+          pageNumber: pageCounter,
+          totalPages: 0, // Will be updated after all pages are built
+          metadata: {
+            Page: pageCounter,
+            Subjects: currentGroups.length,
+            Blocks: currentRowCount,
+            Students: currentGroups.reduce((sum, g) => sum + g.totalStudents, 0),
+          },
+        });
+        currentGroups = [];
+        currentRowCount = 0;
+      }
+
+      currentGroups.push(group);
+      currentRowCount += groupRowCount;
+    }
+
+    // Add last page
+    if (currentGroups.length > 0) {
+      pageCounter++;
+      pages.push({
+        id: `subject-allocation-${pageCounter}`,
+        groups: [...currentGroups],
+        pageNumber: pageCounter,
+        totalPages: 0,
+        metadata: {
+          Page: pageCounter,
+          Subjects: currentGroups.length,
+          Blocks: currentRowCount,
+          Students: currentGroups.reduce((sum, g) => sum + g.totalStudents, 0),
+        },
+      });
+    }
+
+    // Update totalPages for all pages
+    const totalPages = pages.length;
+    pages.forEach((page) => {
+      page.totalPages = totalPages;
+    });
+
+    return pages;
+  };
+
+  const pages = buildPages();
+  const firstPage = pages[0];
+
+  // Loading
+  if (loadingDates || userLoading) {
+    return (
+      <div className="mx-auto max-w-4xl space-y-4 p-6">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-96 w-full" />
+      </div>
+    );
+  }
+
+  // Selection state
+  if (!showReport) {
+    return (
+      <div className="mx-auto max-w-4xl p-4">
+        <div className="space-y-4">
+          <SessionSelector
+            availableDates={dates}
+            availableSessions={['Morning', 'Afternoon', 'All']}
+            onSessionSelect={handleSessionSelect}
+            defaultDate={selectedDate}
+            defaultSession="Morning"
+            isLoading={loading}
+            error={error}
+            title="Subject Allocation Report"
+            description="Select date & session to view subject-wise block distribution"
+            compact
+          />
+          {!dates.length && !error && (
+            <Alert
+              variant="default"
+              className="border-amber-200 bg-amber-50"
+            >
+              <AlertCircle className="h-4 w-4 text-amber-600" />
+              <AlertDescription>Upload timetable first.</AlertDescription>
+            </Alert>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Report view
+  return (
+    <div className="mx-auto max-w-4xl p-4">
+      <MultiPageReport
+        pages={pages}
+        header={{
+          title: 'Subject Allocation Report',
+          description: 'Subject-wise block distribution for question paper dispatch',
+          examCenter: {
+            name: examCenter?.name || 'Examination Center',
+            code: examCenter?.code || '',
+            season: examCenter?.season || '',
+            year: examCenter?.examYear || new Date().getFullYear(),
+            session: (selectedSession as 'Morning' | 'Afternoon') || 'Morning',
+            date: selectedDate ? new Date(selectedDate) : new Date(),
+          },
+          headerFields: {
+            'Total Subjects': String(firstPage?.metadata?.Subjects || 0),
+            'Total Blocks': String(firstPage?.metadata?.Blocks || 0),
+            'Total Students': String(firstPage?.metadata?.Students || 0),
+          },
+        }}
+        footer={{
+          showApplicationCredit: true,
+        }}
+        onBack={handleReset}
+        backButtonLabel="Clear"
+        documentTitle="Subject_Allocation_Report"
+        numberOfCopies={numberOfCopies}
+        onCopiesChange={setNumberOfCopies}
+        renderPageContent={renderSubjectAllocationTable as (pageData: ReportPageData) => ReactNode}
+        showCopyInfo={numberOfCopies > 1}
+        copyInfoText="Copy {copyNumber} of {totalCopies}"
+      />
+    </div>
+  );
+}
