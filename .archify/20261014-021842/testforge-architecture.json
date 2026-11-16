@@ -1,0 +1,299 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "TestForge: System Architecture & Ingestion Pipeline",
+    "output": ".archify/20261014-021842/testforge-architecture.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/1ndrajeet/testforge.git",
+      "revision": "17dd768f3875550057b6438f30cb271ca9f70efd",
+      "provider": "github",
+      "link_mode": "web"
+    },
+    "views": [
+      {
+        "id": "overview",
+        "label": "Full System",
+        "focus": ["client", "frontend", "auth", "backend", "postgres", "integrations"],
+        "note": "TestForge v1.2 architecture: Next.js frontend, Better Auth, FastAPI ingestion engine, PostgreSQL, and SaaS integrations."
+      },
+      {
+        "id": "ingestion",
+        "label": "Ingestion Pipeline",
+        "focus": ["client", "frontend", "backend", "postgres"],
+        "note": "HTML timetable & Excel seating chart parsing offloaded to FastAPI and batched into PostgreSQL."
+      },
+      {
+        "id": "auth_bridge",
+        "label": "Auth Bridge",
+        "focus": ["frontend", "auth", "backend"],
+        "note": "Better Auth cookie tokens shared across Next.js and verified by FastAPI via asynchronous introspection."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "client",
+      "type": "external",
+      "label": "Exam Controller (Browser)",
+      "sublabel": "Next.js SPA UI",
+      "tag": "Desktop Web",
+      "pos": [40, 290],
+      "size": [180, 64],
+      "sources": [
+        {
+          "path": "frontend/src/app/layout.tsx",
+          "line": 1,
+          "end_line": 34,
+          "label": "Root layout & providers"
+        }
+      ]
+    },
+    {
+      "id": "frontend",
+      "type": "frontend",
+      "label": "Next.js App Server",
+      "sublabel": "App Router & SSR :3000",
+      "tag": "Node.js 20",
+      "pos": [360, 290],
+      "size": [160, 64],
+      "sources": [
+        {
+          "path": "docker-compose.yml",
+          "line": 68,
+          "end_line": 112,
+          "label": "Frontend container definition"
+        },
+        {
+          "path": "frontend/src/proxy.ts",
+          "line": 23,
+          "end_line": 40,
+          "label": "Proxy routing & auth guard"
+        },
+        {
+          "path": "frontend/src/lib/db/index.ts",
+          "line": 1,
+          "end_line": 12,
+          "label": "Drizzle connection pool"
+        }
+      ]
+    },
+    {
+      "id": "auth",
+      "type": "security",
+      "label": "Better Auth Service",
+      "sublabel": "Session Management",
+      "tag": "Drizzle Adapter",
+      "pos": [360, 110],
+      "size": [160, 64],
+      "sources": [
+        {
+          "path": "frontend/src/lib/auth.ts",
+          "line": 531,
+          "end_line": 540,
+          "label": "BetterAuth initialization"
+        },
+        {
+          "path": "backend/auth.py",
+          "line": 12,
+          "end_line": 40,
+          "label": "Session validation bridge"
+        }
+      ]
+    },
+    {
+      "id": "backend",
+      "type": "backend",
+      "label": "FastAPI Ingestion Engine",
+      "sublabel": "HTML & Excel Parsing :8000",
+      "tag": "Python / Uvicorn",
+      "pos": [640, 290],
+      "size": [160, 64],
+      "sources": [
+        {
+          "path": "docker-compose.yml",
+          "line": 47,
+          "end_line": 66,
+          "label": "Backend service definition"
+        },
+        {
+          "path": "backend/main.py",
+          "line": 17,
+          "end_line": 33,
+          "label": "FastAPI app initialization"
+        },
+        {
+          "path": "backend/routers/timetable.py",
+          "line": 15,
+          "end_line": 35,
+          "label": "Timetable batch processor"
+        }
+      ]
+    },
+    {
+      "id": "postgres",
+      "type": "database",
+      "label": "PostgreSQL Database",
+      "sublabel": "Single Source of Truth :5432",
+      "tag": "PostgreSQL 16",
+      "pos": [640, 470],
+      "size": [160, 64],
+      "sources": [
+        {
+          "path": "docker-compose.yml",
+          "line": 4,
+          "end_line": 29,
+          "label": "PostgreSQL database service"
+        },
+        {
+          "path": "database/Dockerfile",
+          "line": 1,
+          "end_line": 16,
+          "label": "Drizzle migration container"
+        }
+      ]
+    },
+    {
+      "id": "integrations",
+      "type": "external",
+      "label": "Resend & Razorpay",
+      "sublabel": "Duty Mails & Subscriptions",
+      "tag": "External Cloud",
+      "pos": [360, 600],
+      "size": [160, 64],
+      "sources": [
+        {
+          "path": "frontend/src/lib/auth.ts",
+          "line": 55,
+          "end_line": 105,
+          "label": "Resend transactional client"
+        },
+        {
+          "path": "frontend/src/lib/actions2/subscription.ts",
+          "line": 1,
+          "end_line": 35,
+          "label": "Subscription query handlers"
+        }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "TestForge Docker Network (testforge-network)",
+      "wraps": ["frontend", "auth", "backend", "postgres"],
+      "pad": 24
+    },
+    {
+      "kind": "security-group",
+      "label": "Data & Ingestion Services",
+      "wraps": ["backend", "postgres"],
+      "pad": 16
+    }
+  ],
+  "connections": [
+    {
+      "id": "client-frontend",
+      "from": "client",
+      "to": "frontend",
+      "label": "HTTPS UI & Actions",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "frontend-auth",
+      "from": "frontend",
+      "to": "auth",
+      "label": "Session cookies",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "backend-auth",
+      "from": "backend",
+      "to": "auth",
+      "label": "Validate token",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "right"
+    },
+    {
+      "id": "frontend-backend",
+      "from": "frontend",
+      "to": "backend",
+      "label": "Dispatch jobs",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "frontend-postgres",
+      "from": "frontend",
+      "to": "postgres",
+      "label": "Drizzle queries",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "left"
+    },
+    {
+      "id": "backend-postgres",
+      "from": "backend",
+      "to": "postgres",
+      "label": "Batch writes",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "frontend-integrations",
+      "from": "frontend",
+      "to": "integrations",
+      "label": "Mails & billing",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Architecture & Multi-Service Split",
+      "items": [
+        "Frontend (Next.js 16 / React 19): Hosts UI, MSBTE reports (F1-F22), dynamic module routing, and executes direct DB queries via Drizzle ORM.",
+        "Backend (FastAPI / Python): Offloads CPU-intensive ingestion (HTML timetable & multi-column Excel seating charts) using pandas and BeautifulSoup.",
+        "Persistence (PostgreSQL 16): Shared single source of truth queried by Next.js and populated by FastAPI batch operations."
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Ingestion & Seating Workflow",
+      "items": [
+        "1. Exam controller uploads timetable HTML / seating Excel in browser (frontend/src/components/shared/file-uploader.tsx).",
+        "2. Files stream directly to FastAPI (/api/upload/ and /api/timetable/process) for high-throughput vectorized parsing.",
+        "3. Backend validates Better Auth session cookies with Next.js (/api/auth/get-session) via httpx before processing.",
+        "4. Parsed and sanitized rows are committed in batches directly to PostgreSQL tables via SQLAlchemy."
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Security & Authentication Bridge",
+      "items": [
+        "Better Auth Integration: Handles user authentication, email verification, and session persistence in Next.js with Drizzle adapter.",
+        "Inter-Service Trust: FastAPI extracts better-auth.session_token cookie and queries Next.js get-session endpoint asynchronously.",
+        "Role & Tenant Scoping: Retrieves exam_center_id and org membership from DB on every authenticated backend call."
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "External Integrations & Deployment",
+      "items": [
+        "Resend Email Client: Sends duty assignment orders to exam staff and password verification links with automatic retry policies.",
+        "Razorpay Gateway: Manages tiered subscriptions (trial, premium, enterprise lifetime) and validates checkout webhooks.",
+        "Container Topology: Orchestrated via docker-compose.yml on private bridge network 'testforge-network' with health checks."
+      ]
+    }
+  ]
+}

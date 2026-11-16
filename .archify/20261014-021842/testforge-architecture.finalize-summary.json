@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "architecture",
+  "quality": "showcase",
+  "specification": {
+    "path": "/home/bruce/Projects/testforge-v1.2/.archify/20261014-021842/testforge-architecture.json",
+    "sha256": "dbdbdc7e4cde22043e0a2563d53bd1ea878647964756117bbe4bbfd238f12967",
+    "bytes": 8924
+  },
+  "artifact": {
+    "path": "/home/bruce/Projects/testforge-v1.2/.archify/20261014-021842/testforge-architecture.html",
+    "sha256": "9bb0508340628aed03bbbbf487de76559a44d91b0280f3bcf65b078c6694e077",
+    "bytes": 825838
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "/home/bruce/Projects/testforge-v1.2/.archify/20261014-021842/testforge-architecture.finalize.json",
+    "summaryReceipt": "/home/bruce/Projects/testforge-v1.2/.archify/20261014-021842/testforge-architecture.finalize-summary.json",
+    "browserCheckReceipt": "/home/bruce/Projects/testforge-v1.2/.archify/20261014-021842/testforge-architecture.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.1.0",
+    "availableVersion": "3.1.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-10-13T20:35:31.266Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 3908
+}

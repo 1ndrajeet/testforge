@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MSBTE Winter 2026 — Timetable Viewer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+
+            body {
+                background: white !important;
+            }
+
+            table {
+                page-break-inside: auto;
+            }
+
+            tr {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+
+    <!-- HEADER -->
+    <header class="bg-gradient-to-r from-blue-900 to-blue-700 text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 py-5 flex items-center gap-4">
+            <div
+                class="w-12 h-12 bg-white rounded-full flex items-center justify-center font-bold text-blue-900 text-xl">
+                M</div>
+            <div>
+                <h1 class="text-lg sm:text-xl font-bold leading-tight">Maharashtra State Board of Technical Education,
+                    Mumbai</h1>
+                <p class="text-xs sm:text-sm text-blue-100">Government Polytechnic Building, 49, Kherwadi, Bandra (E),
+                    Mumbai 400 051</p>
+            </div>
+        </div>
+    </header>
+
+    <!-- HERO -->
+    <section class="bg-white border-b border-slate-200">
+        <div class="max-w-7xl mx-auto px-4 py-6">
+            <h2 class="text-xl sm:text-2xl font-bold text-slate-900">
+                Time Table for MSBTE Winter 2026 Theory Examination
+                <span
+                    class="ml-2 align-middle inline-block bg-emerald-100 text-emerald-700 text-xs font-semibold px-2 py-1 rounded">FINAL</span>
+            </h2>
+            <p class="text-slate-600 text-sm mt-1">For Diploma in Engineering, Pharmacy and Government Approved Short
+                Term (Non-AICTE) Courses</p>
+
+            <!-- INPUT FORM -->
+            <form id="search-form" class="mt-5 flex flex-col sm:flex-row gap-3 no-print">
+                <div class="flex-1">
+                    <label for="inst-id" class="block text-xs font-semibold text-slate-600 mb-1">Exam Center Code /
+                        Institute ID</label>
+                    <input id="inst-id" name="inst_id" type="text" inputmode="numeric" pattern="[0-9]*"
+                        placeholder="e.g. 1740"
+                        class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-slate-800 bg-white"
+                        autocomplete="off" required />
+                </div>
+                <div class="flex items-end gap-2">
+                    <button type="submit" id="load-btn"
+                        class="bg-blue-700 hover:bg-blue-800 text-white font-semibold px-6 py-2.5 rounded-lg transition shadow-sm">
+                        Load Timetable
+                    </button>
+                    <button type="button" id="print-btn"
+                        class="bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold px-4 py-2.5 rounded-lg transition no-print">
+                        🖨️ Print
+                    </button>
+                </div>
+            </form>
+
+            <!-- STATUS -->
+            <div id="status" class="mt-3 text-sm text-slate-500"></div>
+        </div>
+    </section>
+
+    <!-- CONTENT -->
+    <main class="max-w-7xl mx-auto px-4 py-6">
+        <div id="institute-title" class="hidden mb-5 p-4 bg-white border-l-4 border-blue-700 rounded shadow-sm">
+            <div class="text-xs uppercase tracking-wide text-slate-500">Exam Center-Wise Timetable</div>
+            <div id="institute-name" class="text-lg font-bold text-blue-900 mt-0.5"></div>
+        </div>
+
+        <div id="output"></div>
+    </main>
+
+    <!-- INSTRUCTIONS -->
+    <footer class="bg-white border-t border-slate-200 mt-8">
+        <div class="max-w-7xl mx-auto px-4 py-6 text-sm text-slate-600">
+            <div class="font-semibold text-slate-900 mb-2">📌 Important Instructions for Winter 2026 Exam</div>
+            <ul class="list-disc list-inside space-y-1.5">
+                <li>The Exam Day &amp; Date wise FINAL Time Table for Winter 2026 Theory Examination is displayed on
+                    MSBTE portal for the information of students, institutes and all concerned.</li>
+                <li>The duration of the Winter 2026 Theory Examination is 18 days.</li>
+                <li>All students belonging to old schemes shall note that the theory examination shall be as per the
+                    paper codes which are offered as equivalent to the courses in old schemes and indicated on their
+                    hall ticket.</li>
+                <li>Examination of different semesters/years scheduled on the same day but in different slots shall not
+                    be considered as a clash.</li>
+            </ul>
+        </div>
+    </footer>
+
+    <script>
+        /**
+         * MSBTE Timetable Viewer — single-file structured JS
+         * ---------------------------------------------------
+         * CORS-safe fetch strategy:
+         *   - GETs do NOT send Content-Type  → no preflight, works even cross-origin
+         *   - POST /timetable sends Content-Type: application/json → browser preflights
+         *     (works when Origin is allowed; recommended to run via same-origin proxy)
+         *
+         * Recommended hosting:
+         *   - Serve this file from http://localhost (NOT file://)
+         *   - Optional: vite dev-proxy to /api → api.msbte.co.in/timetable_live_api
+         *     (then set API_BASE = "/api" and NO preflight ever occurs)
+         *
+         * For direct browser use (no proxy), API_BASE remains the public MSBTE URL.
+         * The two GET endpoints will succeed cross-origin (they're CORS-permitted).
+         * The POST will only succeed if the origin is in the server's allow-list.
+         */
+
+        const API_BASE = "/api";
+
+        /* ---------- Generic HTTP helpers (CORS-safe) ---------- */
+        async function fetchJSON(path, { method = "GET", body } = {}) {
+            const headers = {};
+            // ONLY set Content-Type when we actually send a body → avoids preflight on GETs
+            if (body !== undefined) headers["Content-Type"] = "application/json";
+
+            const res = await fetch(`${API_BASE}${path}`, {
+                method,
+                headers,
+                body: body !== undefined ? JSON.stringify(body) : undefined,
+            });
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status} ${res.statusText || ""} on ${path}`.trim());
+            }
+            return res.json();
+        }
+
+        const GET = (path) => fetchJSON(path);
+        const POST = (path, payload) => fetchJSON(path, { method: "POST", body: payload });
+
+        /* ---------- Endpoint wrappers (mirror of the 4 URLs) ---------- */
+        const api = {
+            institutes: () => GET("/institutewise/institutes").then(r => r.data || []),
+            papercodes: (instId) => GET(`/examcenterwise/papercodes/${encodeURIComponent(instId)}`),
+            examdays: () => GET("/examcenterwise/examdays"),
+            timetable: (codes) => POST("/examcenterwise/timetable", { codes }),
+        };
+
+        /* ---------- In-memory cache ---------- */
+        const cache = {
+            institutes: null, // Promise<Institute[]>
+            examdays: null, // Promise<ExamDay[]>
+        };
+
+        const getInstitutes = () => (cache.institutes ??= api.institutes());
+        const getExamdays = () => (cache.examdays ??= api.examdays());
+
+        /* ---------- Data transform ---------- */
+        function groupPapers(papers) {
+            const map = new Map();
+            for (const p of papers) {
+                const key = `${p.exam_dayw}|${p.daysession}`;
+                if (!map.has(key)) {
+                    map.set(key, {
+                        day: p.exam_dayw,
+                        date: p.date,
+                        session: p.daysession,
+                        time: p.paper_time,
+                        papers: [],
+                    });
+                }
+                map.get(key).papers.push(p);
+            }
+            const order = { M: 0, A: 1 };
+            return [...map.values()].sort(
+                (a, b) => a.day - b.day || (order[a.session] ?? 9) - (order[b.session] ?? 9)
+            );
+        }
+
+        /* ---------- HTML rendering ---------- */
+        const escapeHtml = (s) =>
+            String(s ?? "").replace(/[&<>"']/g, (c) =>
+                ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
+            );
+
+        const sessionMeta = (s) =>
+            s === "M"
+                ? { icon: "🌅", label: "Morning", bg: "bg-amber-50", border: "border-amber-400", text: "text-amber-800" }
+                : { icon: "🌇", label: "Afternoon", bg: "bg-indigo-50", border: "border-indigo-400", text: "text-indigo-800" };
+
+        function renderSession(group, startIndex) {
+            const { icon, label, bg, border, text } = sessionMeta(group.session);
+            const rows = group.papers
+                .map(
+                    (p, i) => `
+      <tr class="hover:bg-slate-50 border-b border-slate-100">
+        <td class="px-3 py-2 text-center text-slate-500">${startIndex + i + 1}</td>
+        <td class="px-3 py-2 text-center">${group.day}</td>
+        <td class="px-3 py-2 text-center font-medium ${text}">${escapeHtml(p.daysession)}</td>
+        <td class="px-3 py-2 whitespace-nowrap">${escapeHtml(p.paper_time)}</td>
+        <td class="px-3 py-2 font-mono text-blue-800 font-semibold">${escapeHtml(p.paper_code)}</td>
+        <td class="px-3 py-2">${escapeHtml(p.subject_name)}</td>
+        <td class="px-3 py-2 text-xs text-slate-600">${escapeHtml(p.scheme)}</td>
+      </tr>`
+                )
+                .join("");
+
+            return `
+    <section class="mb-6 bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden break-inside-avoid">
+      <header class="px-4 py-2.5 ${bg} ${border} border-l-4 flex flex-wrap items-center gap-x-4 gap-y-1">
+        <span class="font-semibold text-slate-800">📅 ${escapeHtml(group.date)}</span>
+        <span class="${text} font-medium">${icon} ${label}</span>
+        <span class="text-slate-500 text-sm">Day ${group.day}</span>
+        <span class="ml-auto text-sm text-slate-600">${escapeHtml(group.time)}</span>
+      </header>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-100 text-slate-600 uppercase text-xs">
+            <tr>
+              <th class="px-3 py-2 text-center">Sr</th>
+              <th class="px-3 py-2 text-center">Day</th>
+              <th class="px-3 py-2 text-center">Session</th>
+              <th class="px-3 py-2 text-left">Time Slot</th>
+              <th class="px-3 py-2 text-left">Subject Code</th>
+              <th class="px-3 py-2 text-left">Subject Name</th>
+              <th class="px-3 py-2 text-left">Scheme</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </section>`;
+        }
+
+        function renderTimetable(papers) {
+            if (!papers.length) {
+                return `<div class="p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded">
+      No papers found for this exam center.</div>`;
+            }
+            const groups = groupPapers(papers);
+            let sr = 0;
+            const html = groups
+                .map((g) => {
+                    const section = renderSession(g, sr);
+                    sr += g.papers.length;
+                    return section;
+                })
+                .join("");
+            return `<div class="text-sm text-slate-500 mb-3">
+    ${papers.length} papers scheduled · ${groups.length} session blocks
+  </div>${html}`;
+        }
+
+        /* ---------- UI controller ---------- */
+        const $ = (id) => document.getElementById(id);
+
+        function setStatus(msg, isError = false) {
+            const el = $("status");
+            el.textContent = msg;
+            el.className = `mt-3 text-sm ${isError ? "text-red-600" : "text-slate-500"}`;
+        }
+
+        function setInstituteTitle(name, instId) {
+            $("institute-name").textContent = name ? `${name} — ${instId}` : `Exam Center ${instId}`;
+            $("institute-title").classList.remove("hidden");
+        }
+
+        async function resolveInstituteName(instId) {
+            try {
+                const list = await getInstitutes();
+                const match = list.find((i) => String(i.inst_id) === String(instId));
+                return match ? match.inst_name : null;
+            } catch {
+                return null;
+            }
+        }
+
+        async function loadTimetable(instId) {
+            const btn = $("load-btn");
+            btn.disabled = true;
+            $("output").innerHTML = "";
+
+            try {
+                // 1) paper codes for this institute
+                setStatus(`Fetching paper codes for institute ${instId}…`);
+                const codes = (await api.papercodes(instId)).map((p) => p.paper_code);
+                if (!codes.length) {
+                    $("output").innerHTML = `<div class="p-4 bg-red-50 border border-red-200 text-red-800 rounded">
+        No paper codes returned for institute <b>${escapeHtml(instId)}</b>. Please verify the ID.</div>`;
+                    setInstituteTitle(null, instId);
+                    setStatus("No data.", true);
+                    return;
+                }
+
+                // 2) warm exam-days cache (also validates endpoint reachability)
+                await getExamdays();
+
+                // 3) fetch full timetable (POST)
+                setStatus(`Fetching timetable for ${codes.length} papers…`);
+                const papers = await api.timetable(codes);
+
+                // 4) resolve institute name (cached list)
+                const name = await resolveInstituteName(instId);
+
+                setInstituteTitle(name, instId);
+                $("output").innerHTML = renderTimetable(papers);
+                setStatus(`Loaded ${papers.length} papers.`);
+            } catch (err) {
+                console.error(err);
+                setStatus(`Failed: ${err.message}`, true);
+                const hint =
+                    err.message.includes("HTTP 500") || err.message.includes("Failed to fetch")
+                        ? `<div class="mt-2 text-xs text-slate-600">
+             Tip: open this page from <code class="bg-slate-100 px-1 rounded">http://localhost</code>
+             (not <code class="bg-slate-100 px-1 rounded">file://</code>) and, for the POST step,
+             serve via a same-origin proxy to avoid CORS preflight rejection.
+           </div>`
+                        : "";
+                $("output").innerHTML = `<div class="p-4 bg-red-50 border border-red-200 text-red-800 rounded">
+      Could not load timetable. ${escapeHtml(err.message)}${hint}</div>`;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        /* ---------- Wire up ---------- */
+        $("search-form").addEventListener("submit", (e) => {
+            e.preventDefault();
+            const id = $("inst-id").value.trim();
+            if (id) loadTimetable(id);
+        });
+        $("print-btn").addEventListener("click", () => window.print());
+
+        /* Auto-load from ?inst_id=… */
+        const qp = new URLSearchParams(location.search).get("inst_id");
+        if (qp) {
+            $("inst-id").value = qp;
+            loadTimetable(qp);
+        }
+    </script>
+</body>
+
+</html>

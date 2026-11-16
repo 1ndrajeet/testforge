@@ -9,6 +9,7 @@ const PUBLIC = [
   '/api/health',
   '/api/payments/webhook',
   '/_next',
+  '/api/subjects',
   '/favicon.ico',
 ];
 

@@ -87,7 +87,9 @@ function Format8Content({ data }: { data: PackingSlipData[] }) {
         </thead>
         <tbody>
           {rows.map((item, index) => {
-            const schemeParts = item.scheme?.split('-') || [];
+            const schemeParts = item.scheme?.includes('-')
+              ? item.scheme.split('-')
+              : item.scheme?.match(/^[A-Za-z]+|\d+|[A-Za-z]+$/g) || []; 
             const courseCode = schemeParts[0] || '';
             const courseName = courseCode;
             const sem = schemeParts[1] || '';
@@ -342,7 +344,6 @@ export default function Format8Report() {
         seatNumbers: [],
         content: <Format8Content data={chunk} />,
         date: new Date(firstInChunk?.date || new Date()),
-        session: (firstInChunk?.session as 'Morning' | 'Afternoon') || 'Morning',
         examCenterCode: examCenter?.code || '',
         examCenterName: examCenter?.name || '',
         instituteCode: firstInChunk?.instituteCode || '',
@@ -410,7 +411,6 @@ export default function Format8Report() {
         examCenterName: examCenter?.name,
         examCenterCode: examCenter?.code,
         date: firstItem ? new Date(firstItem.date) : new Date(),
-        session: (firstItem?.session as 'Morning' | 'Afternoon') || 'Morning',
         instituteCode: firstItem?.instituteCode || '',
         instituteName: firstItem?.instituteName || '',
       }}

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "cfdadf98-3136-4e4d-83b7-f0af3eaffc68",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/home/bruce/Projects/testforge-v1.2/.archify/20261014-021842/testforge-architecture.json",
+  "output": "/home/bruce/Projects/testforge-v1.2/.archify/20261014-021842/testforge-architecture.html",
+  "specification": {
+    "sha256": "dbdbdc7e4cde22043e0a2563d53bd1ea878647964756117bbe4bbfd238f12967",
+    "bytes": 8924
+  },
+  "artifact": {
+    "sha256": "9bb0508340628aed03bbbbf487de76559a44d91b0280f3bcf65b078c6694e077",
+    "bytes": 825838
+  }
+}
